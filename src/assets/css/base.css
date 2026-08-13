@@ -1,0 +1,91 @@
+:root {
+    --texto: #26292e;
+    --texto2: #555869;
+    --bg-header: #bf0909;
+
+    --main-color-800: #bf0909;
+    --main-color-700: #dc362e;
+    --main-color-600: #e46962;
+    --main-color-500: #ec928e;
+    --main-color-400: #f2b8b5;
+    --main-color-300: #f9dedc;
+    --main-color-200: #fceeee;
+    --text-color-red-800: #bf0909;
+    --white: #ffffff;
+    --border: #DEE3EA;
+}
+
+* {
+    font: inherit;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100dvh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    text-wrap: balance;
+}
+
+p {
+    text-wrap: pretty;
+}
+
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+@font-face {
+    font-family: "Roboto";
+    font-style: normal;
+    src: url("../fonts/RobotoTTF/Roboto-Regular.ttf") format("truetype");
+    font-weight: 400;
+}
+
+@font-face {
+    font-family: "Roboto";
+    font-style: normal;
+    src: url("../fonts/RobotoTTF/Roboto-Medium.ttf") format("truetype");
+    font-weight: 500;
+}
+
+@font-face {
+    font-family: "Roboto";
+    font-style: normal;
+    src: url("../fonts/RobotoTTF/Roboto-Bold.ttf") format("truetype");
+    font-weight: 600;
+}
+
+@font-face {
+    font-family: "Roboto";
+    font-style: normal;
+    src: url("../fonts/RobotoTTF/Roboto-Black.ttf") format("opentype");
+    font-weight: 700;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+}
+
+input,
+textarea,
+button {
+    font-family: 'Roboto', sans-serif;
+    font-size: inherit;
+}
+
+input,
+textarea {
+    font-family: 'Roboto', sans-serif;
+    border: solid 1px var(--border);
+}
+
+h1 {
+    font-size: 3rem;
+}

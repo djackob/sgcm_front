@@ -1,0 +1,238 @@
+
+.btn{
+  display: inline-flex !important; 
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  &[class*="outline-"]{
+    opacity: 1 !important;
+  }
+}
+
+// Botón primario de aplicación (acción principal de página)
+.btn-app-primary {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 42px;
+  padding: 0.55rem 1.1rem !important;
+  border: none;
+  border-radius: 8px;
+  background-color: #1e293b !important;
+  color: #fff !important;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+
+  i {
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  &:hover {
+    background-color: #0f172a !important;
+    color: #fff !important;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #94a3b8;
+    outline-offset: 2px;
+  }
+}
+
+// Botón secundario (acciones de sección, ej. Agregar ítem)
+.btn-app-secundario {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 38px;
+  padding: 0.45rem 0.95rem !important;
+  border: none;
+  border-radius: 8px;
+  background-color: #dbeafe !important;
+  color: #1e40af !important;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+
+  i {
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+
+  &:hover {
+    background-color: #bfdbfe !important;
+    color: #1e3a8a !important;
+  }
+}
+
+// Botón icono cuadrado (acciones de tabla)
+.btn-icon-outline {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0 !important;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  i {
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #334155;
+  }
+}
+.btn-sm {
+  padding: 0.5rem 1rem !important;
+}
+.btn-success{
+  color: var(--white);
+}
+.btn-outline-light{
+  color: inherit !important;
+  border-color: #cbd5e1 !important;
+  background-color: transparent !important;
+  &:hover{
+    background-color: #EEF0F2 !important;
+  }
+  &:active{
+    background-color: #C4C6C6 !important;
+  }
+}
+.btn-light{
+  color: inherit !important;
+  border-color: transparent !important;
+  background-color: transparent !important;
+  &:hover{
+    border-color: #EEF0F2 !important;
+    background-color: #EEF0F2 !important;
+  }
+  &:active{
+    border-color: #C4C6C6 !important;
+    background-color: #C4C6C6 !important;
+  }
+}
+.btn-close.close{
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  margin-right: 2px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: solid 4px transparent;
+  z-index: 10;
+  &:hover{
+      background-color: #edf0f4;
+      border: solid 4px #edf0f4;
+  }
+  &:focus{
+      background-color: #edf0f4;
+      box-shadow: none;
+      border: solid 4px #edf0f4;
+  }
+  &:active{
+      background-color: #C4C6C6;
+      box-shadow: none;
+      border: solid 4px #C4C6C6;
+  }
+}
+div:where(.swal2-container) div:where(.swal2-actions) {
+  width: 100% !important;;
+  margin: 1.25em auto 0;
+  padding: 0.5rem !important;
+  background-color: #f8fafc;
+  border-radius: 5px !important;
+}
+div:where(.swal2-container) div:where(.swal2-popup){
+  padding: 0 !important;
+}
+div:where(.swal2-container) button:where(.swal2-styled) {
+  padding: 0.625em 2rem !important;
+  border-radius: 25px !important;
+}
+div:where(.swal2-container) button:where(.swal2-styled).swal2-confirm{
+  background-color: var(--main-color-800) !important;
+  border: solid 1px var(--main-color-800) !important;
+  &:focus{
+    box-shadow: 0 0 0 3px #4c0303 !important;
+  }
+}
+div:where(.swal2-container) button:where(.swal2-styled).swal2-cancel {
+  background-color: transparent !important;
+  color: #010101 !important;
+  border: solid 1px #cbd5e1 !important;
+  &:focus{
+    box-shadow: 0 0 0 3px #4c0303 !important;
+  }
+}
+.btn-icon.btn-sm {
+  width: 40px;
+  height: 40px;
+  display: inline-flex !important;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+}
+
+
+
+  @media (max-width: 575.98px) { 
+    .btn-sm, .btn-group-sm > .btn {
+      padding-left: 0.3rem !important;
+      padding-right: 0.3rem !important;
+      font-size: .8rem !important;
+      i{
+        font-size: 20px !important;
+      }
+    }
+
+   }
+$btn-padding-y:    0.7rem;
+$btn-padding-x: 2rem;
+$btn-white-space:pre-wrap;
+$btn-font-weight: 500;
+
+.btnObraFase {
+  position: relative;
+  font-size: 50px;
+}
+.btnObraFase span {
+  color: #fffcfc;
+  position: absolute;
+  font-size: 12px;
+  text-align: center;
+  top: 13px;
+  left: 4px;
+  width: 50px;
+}
+
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-effect {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.4);
+  animation: ripple-animation 2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes ripple-animation {
+  from { opacity: 1; transform: scale(0) }
+  to { opacity: 0; transform: scale(1) }
+}

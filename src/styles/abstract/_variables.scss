@@ -1,0 +1,51 @@
+$white: #fff !default;
+$gray-100: #f8f9fa !default;
+$gray-200: #e9ecef !default;
+$gray-300: #dee2e6 !default;
+$gray-400: #ced4da !default;
+$gray-500: #adb5bd !default;
+$gray-600: #6c757d !default;
+$gray-700: #495057 !default;
+$gray-800: #14171c !default;
+$gray-900: #030303 !default;
+$black: #000 !default;
+
+$darkblue: #29303b !default;
+$lightblue: #4fc3f7 !default;
+$blue: #1a3050 !default;
+$indigo: #6610f2 !default;
+$purple: #6f42c1 !default;
+$pink: #e30d5b !default;
+$red: #bf0909 !default;
+$orange: #fd7e14 !default;
+$yellow: #f4c150 !default;
+$green: #003845 !default;
+$teal: #20c997 !default;
+$cyan: #0056AC !default;
+$magenta: #007791 !default;
+$silver: #f7f8fa;
+
+$verde: #1B9D6B;
+$celeste: #337ab7;
+$marron: #8c644a; //616161
+$verde_: #00bf78;
+$celeste1: #00c0f5;
+
+$primary: $red !default;
+$secondary: #DADCDD !default;
+
+$success: $verde !default;
+$info: $cyan !default;
+$warning: $yellow !default;
+
+$danger: $red !default;
+$light: $gray-500 !default;
+$dark: $gray-900 !default;
+
+
+$font-family-base: "Roboto";
+$lead-font-size:16px; 
+$line-height-base:            1;
+$line-height-sm:              1;
+$line-height-lg:              1;
+$btn-padding-y: 5rem;

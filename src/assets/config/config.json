@@ -1,0 +1,8 @@
+{
+  "env": "production",
+  "apiUrl": "http://192.168.40.72:9004/",
+  "profile": [
+    
+  ],
+  "MAX_SIZE_UPLOAD": 1073741824
+}

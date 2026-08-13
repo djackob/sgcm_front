@@ -1,0 +1,159 @@
+input {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 6px;
+  padding: 1rem 16px;
+  font-size: 16px;
+  width: calc(100% - 32px);
+}
+label {
+  display: block;
+  padding-bottom: 0.5rem;
+  font-weight: 500;
+}
+input,
+textarea {
+  font-family: "Roboto", sans-serif;
+  &:focus {
+    outline: 0;
+    border: solid 1px #4597e8 !important;
+    box-shadow: none !important;
+  }
+  &.ng-pristine.ng-invalid.ng-touched,
+  &.ng-invalid.ng-touched.ng-dirty {
+    border: solid 1px var(--main-color-800);
+  }
+}
+
+.ng-select.ng-select-opened.ng-select-bottom > .ng-select-container {
+  border-color: #4597e8;
+}
+.ng-select {
+  input {
+    border-color: transparent !important;
+  }
+}
+.ng-dropdown-panel {
+  border-color: #4597e8;
+}
+
+.ng-select.is-invalid > .ng-select-container {
+  border-color: var(--main-color-800);
+}
+.form-control{
+  padding: 0.75rem 1rem !important;
+}
+div.form-control{
+  padding: 0.844rem 1rem !important;
+  &.disabled{
+    background-color: #e9ecef;
+    min-height: 45px;
+  }
+}
+
+
+.ng-select .ng-select-container {
+  border: 1px solid #dee2e6;
+}
+.ng-select.ng-select-multiple .ng-select-container .ng-value-container .ng-value {
+  color: #212121;
+  background-color: #e0e0e0;
+  padding: 0.25rem;
+  border-radius: 20px;
+}
+
+.form-control-color{
+  padding: 0.375rem 0.75rem !important;
+}
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option {
+  white-space: normal !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ng-select.ng-select-single .ng-select-container{
+  height: 45px;
+}
+.ng-dropdown-panel .ng-dropdown-panel-items .ng-option {
+  padding: 12.5px 10px;
+}
+
+.form-message {
+  font-size: 0.75rem;
+  color: #F44336;
+  font-weight: 600;
+  padding: 5px 0;
+  min-height: 0;
+}
+
+.listado-total {
+  text-align: center;
+  margin: 0.5rem;
+}
+
+.ng-select.ng-touched.ng-invalid .ng-select-container{
+  border-color: var(--main-color-800);
+}
+.ng-select.ng-select-focused:not(.ng-select-opened) > .ng-select-container{
+  box-shadow: none;
+}
+.ng-select .ng-select-container .ng-value-container .ng-input>input {
+  height: 32px;
+}
+.ng-select.ng-select-disabled > .ng-select-container {
+  background-color: #e9ecef;
+}
+input[type='checkbox']{
+  appearance: none;
+  border: none;
+  height: 24px !important;
+  width: 24px !important;
+  background-size: 29px;
+  background-position: -4px;
+  border: solid 2px #000000;
+  border-radius: 5px;
+  background-color: rgba(222, 226, 230, 0.05);
+  cursor: pointer;
+  padding: 0;
+  &:checked {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>checkbox-marked</title><path d="M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3Z" /></svg>');
+  }
+  &[disabled] {
+    opacity: 0.25;
+  }
+}
+.bs-datepicker-body table td {
+  color: #54708b;
+  text-align: center;
+  position: relative;
+  padding: 0 !important;
+}
+.bs-datepicker-body table.days.weeks th{
+  padding: 5px 0 !important;
+  color: #6f7e8d;
+  border-bottom: solid 3px white;
+}
+
+
+.bs-datepicker-body table {
+  display: table;
+}
+.bs-datepicker-body tr {
+  display: table-row;
+}
+.bs-datepicker-body td {
+  display: table-cell;
+}
+.count-characters{
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 10px;
+  font-weight: 600;
+  padding-right: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}

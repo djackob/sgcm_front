@@ -1,0 +1,67 @@
+<header>
+    <div class="app">
+        <button class="btn-open-menu" type="button" (click)="MostrarMenu()"><i class="mdi mdi-menu-close"></i></button>
+        <img alt="ANIN - Sistema de Contrataciones" src="assets/img/logo-anin-4.webp"><span class="nombre-app">Sistema de Contrataciones</span>
+    </div>
+    <div class="usuario">
+        <span class="user" (click)="ActivarMenu()">{{siglas_usuario}}
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="--color: var(--primary-icon);"><g fill-rule="evenodd" transform="translate(-448 -544)"><path fill-rule="nonzero" d="M452.707 549.293a1 1 0 0 0-1.414 1.414l4 4a1 1 0 0 0 1.414 0l4-4a1 1 0 0 0-1.414-1.414L456 552.586l-3.293-3.293z"></path></g></svg>
+        </span>
+        @if(menu_activo){
+            <nav class="sub-menu">
+                <ul>
+                    <li>
+                        <a href="javascript:void(0)" >
+                            <span class="user">{{siglas_usuario}}</span>&nbsp;&nbsp;{{nombre_usuario}}<br>
+                            <span class="perfil">&nbsp;&nbsp;&nbsp;{{perfil_usuario}}</span>
+                        </a>
+                    </li>
+                    <li><hr></li>
+                    <li>
+                        <a href="#" (click)="Salir($event)">
+                            <i class="mdi mdi-logout"></i>&nbsp;&nbsp;Cerrar sesión
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+</header>
+<div class="app-container">
+    <nav class="menu inactive">
+        <div>
+            <button class="btn-close-menu" (click)="OcultarMenu()" type="button">
+                <i class="mdi mdi-menu-open"></i>
+            </button>
+        </div>
+        <ul>
+            <li *ngFor="let item of menu">
+                <ng-container *ngIf="item.hijos.length == 0">
+                    <a [routerLink]="item.url" routerLinkActive="active-link">
+                        <span><i class="mdi {{item.icono}}"></i></span>
+                        <span>{{item.nombre_menu}}</span>
+                    </a>
+                </ng-container>
+                <ng-container *ngIf="item.hijos.length > 0">
+                    <a class="menu-toogle" [attr.data-id-menu]="item.id_menu"
+                        (click)="ExpandirMenu(item.id_menu)" routerLinkActive="active-link">
+                        <span><i class="mdi {{item.icono}}"></i></span>
+                        <span>{{item.nombre_menu}}</span>
+                        <span></span>
+                    </a>
+                    <ul>
+                        <li *ngFor="let item_hijo of item.hijos">
+                            <a [routerLink]="item_hijo.url" routerLinkActive="active-link">
+                                <span><i class="mdi {{item_hijo.icono}}"></i></span>
+                                <span>{{item_hijo.nombre_menu}}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </ng-container>
+            </li>
+        </ul>
+    </nav>
+    <main>
+        <router-outlet></router-outlet>
+    </main>
+</div>

@@ -1,0 +1,60 @@
+@import "assets/css/base.css";
+@import "@mdi/font/css/materialdesignicons.min.css";
+@import "styles/abstract/variables";
+@import "@ng-select/ng-select/themes/default.theme.css";
+@import "styles/components/accordion", "styles/components/buttons", "styles/components/cards",
+"styles/components/modals", "styles/components/modal-base", "styles/components/pagination", "styles/components/tables",
+"styles/components/page";
+@import "styles/layouts/forms";
+@import "bootstrap/scss/bootstrap";
+
+body {
+    background-color: #f1f5f9;
+}
+
+input {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    border-radius: 6px;
+    padding: 1rem 16px;
+    font-size: 16px;
+    width: 100%;
+}
+
+label {
+    display: block;
+    padding-bottom: 0.5rem;
+}
+
+input,
+textarea {
+    font-family: "Roboto", sans-serif;
+
+    &:focus {
+        outline: 0;
+        border: solid 1px #4597e8;
+    }
+
+    &.ng-pristine.ng-invalid.ng-touched,
+    &.ng-invalid.ng-touched.ng-dirty {
+        border: solid 1px var(--main-color-800);
+    }
+}
+
+ul {
+    padding-left: 0;
+    margin-bottom: 0;
+}
+
+i {
+    font-size: 24px;
+}
+
+.pointer {
+    cursor: pointer;
+}
+
+ul {
+    list-style: none;
+}

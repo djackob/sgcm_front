@@ -1,0 +1,141 @@
+<div
+  class="modal-fondo"
+  *ngIf="abierto"
+  (click)="cerrar()"
+  role="presentation"
+>
+  <div
+    class="modal-app-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalSolicitud"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <app-breadcrumb [items]="breadcrumb" separator="·" />
+          <h2 id="tituloModalSolicitud" class="modal-titulo">
+            Anexo N.º 03 · Solicitud de modificación del CMN
+          </h2>
+          <p class="modal-subtitulo">
+            Complete el formato oficial antes de generarlo y firmarlo.
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo">
+        <div class="formulario-grilla">
+          <div class="campo">
+            <label class="campo-etiqueta" for="areaUsuaria">Área usuaria</label>
+            <input
+              id="areaUsuaria"
+              type="text"
+              class="campo-control"
+              [(ngModel)]="solicitud.areaUsuaria"
+            />
+          </div>
+          <div class="campo">
+            <label class="campo-etiqueta" for="fechaSolicitud">Fecha</label>
+            <input
+              id="fechaSolicitud"
+              type="date"
+              class="campo-control"
+              [(ngModel)]="solicitud.fecha"
+            />
+          </div>
+          <div class="campo">
+            <label class="campo-etiqueta" for="responsableArea">Responsable del Área usuaria</label>
+            <input
+              id="responsableArea"
+              type="text"
+              class="campo-control"
+              [(ngModel)]="solicitud.responsable"
+            />
+          </div>
+          <div class="campo">
+            <label class="campo-etiqueta" for="cargoResponsable">Cargo</label>
+            <input
+              id="cargoResponsable"
+              type="text"
+              class="campo-control"
+              [(ngModel)]="solicitud.cargo"
+            />
+          </div>
+          <div class="campo">
+            <label class="campo-etiqueta" for="numeroSolicitud">N.º de solicitud</label>
+            <input
+              id="numeroSolicitud"
+              type="text"
+              class="campo-control"
+              [(ngModel)]="solicitud.numeroSolicitud"
+            />
+          </div>
+        </div>
+
+        <section class="seccion">
+          <div class="contenido-cabecera">
+            <div>
+              <h3 class="contenido-titulo">Ítems de la modificación</h3>
+              <p class="contenido-subtitulo">
+                Registre exclusión o inclusión por ítem, no ambas. Complete cantidad y valor del grupo elegido.
+              </p>
+            </div>
+            <div class="cabecera-opciones">
+              <button type="button" class="btn btn-app-secundario" (click)="agregarItem()">
+                <i class="mdi mdi-plus" aria-hidden="true"></i>
+                Agregar ítem
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table tabla-formulario">
+              <thead>
+                <tr>
+                  <th>N.°</th>
+                  <th>Código</th>
+                  <th>Descripción</th>
+                  <th>Unidad de medida</th>
+                  <th>Exclusión - cantidad</th>
+                  <th>Exclusión - valor (S/)</th>
+                  <th>Inclusión - cantidad</th>
+                  <th>Inclusión - valor (S/)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of itemsModificacion; let i = index">
+                  <td class="celda-numero">{{ i + 1 }}</td>
+                  <td>
+                    <input type="text" class="campo-control" [(ngModel)]="item.codigo" [name]="'codigo' + i" />
+                  </td>
+                  <td>
+                    <input type="text" class="campo-control" [(ngModel)]="item.descripcion" [name]="'descripcion' + i" />
+                  </td>
+                  <td>
+                    <input type="text" class="campo-control" [(ngModel)]="item.unidadMedida" [name]="'unidad' + i" />
+                  </td>
+                  <td>
+                    <input type="text" class="campo-control" [(ngModel)]="item.exclusionCantidad" [name]="'excCant' + i" />
+                  </td>
+                  <td>
+                    <input type="text" class="campo-control" [(ngModel)]="item.exclusionValor" [name]="'excValor' + i" />
+                  </td>
+                  <td>
+                    <input type="text" class="campo-control" [(ngModel)]="item.inclusionCantidad" [name]="'incCant' + i" />
+                  </td>
+                  <td>
+                    <input type="text" class="campo-control" [(ngModel)]="item.inclusionValor" [name]="'incValor' + i" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>

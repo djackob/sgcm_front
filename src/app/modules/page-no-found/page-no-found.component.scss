@@ -1,0 +1,127 @@
+header{
+    height: 56px;
+    background-color: var(--main-color-800);
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 12px;
+    img{
+        height: 40px;
+    }
+}
+main{
+    height: calc(100vh - 56px);
+    display: grid;
+    place-items: center;
+}
+.usuario{
+    position: relative;
+}
+span.user{
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #F7F7F7;
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: 500;
+    position: relative;
+    cursor: pointer;
+    svg{
+        color: var(--white);
+        width: 12px;
+        height: 12px;
+        position: absolute;
+        background-color: #26292E;
+        content: "";
+        bottom: 0;
+        right: 0;
+        border-radius: 50%;
+        padding: 2px;
+    }
+}
+nav{
+    position: absolute;
+    width: 320px;
+    right: 0;
+    background-color: #26292E;
+    color: var(--white);
+    padding: 20px 15px;
+    border-radius: 6px;
+    a{
+        color: inherit;
+        display: flex;
+        padding: 10px 5px;
+        border-radius: 6px;
+        align-items: center;
+        text-decoration: none;
+        font-weight: 500;
+
+        i{
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #515458;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+        &:hover{
+            background-color: #3C3E43;
+        }
+        span.user{
+            color: #26292e;
+        }
+    }
+}
+hr{
+    opacity: 0.15;
+}
+
+.app{
+    display: flex;
+}
+.nombre-app{
+    height: 40px;
+    width: 210px;
+    display: inline-flex;
+    color: var(--white);
+    font-weight: 500;
+    margin: 0 10px;
+    align-items: center;
+}
+.red{
+    font-size: 15rem;
+    font-weight: 500;
+    color: var(--main-color-800);
+    text-shadow: 0px 3px 0px #ffffff, 3px 0px 0px #ffffff, -3px 0px 0px #ffffff, 0px -3px 0px #ffffff;
+}
+.mensaje-404{
+    font-size: 1.1rem;
+    text-align: center;
+}
+.app{
+    img:nth-child(2){
+        display: inline-block;
+        box-sizing: border-box;
+        display: none;
+    }
+}
+@media (max-width: 600px) {
+    .app{
+        img:nth-child(1){
+            display: none;
+        }
+    }
+    .red{
+        font-size: 8rem;
+    }
+ }
+ 

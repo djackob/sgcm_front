@@ -1,0 +1,348 @@
+// =============================================================================
+// Tabla de bandeja (diseño limpio tipo Gestión CMN)
+// Uso: <div class="table-responsive"><table class="table scm-table">...
+// =============================================================================
+.scm-table {
+  width: 100%;
+  margin-bottom: 0;
+  border-collapse: collapse;
+
+  thead tr th {
+    background-color: #f8fafc !important;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #94a3b8 !important;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-align: left !important;
+    text-transform: uppercase;
+    padding: 0.75rem 0.85rem !important;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  tbody td {
+    border: none !important;
+    padding: 1rem 0.85rem !important;
+    text-align: left !important;
+    vertical-align: middle;
+    font-size: 0.9rem;
+    color: #475569;
+  }
+}
+
+// =============================================================================
+// Estilos globales para todas las tablas (referencia: anin_saa_front)
+// Uso: <div class="table-responsive"><table class="table table-bordered">...
+// En móvil: cada td debe tener data-column-name="Nombre columna" para la leyenda.
+// Acciones: td con clase td-acciones (no muestra label en responsive).
+// =============================================================================
+
+// Wrapper responsivo: scroll horizontal en desktop, cards en móvil
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+thead tr th {
+  background-color: #dee3ea !important;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #333;
+}
+
+table td,
+.table td,
+.table th {
+  vertical-align: middle;
+  padding: 0.65rem !important;
+  text-align: center;
+}
+
+.table > :not(caption) > * > * {
+  box-shadow: none !important;
+}
+
+.table-bordered {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.table-bordered th,
+.table-bordered td {
+  border: 1px solid #dee2e6;
+}
+
+// =============================================================================
+// Tabla estandar para Seguimiento/Lista de Gasto
+// Uso: <table class="table table-bordered lg-table">...</table>
+// =============================================================================
+.lg-table thead th {
+  background: #042b6b !important;
+  color: #fff !important;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  vertical-align: middle;
+}
+
+.lg-table thead th.th-fin {
+  background: #b10000 !important;
+}
+
+.lg-table tbody td {
+  font-size: 0.78rem;
+  vertical-align: middle;
+}
+
+.lg-table tbody tr {
+  cursor: pointer;
+}
+
+.lg-table tbody tr.row-selected {
+  background: #e7eefc;
+}
+
+.lg-table tbody tr.row-cabecera {
+  cursor: default;
+}
+
+.lg-table tfoot tr.lg-total-general td {
+  background: #042b6b !important;
+  color: #fff !important;
+  font-weight: 700;
+  font-size: 0.78rem;
+  vertical-align: middle;
+  cursor: default;
+}
+
+// Progress bar (común en celdas)
+.progress-porcentaje {
+  height: 8px;
+  min-width: 48px;
+  max-width: 80px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-porcentaje-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+
+.progress-porcentaje-texto {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+// Celda con barra de porcentaje (flex columna)
+.table .td-porcentaje {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+
+.table .td-acciones {
+  white-space: nowrap;
+  //display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.table .td-texto {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table .td-nombre,
+.table .td-comentario {
+  overflow: hidden;
+  text-align: left;
+}
+
+.table .td-nombre {
+  font-size: 0.875rem;
+}
+
+.table .td-nombre .icono-prioridad {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.table .td-comentario {
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+// =============================================================================
+// Responsive: en pantallas < 1200px la tabla se muestra como cards
+// =============================================================================
+@media (max-width: 1199.98px) {
+  .app-container main {
+    padding: 0 !important;
+  }
+
+  .h1 {
+    margin: -23px 0rem !important;
+  }
+
+  .table-responsive {
+    margin-right: 0;
+    margin-left: 0;
+
+    tbody,
+    tr,
+    td {
+      display: block;
+    }
+
+    thead {
+      display: none;
+    }
+
+    tr {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #dee2e6;
+      &:nth-last-child(1) {
+        border-bottom-width: 1px;
+      }
+
+      td {
+        padding: 0.2rem 1rem !important;
+        border: none;
+        text-align: left !important;
+        width: auto !important;
+
+        &[data-column-name] {
+          padding: 0.2rem 1rem !important;
+        }
+
+        &:not(.no-before):before {
+          content: attr(data-column-name) ":";
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          padding-right: 5px;
+          font-weight: 600;
+          display: inline;
+        }
+
+        &.td-acciones {
+          display: inline-flex !important;
+          align-items: center;
+          width: auto;
+          border: 0;
+          padding: 0.5rem 1rem !important;
+
+          &:before {
+            content: "";
+            padding-right: 0 !important;
+            display: none;
+          }
+        }
+      }
+
+      &:has(> .td-acciones) {
+        position: relative;
+        padding-bottom: 50px;
+
+        .td-acciones {
+          position: absolute;
+          height: 40px;
+          min-width: 40px;
+          padding: 5px 0 !important;
+          gap: 4px;
+
+          &:nth-last-child(1) {
+            right: 10px;
+          }
+          &:nth-last-child(2) {
+            right: 50px;
+          }
+          &:nth-last-child(3) {
+            right: 90px;
+          }
+          &:nth-last-child(4) {
+            right: 130px;
+          }
+          &:nth-last-child(5) {
+            right: 170px;
+          }
+          &:nth-last-child(6) {
+            right: 210px;
+          }
+          &:nth-last-child(7) {
+            right: 250px;
+          }
+          &:nth-last-child(8) {
+            right: 290px;
+          }
+          &:nth-last-child(9) {
+            right: 330px;
+          }
+        }
+      }
+    }
+  }
+
+  .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .h1 {
+    margin: 0 !important;
+    padding: 1.5rem 0.5rem !important;
+  }
+}
+
+// =============================================================================
+// Progress bar (legacy / componentes que lo usan)
+// =============================================================================
+.progress-bar-app {
+  height: 150px;
+  width: 250px;
+  overflow: hidden;
+  display: grid;
+  place-content: center;
+  place-items: center;
+  border-radius: 10px;
+  color: #3f444e;
+  background-color: white;
+}
+
+.progress-bar-value {
+  display: flex;
+  transform-origin: 50% 50%;
+  border: 10px solid #fff;
+  border-radius: 50%;
+  border-top: 6px solid #1a3050;
+  border-right: 6px solid #e10b19;
+  border-bottom: 6px solid #000000;
+  width: 90px;
+  height: 90px;
+  animation: indeterminateAnimation 0.75s infinite linear;
+}
+
+@keyframes indeterminateAnimation {
+  to {
+    transform: rotateZ(360deg);
+  }
+}

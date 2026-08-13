@@ -1,0 +1,94 @@
+<div class="container-componentes p-3">
+  <header class="cabecera-pagina">
+    <div class="cabecera">
+      <app-breadcrumb [items]="breadcrumb" />
+      <h1 class="page-title">Gestión CMN</h1>
+      <p class="page-subtitle">
+        Programación y modificación del Cuadro Multianual de Necesidades
+      </p>
+    </div>
+
+    <div class="cabecera-opciones">
+      <button type="button" class="btn btn-app-primary" (click)="nuevaSolicitud()">
+        <i class="mdi mdi-plus" aria-hidden="true"></i>
+        Solicitud de modificación CMN
+      </button>
+    </div>
+  </header>
+
+  <section class="content-card">
+    <div class="contenido-cabecera">
+      <div>
+        <h2 class="contenido-titulo">Bandeja de Gestión CMN</h2>
+        <p class="contenido-subtitulo">
+          Solicitud (Anexo 3) y aprobación (Anexo 4) de modificaciones al CMN.
+        </p>
+      </div>
+      <span class="contenido-conteo">{{ totalExpedientes }} expediente(s)</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table scm-table">
+        <thead>
+          <tr>
+            <th>Expediente</th>
+            <th>Solicitud CMN</th>
+            <th>Estado actual</th>
+            <th>Responsable actual</th>
+            <th>Plazo</th>
+            <th>Acción del perfil</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of expedientes">
+            <td data-column-name="Expediente">
+              <a href="javascript:void(0)" class="cell-link">{{ item.expediente }}</a>
+            </td>
+            <td data-column-name="Solicitud CMN">
+              <span class="cell-title">{{ item.solicitudTitulo }}</span>
+              <span class="cell-subtitle">{{ item.solicitudSubtitulo }}</span>
+            </td>
+            <td data-column-name="Estado actual">
+              <span class="status-pill" [ngClass]="'status-pill--' + item.estado.tipo">
+                {{ item.estado.texto }}
+              </span>
+            </td>
+            <td data-column-name="Responsable actual" class="cell-muted">
+              {{ item.responsable }}
+            </td>
+            <td data-column-name="Plazo" class="cell-muted">
+              {{ item.plazo }}
+            </td>
+            <td data-column-name="Acción del perfil" class="td-acciones">
+              <div class="action-cell">
+                <span class="action-cell__label" *ngIf="!item.accionPendiente">
+                  Sin acción pendiente
+                </span>
+                <button
+                  type="button"
+                  class="btn-icon-outline"
+                  *ngIf="item.acciones.includes('guardar')"
+                  title="Guardar"
+                  (click)="onAccion('guardar', item)"
+                >
+                  <i class="mdi mdi-content-save-outline" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  class="btn-icon-outline"
+                  *ngIf="item.acciones.includes('ver')"
+                  title="Ver detalle"
+                  (click)="onAccion('ver', item)"
+                >
+                  <i class="mdi mdi-magnify" aria-hidden="true"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<app-modal-registro />
