@@ -1,0 +1,37 @@
+<input type="file" class="form-control form-control-sm" #fileInput style="display:none;" id="{{idComp}}" class="customfile" (change)="lanzarOnChange($event)">
+
+<div class="input-archivos-wrapper">
+  <div class="input-group input-group-sm" 
+       [class.app-input-file-descargable]="(RutaDescarga != null && RutaDescarga!='' && RutaDescarga!=undefined)">
+    
+    <span class="input-group-text bg-light border-end-0" (click)="fileInput.click()" style="cursor: pointer;">
+      <i class="mdi mdi-upload"></i>
+    </span>
+
+    <input type="text" 
+           class="form-control form-control-sm bg-white" 
+           readonly 
+           [attr.name]="idComp || 'fileDefault'"
+           [attr.accept]="Extensiones"
+           (click)="fileInput.click()" 
+           placeholder="SELECCIONE ARCHIVO" 
+           [value]="Value"
+           style="cursor: pointer;">
+
+    <span *ngIf="sePuedeDescargar" class="input-group-text bg-white">
+      <a class="text-success" [href]="RutaDescarga" target="_blank" title="Descargar">
+        <i class="mdi mdi-download fs-5"></i>
+      </a>
+    </span>
+    
+    <span *ngIf="mostrarDescargaSubido && !sePuedeDescargar" class="input-group-text bg-white">
+      <a class="text-success" (click)="descargarArchivoSubido($event)" style="cursor: pointer;" title="Descargar archivo subido" [class.disabled]="descargando">
+        <i class="mdi mdi-download fs-5" [class.mdi-spin]="descargando"></i>
+      </a>
+    </span>
+  </div>
+
+  <div class="input-file-txt-max mt-1 text-muted" style="font-size: 11px;">
+    {{MensajeMaxSize ? MensajeMaxSize : 'Máx. 20 MB'}}
+  </div>
+</div>

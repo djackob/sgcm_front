@@ -9,8 +9,26 @@ import { ModalRegistroComponent } from './modals/modal-registro/modal-registro.c
 import { ModalDetalleComponent } from './modals/modal-detalle/modal-detalle.component';
 import { CmnService } from './services/cmn.service';
 import { SessionService } from '../../core/services/session.service';
+import { DocumentoService } from '../../core/services/documento.service';
 import { Funciones } from '../../shared/funciones/funciones';
-import { SolicitudCmn, TransicionCmn } from './models/cmn.model';
+import { SolicitudCmn, SolicitudDetalleCmn, TransicionCmn } from './models/cmn.model';
+import { construirAnexo3, nombreArchivoAnexo3 } from './documentos/anexo3.plantilla';
+
+/**
+ * Qué documento produce cada acción del flujo.
+ *
+ * La semilla declara qué transición EXIGE un documento (`DocumentoRequerido`),
+ * pero no cuál lo PRODUCE: son dos cosas distintas y sólo la primera es una
+ * regla del motor. Este mapa cubre la segunda, que es una decisión de pantalla:
+ * al pulsar «Generar Anexo 3» el navegador arma el PDF, lo sube y lo registra
+ * antes de mover el estado.
+ *
+ * Si algún día conviene que también sea dato, el lugar natural es una columna
+ * `DocumentoGenerado` en `sigcm.Transicion`, y este mapa desaparece.
+ */
+const DOCUMENTO_QUE_GENERA: { [codigoTransicion: string]: string } = {
+  CMN_GENERAR_A3: 'CMN_ANEXO_3_SOLICITUD_MODIFICACION'
+};
 
 /**
  * Bandeja de Gestión CMN.
@@ -65,10 +83,15 @@ export class GestionCmnComponent implements OnInit {
   accionEnCurso: { solicitud: SolicitudCmn; transicion: TransicionCmn } | null = null;
   comentario = '';
   ejecutando = false;
+  /** Qué se está haciendo ahora: generar, subir, firmar o registrar. */
+  paso = '';
+  /** URL del PDF recién generado, para ofrecerlo al terminar. */
+  documentoGenerado = '';
 
   constructor(
     private cmnService: CmnService,
     private sesion: SessionService,
+    private documentoService: DocumentoService,
     private funciones: Funciones
   ) { }
 
@@ -239,12 +262,22 @@ export class GestionCmnComponent implements OnInit {
     this.comentario = '';
   }
 
+  /**
+   * Una acción del flujo puede necesitar hasta tres pasos antes de mover el
+   * estado: generar el documento, subirlo y firmarlo. El usuario ve un solo
+   * botón; la secuencia se resuelve aquí.
+   *
+   * Se encadenan en vez de hacerse en una sola llamada porque cada paso tiene
+   * su propia regla en la base: registrar comprueba el tipo de documento,
+   * firmar comprueba el rol firmante, y la transición comprueba el estado. Si
+   * uno falla, el mensaje dice exactamente cuál.
+   */
   confirmarAccion(): void {
     if (!this.accionEnCurso || this.ejecutando) {
       return;
     }
 
-    const { solicitud, transicion } = this.accionEnCurso;
+    const { transicion } = this.accionEnCurso;
 
     if (transicion.RequiereComentario && !this.comentario.trim()) {
       this.funciones.mensaje('info', 'Esta acción exige un comentario. La observación queda en la trazabilidad y es lo que el área usuaria debe subsanar.');
@@ -252,6 +285,100 @@ export class GestionCmnComponent implements OnInit {
     }
 
     this.ejecutando = true;
+
+    const tipoDocumento = DOCUMENTO_QUE_GENERA[transicion.CodigoTransicion];
+
+    if (tipoDocumento) {
+      this.paso = 'Generando el documento…';
+      this.generarYRegistrarDocumento(tipoDocumento);
+      return;
+    }
+
+    if (transicion.RequiereFirma && transicion.DocumentoRequerido) {
+      this.paso = 'Registrando la firma…';
+      this.firmarYEjecutar(transicion.DocumentoRequerido);
+      return;
+    }
+
+    this.ejecutarTransicion();
+  }
+
+  /** Paso 1 y 2: armar el PDF con los datos vigentes y depositarlo. */
+  private generarYRegistrarDocumento(codigoTipoDocumento: string): void {
+    const solicitud = this.accionEnCurso!.solicitud;
+
+    // El PDF se arma con lo que hay en la base ahora, no con lo que quedó en
+    // pantalla: entre abrir la bandeja y pulsar el botón el expediente pudo
+    // cambiar, y el documento debe reflejar lo que se está aprobando.
+    this.cmnService.obtenerSolicitud(solicitud.IdSolicitud).subscribe({
+      next: (detalle: SolicitudDetalleCmn | any) => {
+        if (detalle?.estado !== 1) {
+          this.fallar(detalle?.mensaje || 'No fue posible leer la solicitud para armar el documento.');
+          return;
+        }
+
+        const definicion = construirAnexo3(detalle);
+        const nombre = nombreArchivoAnexo3(detalle);
+
+        this.paso = 'Subiendo el documento…';
+
+        this.documentoService.generarYSubir(definicion, nombre, 'cmn').subscribe({
+          next: (archivo: any) => {
+            if (archivo?.estado !== 1) {
+              this.fallar(archivo?.mensaje || 'No fue posible subir el documento al servidor de archivos.');
+              return;
+            }
+
+            this.paso = 'Registrando el documento…';
+
+            this.cmnService.registrarDocumento(
+              solicitud.IdExpediente, codigoTipoDocumento,
+              archivo.documento_sistema, archivo.documento_original,
+              { Codigo: detalle.Codigo, Items: detalle.Items?.length || 0 }
+            ).subscribe({
+              next: (registro: any) => {
+                if (registro?.estado !== 1) {
+                  this.fallar(registro?.mensaje || 'No fue posible registrar el documento.');
+                  return;
+                }
+                this.documentoGenerado = archivo.documento_sistema;
+                this.ejecutarTransicion();
+              },
+              error: () => this.fallar('No fue posible registrar el documento.')
+            });
+          },
+          error: () => this.fallar('No fue posible subir el documento al servidor de archivos.')
+        });
+      },
+      error: () => this.fallar('No fue posible leer la solicitud para armar el documento.')
+    });
+  }
+
+  /** Firma y, sólo si la firma quedó registrada, mueve el expediente. */
+  private firmarYEjecutar(codigoTipoDocumento: string): void {
+    const solicitud = this.accionEnCurso!.solicitud;
+
+    this.cmnService.firmarDocumento(solicitud.IdExpediente, codigoTipoDocumento).subscribe({
+      next: (respuesta: any) => {
+        // Que ya estuviera firmada no es un error: puede ser un reintento
+        // después de que fallara la transición. Se sigue adelante.
+        const yaFirmado = respuesta?.codigo === 51616;
+
+        if (respuesta?.estado !== 1 && !yaFirmado) {
+          this.fallar(respuesta?.mensaje || 'No fue posible registrar la firma.');
+          return;
+        }
+
+        this.ejecutarTransicion();
+      },
+      error: () => this.fallar('No fue posible registrar la firma.')
+    });
+  }
+
+  /** Paso final: la acción del flujo propiamente dicha. */
+  private ejecutarTransicion(): void {
+    const { solicitud, transicion } = this.accionEnCurso!;
+    this.paso = 'Registrando la acción…';
 
     this.cmnService.ejecutarTransicion(
       solicitud.IdExpediente,
@@ -261,6 +388,7 @@ export class GestionCmnComponent implements OnInit {
     ).subscribe({
       next: (respuesta: any) => {
         this.ejecutando = false;
+        this.paso = '';
 
         if (respuesta?.estado !== 1) {
           this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible ejecutar la acción.');
@@ -269,14 +397,24 @@ export class GestionCmnComponent implements OnInit {
 
         this.accionEnCurso = null;
         this.comentario = '';
-        this.funciones.mensaje('success', respuesta.mensaje || 'Se registró la acción.');
+
+        const enlace = this.documentoGenerado
+          ? `<br><br><a href="${this.documentoGenerado}" target="_blank">Ver el documento generado</a>`
+          : '';
+        this.documentoGenerado = '';
+
+        this.funciones.mensaje('success', (respuesta.mensaje || 'Se registró la acción.') + enlace);
         this.cargarBandeja();
       },
-      error: () => {
-        this.ejecutando = false;
-        this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
-      }
+      error: () => this.fallar('No fue posible comunicarse con el servicio.')
     });
+  }
+
+  private fallar(mensaje: string): void {
+    this.ejecutando = false;
+    this.paso = '';
+    this.documentoGenerado = '';
+    this.funciones.mensaje('error', mensaje);
   }
 
   /** El registro y las acciones cambian la bandeja: se recarga entera. */

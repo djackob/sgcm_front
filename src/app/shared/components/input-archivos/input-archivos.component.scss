@@ -1,0 +1,25 @@
+.input-file-txt-cargar {
+    position: absolute;
+    font-size: 18px;
+    right: 25px;
+    top: 8px;
+    z-index: 1;
+}
+
+/* Asegura que el input de texto no tenga borde a la izquierda para pegar con el icono */
+.input-group-text + .form-control {
+    border-left: none !important;
+}
+
+/* Estilo para el texto de tamaño máximo debajo */
+.input-file-txt-max {
+    display: block;
+    padding-left: 2px;
+    font-weight: 400;
+}
+
+/* Efecto hover para que el usuario sepa que es clicable */
+.input-group:hover .form-control, 
+.input-group:hover .input-group-text {
+    border-color: #adb5bd;
+}
