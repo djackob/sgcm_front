@@ -9,10 +9,18 @@
     </div>
 
     <div class="cabecera-opciones">
-      <button type="button" class="btn btn-app-primary" (click)="nuevaSolicitud()">
+      <button
+        type="button"
+        class="btn btn-app-primary"
+        *ngIf="centroCosto"
+        (click)="nuevaSolicitud()"
+      >
         <i class="mdi mdi-plus" aria-hidden="true"></i>
         Solicitud de modificación CMN
       </button>
+      <span class="status-pill status-pill--neutral" *ngIf="!centroCosto">
+        Perfil de atención: sin registro inicial
+      </span>
     </div>
   </header>
 
@@ -24,10 +32,58 @@
           Solicitud (Anexo 3) y aprobación (Anexo 4) de modificaciones al CMN.
         </p>
       </div>
-      <span class="contenido-conteo">{{ totalExpedientes }} expediente(s)</span>
+      <span class="contenido-conteo">{{ total }} expediente(s)</span>
     </div>
 
-    <div class="table-responsive">
+    <!-- Filtros -->
+    <div class="cmn-filtros">
+      <div class="cmn-filtros__campo">
+        <label class="campo-etiqueta" for="filtroTexto">Buscar</label>
+        <input
+          id="filtroTexto"
+          type="text"
+          class="campo-control"
+          placeholder="Código o sustento"
+          [(ngModel)]="filtro.Texto"
+          (keyup.enter)="buscar()"
+        />
+      </div>
+
+      <div class="cmn-filtros__campo cmn-filtros__campo--corto">
+        <label class="campo-etiqueta" for="filtroAno">Año</label>
+        <input
+          id="filtroAno"
+          type="number"
+          class="campo-control"
+          [(ngModel)]="filtro.AnoEje"
+        />
+      </div>
+
+      <div class="cmn-filtros__campo cmn-filtros__campo--check">
+        <label class="cmn-check">
+          <input type="checkbox" [(ngModel)]="filtro.SoloMiBandeja" (change)="buscar()" />
+          <span>Solo mi bandeja</span>
+        </label>
+        <small class="cmn-filtros__ayuda">
+          Lo que está en mi unidad y espera una acción de mi rol.
+        </small>
+      </div>
+
+      <div class="cmn-filtros__acciones">
+        <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
+          <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
+        </button>
+        <button type="button" class="btn btn-app-secundario btn-sm" (click)="limpiarFiltros()">
+          Limpiar
+        </button>
+      </div>
+    </div>
+
+    <div class="cmn-cargando" *ngIf="cargando">
+      <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando bandeja…
+    </div>
+
+    <div class="table-responsive" *ngIf="!cargando">
       <table class="table scm-table">
         <thead>
           <tr>
@@ -35,60 +91,186 @@
             <th>Solicitud CMN</th>
             <th>Estado actual</th>
             <th>Responsable actual</th>
-            <th>Plazo</th>
+            <th class="text-end">Monto S/</th>
             <th>Acción del perfil</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of expedientes">
+          <tr *ngFor="let item of solicitudes">
             <td data-column-name="Expediente">
-              <a href="javascript:void(0)" class="cell-link">{{ item.expediente }}</a>
+              <a href="javascript:void(0)" class="cell-link" (click)="verDetalle(item)">
+                {{ item.Codigo }}
+              </a>
+              <span class="cell-subtitle">v{{ item.Version }} · {{ item.FechaSolicitud }}</span>
             </td>
+
             <td data-column-name="Solicitud CMN">
-              <span class="cell-title">{{ item.solicitudTitulo }}</span>
-              <span class="cell-subtitle">{{ item.solicitudSubtitulo }}</span>
-            </td>
-            <td data-column-name="Estado actual">
-              <span class="status-pill" [ngClass]="'status-pill--' + item.estado.tipo">
-                {{ item.estado.texto }}
+              <span class="cell-title">
+                {{ item.TipoOperacion | titlecase }} del CMN · {{ item.Items }} ítem(s)
+              </span>
+              <span class="cell-subtitle">
+                Centro de costo {{ item.CentroCosto }}
+                <ng-container *ngIf="item.TipoInclusion">· {{ item.TipoInclusion | titlecase }}</ng-container>
               </span>
             </td>
+
+            <td data-column-name="Estado actual">
+              <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">
+                {{ item.Estado }}
+              </span>
+            </td>
+
             <td data-column-name="Responsable actual" class="cell-muted">
-              {{ item.responsable }}
+              {{ item.RolResponsable || '—' }}
             </td>
-            <td data-column-name="Plazo" class="cell-muted">
-              {{ item.plazo }}
+
+            <td data-column-name="Monto S/" class="cell-muted text-end">
+              {{ item.MontoTotal | number: '1.2-2' }}
             </td>
+
             <td data-column-name="Acción del perfil" class="td-acciones">
               <div class="action-cell">
-                <span class="action-cell__label" *ngIf="!item.accionPendiente">
+                <span class="action-cell__label" *ngIf="!esMiTurno(item)">
                   Sin acción pendiente
                 </span>
+
                 <button
                   type="button"
-                  class="btn-icon-outline"
-                  *ngIf="item.acciones.includes('guardar')"
-                  title="Guardar"
-                  (click)="onAccion('guardar', item)"
+                  class="btn btn-app-primary btn-sm"
+                  *ngFor="let transicion of accionesDe(item)"
+                  [title]="'Pasa a: ' + transicion.EstadoDestino"
+                  (click)="pedirConfirmacion(item, transicion)"
                 >
-                  <i class="mdi mdi-content-save-outline" aria-hidden="true"></i>
+                  {{ transicion.NombreAccion }}
                 </button>
+
                 <button
                   type="button"
                   class="btn-icon-outline"
-                  *ngIf="item.acciones.includes('ver')"
-                  title="Ver detalle"
-                  (click)="onAccion('ver', item)"
+                  title="Ver expediente"
+                  (click)="verDetalle(item)"
                 >
                   <i class="mdi mdi-magnify" aria-hidden="true"></i>
                 </button>
               </div>
             </td>
           </tr>
+
+          <tr *ngIf="solicitudes.length === 0">
+            <td colspan="6">
+              <div class="cmn-vacio">
+                <i class="mdi mdi-inbox-outline" aria-hidden="true"></i>
+                <h3>Sin solicitudes CMN</h3>
+                <p class="cell-muted" *ngIf="centroCosto">
+                  Registre una solicitud para iniciar el flujo, o desmarque
+                  «Solo mi bandeja» para ver los expedientes de otros perfiles.
+                </p>
+                <p class="cell-muted" *ngIf="!centroCosto">
+                  No hay documentos pendientes para este perfil.
+                </p>
+              </div>
+            </td>
+          </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="cmn-paginacion" *ngIf="total > filtro.Limite">
+      <span class="cell-muted">Mostrando {{ desde }}–{{ hasta }} de {{ total }}</span>
+      <div>
+        <button
+          type="button"
+          class="btn btn-app-secundario btn-sm"
+          [disabled]="filtro.Desplazamiento === 0"
+          (click)="pagina(-1)"
+        >
+          Anterior
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-secundario btn-sm"
+          [disabled]="hasta >= total"
+          (click)="pagina(1)"
+        >
+          Siguiente
+        </button>
+      </div>
     </div>
   </section>
 </div>
 
-<app-modal-registro />
+<!-- Confirmación de la acción del flujo -->
+<div class="modal-fondo" *ngIf="accionEnCurso" (click)="cancelarAccion()" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--angosto"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">{{ accionEnCurso.transicion.NombreAccion }}</h2>
+          <p class="modal-subtitulo">
+            {{ accionEnCurso.solicitud.Codigo }} ·
+            pasa a <b>{{ accionEnCurso.transicion.EstadoDestino }}</b>
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cancelarAccion()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo">
+        <ul class="cmn-avisos">
+          <li *ngIf="accionEnCurso.transicion.RequiereFirma">
+            <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
+            Esta acción registra una firma sobre
+            {{ accionEnCurso.transicion.DocumentoRequerido }}.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.EncolaIntegracion">
+            <i class="mdi mdi-database-export-outline" aria-hidden="true"></i>
+            Encola operaciones hacia SIGA.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.GeneraObservacion">
+            <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
+            Devuelve el expediente al área usuaria como observado.
+          </li>
+        </ul>
+
+        <div class="campo">
+          <label class="campo-etiqueta" for="comentarioAccion">
+            Comentario
+            <span *ngIf="accionEnCurso.transicion.RequiereComentario">(obligatorio)</span>
+            <span *ngIf="!accionEnCurso.transicion.RequiereComentario">(opcional)</span>
+          </label>
+          <textarea
+            id="comentarioAccion"
+            class="campo-control"
+            rows="4"
+            [(ngModel)]="comentario"
+            placeholder="Queda en la trazabilidad del expediente"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-app-secundario" (click)="cancelarAccion()">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-primary"
+          [disabled]="ejecutando"
+          (click)="confirmarAccion()"
+        >
+          <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i>
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<app-modal-registro (registrado)="alRegistrar()" />
+<app-modal-detalle />

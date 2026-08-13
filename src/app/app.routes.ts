@@ -16,6 +16,14 @@ export const routes: Routes = [
     loadComponent: () => import('./modules/sso-externo/sso-externo.component').then(c => c.SsoExternoComponent)
   },
   {
+    // Ingreso de pruebas sin SSO. Convive con sso-acceso en vez de sustituirlo:
+    // la integración con el SSO ya está hecha y debe seguir siendo la puerta por
+    // defecto. En producción el backend apaga los endpoints y esta ruta queda
+    // sin servicio.
+    path: 'acceso-local',
+    loadComponent: () => import('./modules/acceso-local/acceso-local.component').then(c => c.AccesoLocalComponent)
+  },
+  {
     path: '',
     component: PlantillaComponent,
     loadChildren: () => import('./modules/plantilla/plantilla.routes').then(m => m.routes),

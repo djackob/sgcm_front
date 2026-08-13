@@ -1,11 +1,6 @@
-<div
-  class="modal-fondo"
-  *ngIf="abierto"
-  (click)="cerrar()"
-  role="presentation"
->
+<div class="modal-fondo" *ngIf="abierto" (click)="cerrar()" role="presentation">
   <div
-    class="modal-app-dialog"
+    class="modal-app-dialog modal-app-dialog--ancho"
     role="dialog"
     aria-modal="true"
     aria-labelledby="tituloModalSolicitud"
@@ -19,7 +14,8 @@
             Anexo N.º 03 · Solicitud de modificación del CMN
           </h2>
           <p class="modal-subtitulo">
-            Complete el formato oficial antes de generarlo y firmarlo.
+            Registre el sustento y los ítems. Al guardar, el expediente queda en
+            borrador y pasa a la firma del Jefe del área usuaria.
           </p>
         </div>
         <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
@@ -28,113 +24,325 @@
       </div>
 
       <div class="modal-cuerpo">
+        <!-- Cabecera de la solicitud -->
         <div class="formulario-grilla">
           <div class="campo">
-            <label class="campo-etiqueta" for="areaUsuaria">Área usuaria</label>
-            <input
-              id="areaUsuaria"
-              type="text"
-              class="campo-control"
-              [(ngModel)]="solicitud.areaUsuaria"
-            />
+            <label class="campo-etiqueta">Área usuaria</label>
+            <input type="text" class="campo-control" [value]="centroCostoNombre" readonly />
           </div>
           <div class="campo">
-            <label class="campo-etiqueta" for="fechaSolicitud">Fecha</label>
-            <input
-              id="fechaSolicitud"
-              type="date"
-              class="campo-control"
-              [(ngModel)]="solicitud.fecha"
-            />
+            <label class="campo-etiqueta">Centro de costo</label>
+            <input type="text" class="campo-control" [value]="centroCosto" readonly />
           </div>
           <div class="campo">
-            <label class="campo-etiqueta" for="responsableArea">Responsable del Área usuaria</label>
-            <input
-              id="responsableArea"
-              type="text"
-              class="campo-control"
-              [(ngModel)]="solicitud.responsable"
-            />
+            <label class="campo-etiqueta">Responsable</label>
+            <input type="text" class="campo-control" [value]="responsable" readonly />
           </div>
           <div class="campo">
-            <label class="campo-etiqueta" for="cargoResponsable">Cargo</label>
-            <input
-              id="cargoResponsable"
-              type="text"
-              class="campo-control"
-              [(ngModel)]="solicitud.cargo"
-            />
+            <label class="campo-etiqueta">Cargo</label>
+            <input type="text" class="campo-control" [value]="cargo" readonly />
           </div>
           <div class="campo">
-            <label class="campo-etiqueta" for="numeroSolicitud">N.º de solicitud</label>
-            <input
-              id="numeroSolicitud"
-              type="text"
-              class="campo-control"
-              [(ngModel)]="solicitud.numeroSolicitud"
-            />
+            <label class="campo-etiqueta" for="anoEje">Año de ejecución</label>
+            <input id="anoEje" type="number" class="campo-control" [(ngModel)]="anoEje" name="anoEje" />
           </div>
         </div>
 
+        <p class="registro-nota">
+          <i class="mdi mdi-information-outline" aria-hidden="true"></i>
+          Área usuaria, responsable y centro de costo salen de la sesión: la
+          solicitud solo puede registrarse sobre el centro de costo del perfil.
+        </p>
+
+        <div class="campo">
+          <label class="campo-etiqueta" for="sustento">Sustento de la solicitud</label>
+          <textarea
+            id="sustento"
+            class="campo-control"
+            rows="3"
+            name="sustento"
+            [(ngModel)]="sustento"
+            placeholder="Justifique la modificación del Cuadro Multianual de Necesidades"
+          ></textarea>
+        </div>
+
+        <!-- Ítems -->
         <section class="seccion">
           <div class="contenido-cabecera">
             <div>
               <h3 class="contenido-titulo">Ítems de la modificación</h3>
               <p class="contenido-subtitulo">
-                Registre exclusión o inclusión por ítem, no ambas. Complete cantidad y valor del grupo elegido.
+                Por cada ítem un solo movimiento: inclusión, exclusión o
+                modificación. Las inclusiones se buscan en el catálogo de SIGA;
+                las exclusiones y modificaciones se eligen del cuadro vigente.
               </p>
             </div>
             <div class="cabecera-opciones">
-              <button type="button" class="btn btn-app-secundario" (click)="agregarItem()">
-                <i class="mdi mdi-plus" aria-hidden="true"></i>
-                Agregar ítem
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarItem()">
+                <i class="mdi mdi-plus" aria-hidden="true"></i> Agregar ítem
               </button>
             </div>
           </div>
 
-          <div class="table-responsive">
-            <table class="table tabla-formulario">
-              <thead>
-                <tr>
-                  <th>N.°</th>
-                  <th>Código</th>
-                  <th>Descripción</th>
-                  <th>Unidad de medida</th>
-                  <th>Exclusión - cantidad</th>
-                  <th>Exclusión - valor (S/)</th>
-                  <th>Inclusión - cantidad</th>
-                  <th>Inclusión - valor (S/)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let item of itemsModificacion; let i = index">
-                  <td class="celda-numero">{{ i + 1 }}</td>
-                  <td>
-                    <input type="text" class="campo-control" [(ngModel)]="item.codigo" [name]="'codigo' + i" />
-                  </td>
-                  <td>
-                    <input type="text" class="campo-control" [(ngModel)]="item.descripcion" [name]="'descripcion' + i" />
-                  </td>
-                  <td>
-                    <input type="text" class="campo-control" [(ngModel)]="item.unidadMedida" [name]="'unidad' + i" />
-                  </td>
-                  <td>
-                    <input type="text" class="campo-control" [(ngModel)]="item.exclusionCantidad" [name]="'excCant' + i" />
-                  </td>
-                  <td>
-                    <input type="text" class="campo-control" [(ngModel)]="item.exclusionValor" [name]="'excValor' + i" />
-                  </td>
-                  <td>
-                    <input type="text" class="campo-control" [(ngModel)]="item.inclusionCantidad" [name]="'incCant' + i" />
-                  </td>
-                  <td>
-                    <input type="text" class="campo-control" [(ngModel)]="item.inclusionValor" [name]="'incValor' + i" />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="registro-item" *ngFor="let item of items; let i = index">
+            <div class="registro-item__cabecera">
+              <span class="registro-item__numero">Ítem {{ i + 1 }}</span>
+
+              <select
+                class="campo-control campo-control--inline"
+                [(ngModel)]="item.TipoMovimiento"
+                [name]="'movimiento' + i"
+                (change)="cambiarMovimiento(item)"
+              >
+                <option value="INCLUSION">Inclusión</option>
+                <option value="EXCLUSION">Exclusión</option>
+                <option value="MODIFICACION">Modificación</option>
+              </select>
+
+              <span class="registro-item__total">
+                Total S/ {{ totalItem(item) | number: '1.2-2' }}
+              </span>
+
+              <button
+                type="button"
+                class="btn-icon-outline"
+                title="Quitar ítem"
+                (click)="quitarItem(i)"
+              >
+                <i class="mdi mdi-trash-can-outline" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <!-- Identificación del bien o servicio -->
+            <div class="registro-item__bloque">
+              <ng-container *ngIf="item.TipoMovimiento === 'INCLUSION'">
+                <div class="campo-grupo">
+                  <input
+                    type="text"
+                    class="campo-control"
+                    placeholder="Buscar en el catálogo de SIGA por descripción"
+                    [(ngModel)]="item.textoBusqueda"
+                    [name]="'busqueda' + i"
+                    (keyup.enter)="buscarCatalogo(item)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-app-secundario"
+                    [disabled]="item.buscando"
+                    (click)="buscarCatalogo(item)"
+                  >
+                    <i
+                      class="mdi"
+                      [ngClass]="item.buscando ? 'mdi-loading mdi-spin' : 'mdi-magnify'"
+                      aria-hidden="true"
+                    ></i>
+                    Buscar
+                  </button>
+                </div>
+
+                <ul class="registro-resultados" *ngIf="item.resultados.length">
+                  <li *ngFor="let fila of item.resultados" (click)="elegirCatalogo(item, fila)">
+                    <span class="registro-resultados__codigo">{{ fila.CodigoItem }}</span>
+                    <span class="registro-resultados__desc">{{ fila.Descripcion }}</span>
+                    <span class="registro-resultados__precio">
+                      S/ {{ fila.PrecioRef | number: '1.2-2' }}
+                    </span>
+                  </li>
+                </ul>
+              </ng-container>
+
+              <ng-container *ngIf="item.TipoMovimiento !== 'INCLUSION'">
+                <button type="button" class="btn btn-app-secundario btn-sm" (click)="abrirCuadro(i)">
+                  <i class="mdi mdi-table-search" aria-hidden="true"></i>
+                  Elegir del cuadro vigente
+                </button>
+              </ng-container>
+
+              <div class="registro-seleccion" *ngIf="item.CodigoItem">
+                <i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
+                <b>{{ item.CodigoItem }}</b> · {{ item.Descripcion }}
+                <ng-container *ngIf="item.RefSecCuadro">
+                  · cuadro {{ item.RefSecCuadro }}/{{ item.RefSecItem }}
+                </ng-container>
+              </div>
+            </div>
+
+            <!-- Clasificación presupuestal -->
+            <div class="registro-item__grilla">
+              <div class="campo">
+                <label class="campo-etiqueta">Tarea</label>
+                <select
+                  class="campo-control"
+                  [ngModel]="claveTareaItem(item)"
+                  [name]="'tarea' + i"
+                  (ngModelChange)="elegirTarea(item, $event)"
+                >
+                  <option value="null|null|null">Seleccione…</option>
+                  <option *ngFor="let tarea of tareas" [value]="claveTarea(tarea)">
+                    {{ tarea.CodigoTarea }} · {{ tarea.NombreTarea }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="campo">
+                <label class="campo-etiqueta">Meta</label>
+                <select class="campo-control" [(ngModel)]="item.SecFunc" [name]="'meta' + i">
+                  <option [ngValue]="null">Seleccione…</option>
+                  <option *ngFor="let meta of metas" [ngValue]="meta.SecFunc">
+                    {{ meta.SecFunc }} · {{ meta.Nombre }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="campo">
+                <label class="campo-etiqueta">Fuente de financiamiento</label>
+                <select
+                  class="campo-control"
+                  [ngModel]="claveFuenteItem(item)"
+                  [name]="'fuente' + i"
+                  (ngModelChange)="elegirFuente(item, $event)"
+                >
+                  <option value="|">Seleccione…</option>
+                  <option *ngFor="let fuente of fuentes" [value]="claveFuente(fuente)">
+                    {{ fuente.Origen }}-{{ fuente.FuenteFinanc }} · {{ fuente.Descripcion }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="campo">
+                <label class="campo-etiqueta">Clasificador</label>
+                <input
+                  type="text"
+                  class="campo-control"
+                  [(ngModel)]="item.Clasificador"
+                  [name]="'clasificador' + i"
+                />
+              </div>
+
+              <div class="campo">
+                <label class="campo-etiqueta">Precio unitario S/</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  class="campo-control"
+                  [(ngModel)]="item.PrecioUnitario"
+                  [name]="'precio' + i"
+                />
+              </div>
+
+              <div class="campo">
+                <label class="campo-etiqueta">Mes de imputación</label>
+                <select class="campo-control" [(ngModel)]="item.Mes" [name]="'mes' + i">
+                  <option *ngFor="let mes of meses" [ngValue]="mes.valor">{{ mes.nombre }}</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Cantidades por año -->
+            <div class="registro-anios">
+              <div class="campo" *ngFor="let anio of anios; let a = index">
+                <label class="campo-etiqueta">Cantidad {{ anio }}</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  class="campo-control"
+                  [(ngModel)]="item.Cantidades[a]"
+                  [name]="'cantidad' + i + '_' + a"
+                />
+              </div>
+            </div>
           </div>
         </section>
+      </div>
+
+      <div class="modal-footer">
+        <span class="modal-footer__info">
+          Total de la solicitud: <b>S/ {{ totalSolicitud | number: '1.2-2' }}</b>
+        </span>
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cancelar</button>
+        <button
+          type="button"
+          class="btn btn-app-primary"
+          [disabled]="guardando"
+          (click)="guardar()"
+        >
+          <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
+          Registrar Anexo 3
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Selector del cuadro vigente -->
+<div
+  class="modal-fondo modal-fondo--sobre"
+  *ngIf="eligiendoCuadro !== null"
+  (click)="eligiendoCuadro = null"
+  role="presentation"
+>
+  <div class="modal-app-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">Cuadro vigente</h2>
+          <p class="modal-subtitulo">
+            Ítems programados del centro de costo {{ centroCosto }}. Elija el que
+            desea excluir o modificar.
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" (click)="eligiendoCuadro = null">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo">
+        <input
+          type="text"
+          class="campo-control"
+          placeholder="Filtrar por código de ítem"
+          [(ngModel)]="filtroCuadro"
+          name="filtroCuadro"
+        />
+
+        <div class="table-responsive">
+          <table class="table scm-table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Cuadro/Ítem</th>
+                <th class="text-end">P. unit.</th>
+                <th class="text-end" *ngFor="let anio of anios">{{ anio }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let fila of cuadroFiltrado">
+                <td>{{ fila.CodigoItem }}</td>
+                <td class="cell-muted">{{ fila.SecCuadro }}/{{ fila.SecItem }}</td>
+                <td class="text-end">{{ fila.PrecioUnit | number: '1.2-2' }}</td>
+                <td class="text-end">{{ fila.CantAno0 | number: '1.0-2' }}</td>
+                <td class="text-end">{{ fila.CantAno1 | number: '1.0-2' }}</td>
+                <td class="text-end">{{ fila.CantAno2 | number: '1.0-2' }}</td>
+                <td class="text-end">{{ fila.CantAno3 | number: '1.0-2' }}</td>
+                <td>
+                  <button
+                    type="button"
+                    class="btn btn-app-primary btn-sm"
+                    (click)="elegirCuadro(fila)"
+                  >
+                    Elegir
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="cuadroFiltrado.length === 0">
+                <td colspan="8" class="cell-muted">
+                  Sin ítems en el cuadro vigente para este centro de costo.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

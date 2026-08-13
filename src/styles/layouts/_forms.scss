@@ -157,3 +157,36 @@ input[type='checkbox']{
 .form-group {
   margin-bottom: 1rem;
 }
+
+// =============================================================================
+// Campo con botón adosado (buscar, seleccionar, adjuntar)
+// =============================================================================
+// El campo se estira y el botón conserva su ancho. Lo que resuelve, y por lo que
+// vive aquí y no en el .scss de una pantalla: el botón toma la MISMA altura que
+// .campo-control (42px), de modo que no queda descuadrado junto al campo. Un
+// .btn-sm dentro de un grupo se ve más bajo que el campo y desalinea la fila.
+.campo-grupo {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+
+  .campo-control {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  .btn {
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding: 0.55rem 1.25rem !important;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .campo-grupo .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -110,6 +110,53 @@
   padding: 1.5rem !important;
 }
 
+// ----- Pie del modal -----
+// El sistema .modal-app no lo tenía definido y heredaba el .modal-footer de
+// Bootstrap, pensado para .modal y sin espaciado propio aquí: los botones
+// quedaban pegados al borde. Se define con la misma métrica que la cabecera
+// (1.25rem 1.5rem) para que las tres bandas del modal —cabecera, cuerpo y pie—
+// compartan el mismo margen.
+.modal-app .modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 1.25rem 1.5rem !important;
+  background-color: #f8fafc !important;
+  border-top: 1px solid #eef2f7 !important;
+
+  // Bootstrap le pone margen a cada hijo del footer; con gap sobra y descuadra
+  // la separación entre los botones.
+  > * {
+    margin: 0;
+  }
+}
+
+// Texto informativo que empuja los botones a la derecha (ej. el total de la
+// solicitud). Se declara aquí porque es un patrón de pie, no de una pantalla.
+.modal-footer__info {
+  margin-right: auto !important;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+@media (max-width: 575.98px) {
+  .modal-app .modal-footer {
+    padding: 1rem 1.15rem !important;
+
+    .btn {
+      width: 100%;
+    }
+  }
+
+  .modal-footer__info {
+    width: 100%;
+    margin-bottom: 0.35rem;
+  }
+}
+
 // Formulario en grilla
 .formulario-grilla {
   display: grid;

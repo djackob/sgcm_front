@@ -2,6 +2,13 @@ export interface AppConfig {
   env: string;
   apiUrl: string;
   profile: any[];
+  /**
+   * Unidad ejecutora en SIGA (SEC_EJEC). Toda consulta a SIGA va filtrada por
+   * ella; consultar SIGA sin filtro está prohibido. Es configuración de
+   * despliegue, no una constante del código: cambia entre la copia local y
+   * producción.
+   */
+  secEjec: number;
   firma: {
     ruta_logo: '';
     ruta_js: '';

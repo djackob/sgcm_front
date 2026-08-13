@@ -1,8 +1,9 @@
 {
-  "env": "production",
-  "apiUrl": "http://192.168.40.72:9004/",
-  "profile": [
-    
-  ],
+  "env": "local",
+  "//apiUrl": "Backend del SIGCM. En el ambiente de la ANIN: http://192.168.40.72:9004/",
+  "apiUrl": "http://localhost:5120/",
+  "//secEjec": "Unidad ejecutora en SIGA. La copia local es SIGA_1750.",
+  "secEjec": 1750,
+  "profile": [],
   "MAX_SIZE_UPLOAD": 1073741824
 }

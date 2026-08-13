@@ -1,0 +1,224 @@
+<div class="modal-fondo" *ngIf="abierto" (click)="cerrar()" role="presentation">
+  <div
+    class="modal-app-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalDetalle"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 id="tituloModalDetalle" class="modal-titulo">
+            {{ resumen?.Codigo }}
+          </h2>
+          <p class="modal-subtitulo">
+            Anexo N.º 03 · Solicitud de modificación del CMN
+            <span class="status-pill status-pill--info" *ngIf="detalle">
+              {{ detalle.Estado }}
+            </span>
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <nav class="detalle-tabs">
+        <button
+          type="button"
+          [class.detalle-tabs__activo]="pestana === 'anexo3'"
+          (click)="pestana = 'anexo3'"
+        >
+          Anexo 3
+        </button>
+        <button
+          type="button"
+          [class.detalle-tabs__activo]="pestana === 'trazabilidad'"
+          (click)="pestana = 'trazabilidad'"
+        >
+          Trazabilidad
+          <span class="detalle-tabs__conteo" *ngIf="observaciones.length">
+            {{ observaciones.length }}
+          </span>
+        </button>
+      </nav>
+
+      <div class="modal-cuerpo">
+        <div class="cmn-cargando" *ngIf="cargando">
+          <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando expediente…
+        </div>
+
+        <!-- Anexo 3 -->
+        <ng-container *ngIf="!cargando && pestana === 'anexo3' && detalle">
+          <div class="detalle-ficha">
+            <div>
+              <span class="detalle-ficha__etiqueta">Área usuaria</span>
+              <span class="detalle-ficha__valor">
+                {{ detalle.CentroCostoNombre }} ({{ detalle.CentroCosto }})
+              </span>
+            </div>
+            <div>
+              <span class="detalle-ficha__etiqueta">Responsable</span>
+              <span class="detalle-ficha__valor">{{ detalle.Responsable }}</span>
+            </div>
+            <div>
+              <span class="detalle-ficha__etiqueta">Fecha de solicitud</span>
+              <span class="detalle-ficha__valor">{{ detalle.FechaSolicitud }}</span>
+            </div>
+            <div>
+              <span class="detalle-ficha__etiqueta">Año de ejecución</span>
+              <span class="detalle-ficha__valor">{{ detalle.AnoEje }}</span>
+            </div>
+            <div>
+              <span class="detalle-ficha__etiqueta">Versión</span>
+              <span class="detalle-ficha__valor">{{ detalle.Version }}</span>
+            </div>
+            <div>
+              <span class="detalle-ficha__etiqueta">Tipo de inclusión</span>
+              <span class="detalle-ficha__valor">{{ detalle.TipoInclusion || '—' }}</span>
+            </div>
+          </div>
+
+          <section class="seccion">
+            <h3 class="contenido-titulo">Sustento</h3>
+            <p class="detalle-sustento">{{ detalle.Sustento }}</p>
+          </section>
+
+          <section class="seccion">
+            <div class="contenido-cabecera">
+              <div>
+                <h3 class="contenido-titulo">Ítems de la modificación</h3>
+                <p class="contenido-subtitulo">
+                  Cantidades por año del cuadro multianual. Cada ítem lleva un solo
+                  movimiento: inclusión, exclusión o modificación.
+                </p>
+              </div>
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="imprimir()">
+                <i class="mdi mdi-printer-outline" aria-hidden="true"></i> Imprimir
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table scm-table">
+                <thead>
+                  <tr>
+                    <th>N.°</th>
+                    <th>Movimiento</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>UM</th>
+                    <th class="text-end">P. unitario</th>
+                    <th class="text-end" *ngFor="let anio of anios">{{ anio }}</th>
+                    <th class="text-end">Total S/</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of detalle.Items">
+                    <td>{{ item.Orden }}</td>
+                    <td>
+                      <span
+                        class="status-pill"
+                        [ngClass]="item.TipoMovimiento === 'INCLUSION'
+                          ? 'status-pill--success'
+                          : item.TipoMovimiento === 'EXCLUSION'
+                            ? 'status-pill--warning'
+                            : 'status-pill--info'"
+                      >
+                        {{ item.TipoMovimiento | titlecase }}
+                      </span>
+                    </td>
+                    <td>{{ item.CodigoItem }}</td>
+                    <td>{{ item.Descripcion }}</td>
+                    <td>{{ item.UnidadAbreviatura }}</td>
+                    <td class="text-end">{{ item.PrecioUnitario | number: '1.2-2' }}</td>
+                    <td class="text-end" *ngFor="let anio of anios; let i = index">
+                      {{ cantidadAnio(item, i) | number: '1.0-2' }}
+                    </td>
+                    <td class="text-end"><b>{{ item.MontoTotal | number: '1.2-2' }}</b></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </ng-container>
+
+        <!-- Trazabilidad -->
+        <ng-container *ngIf="!cargando && pestana === 'trazabilidad'">
+          <section class="seccion">
+            <h3 class="contenido-titulo">Historial</h3>
+            <ol class="linea-tiempo">
+              <li *ngFor="let paso of historial">
+                <span class="linea-tiempo__punto"></span>
+                <div class="linea-tiempo__cuerpo">
+                  <span class="linea-tiempo__titulo">
+                    {{ paso.CodigoEstadoOrigen || 'Inicio' }} → {{ paso.CodigoEstadoDestino }}
+                  </span>
+                  <span class="linea-tiempo__meta">
+                    {{ paso.Actor }} · {{ paso.ActorRol }} · {{ paso.Unidad }} ·
+                    {{ paso.OcurridoEn | date: 'dd/MM/yyyy HH:mm' }}
+                  </span>
+                  <p class="linea-tiempo__comentario" *ngIf="paso.Comentario">
+                    {{ paso.Comentario }}
+                  </p>
+                </div>
+              </li>
+              <li *ngIf="historial.length === 0" class="cell-muted">Sin movimientos registrados.</li>
+            </ol>
+          </section>
+
+          <section class="seccion" *ngIf="observaciones.length">
+            <h3 class="contenido-titulo">Observaciones</h3>
+            <div class="observacion" *ngFor="let obs of observaciones">
+              <div class="observacion__cabecera">
+                <span class="status-pill status-pill--warning">{{ obs.Estado }}</span>
+                <span class="cell-muted">
+                  Origen {{ obs.CodigoRolOrigen }} · retorna a {{ obs.CodigoEstadoRetorno }}
+                </span>
+              </div>
+              <p class="observacion__motivo">{{ obs.Motivo }}</p>
+              <p class="observacion__respuesta" *ngIf="obs.Respuesta">
+                <b>Subsanación:</b> {{ obs.Respuesta }}
+              </p>
+            </div>
+          </section>
+
+          <section class="seccion" *ngIf="integracion.length">
+            <h3 class="contenido-titulo">Cola hacia SIGA</h3>
+            <p class="contenido-subtitulo">
+              Operaciones encoladas por las transiciones que escriben en SIGA.
+            </p>
+            <div class="table-responsive">
+              <table class="table scm-table">
+                <thead>
+                  <tr>
+                    <th>Sec.</th>
+                    <th>Operación</th>
+                    <th>Estado</th>
+                    <th>Modo</th>
+                    <th>Intentos</th>
+                    <th>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let op of integracion">
+                    <td>{{ op.Secuencia }}</td>
+                    <td>{{ op.Operacion }}</td>
+                    <td>{{ op.Estado }}</td>
+                    <td>{{ op.ModoEjecucion }}</td>
+                    <td>{{ op.Intentos }}/{{ op.MaxIntentos }}</td>
+                    <td class="cell-muted">{{ op.ErrorMensaje || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </ng-container>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>

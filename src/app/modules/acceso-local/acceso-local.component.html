@@ -1,0 +1,74 @@
+<div class="acceso-local">
+  <div class="acceso-local__panel">
+    <header class="acceso-local__cabecera">
+      <span class="acceso-local__marca">SIGCM</span>
+      <h1 class="acceso-local__titulo">Ingreso de pruebas</h1>
+      <p class="acceso-local__subtitulo">
+        Sistema de Gestión de Contrataciones Menores · Autoridad Nacional de Infraestructura
+      </p>
+      <p class="acceso-local__aviso">
+        <i class="mdi mdi-information-outline" aria-hidden="true"></i>
+        Ambiente local sin SSO. Elija con qué perfil desea recorrer el flujo; cada
+        fila es una terna usuario · rol · unidad vigente.
+      </p>
+    </header>
+
+    <div class="acceso-local__estado" *ngIf="cargando">
+      <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando perfiles…
+    </div>
+
+    <div class="acceso-local__error" *ngIf="!cargando && error">
+      <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
+      <span>{{ error }}</span>
+      <button type="button" class="btn btn-app-secundario btn-sm" (click)="cargarPerfiles()">
+        Reintentar
+      </button>
+    </div>
+
+    <ul class="acceso-local__lista" *ngIf="!cargando && perfiles.length">
+      <li class="acceso-local__item" *ngFor="let perfil of perfiles">
+        <button
+          type="button"
+          class="acceso-local__boton"
+          [disabled]="ingresando !== ''"
+          (click)="ingresar(perfil)"
+        >
+          <span class="acceso-local__avatar">{{ perfil.Sigla || '—' }}</span>
+
+          <span class="acceso-local__datos">
+            <span class="acceso-local__rol">{{ perfil.Rol }}</span>
+            <span class="acceso-local__persona">
+              {{ perfil.NombreCompleto }} · {{ perfil.Cuenta }}
+            </span>
+            <span class="acceso-local__unidad">
+              {{ perfil.Unidad }}
+              <ng-container *ngIf="perfil.CentroCosto">
+                · Centro de costo {{ perfil.CentroCosto }}
+              </ng-container>
+            </span>
+          </span>
+
+          <span class="acceso-local__marcas">
+            <span class="status-pill status-pill--success" *ngIf="perfil.EsTitular">Titular</span>
+            <span class="status-pill status-pill--neutral" *ngFor="let modulo of perfil.Modulos">
+              {{ modulo.Nombre }}
+            </span>
+          </span>
+
+          <span class="acceso-local__accion">
+            <i
+              class="mdi"
+              [ngClass]="ingresando === clave(perfil) ? 'mdi-loading mdi-spin' : 'mdi-chevron-right'"
+              aria-hidden="true"
+            ></i>
+          </span>
+        </button>
+      </li>
+    </ul>
+
+    <footer class="acceso-local__pie">
+      Los perfiles salen de <code>sigcm.Usuario</code> y <code>sigcm.UsuarioRol</code>.
+      Para agregar más, edite <code>db/90_pruebas/S900__datos_prueba.sql</code>.
+    </footer>
+  </div>
+</div>
