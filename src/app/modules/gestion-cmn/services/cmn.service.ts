@@ -69,22 +69,31 @@ export class CmnService {
   /* Documentos                                                             */
   /* ---------------------------------------------------------------------- */
 
+  /** Documentos del expediente con su versión vigente y si este rol puede firmar. */
   listarDocumento(idExpediente: string): Observable<any> {
     return this.apiService.GET('api/sigcm/listarDocumento', { IdExpediente: idExpediente });
   }
 
-  registrarDocumento(datos: {
-    IdExpediente: string;
-    CodigoTipoDocumento: string;
-    GeneradoDocumento: string;
-    NombreDocumento: string;
-    ArchivoHash?: string | null;
-    Payload?: any;
-    MotivoVersion?: string | null;
-  }): Observable<any> {
-    return this.apiService.POST('api/sigcm/registrarDocumento', datos);
+  /**
+   * Registra el PDF ya subido al file server.
+   * El orden es: subir el archivo, y recién entonces registrar su URL aquí.
+   */
+  registrarDocumento(idExpediente: string, codigoTipoDocumento: string,
+                     generadoDocumento: string, nombreDocumento: string,
+                     payload: any = null): Observable<any> {
+    return this.apiService.POST('api/sigcm/registrarDocumento', {
+      IdExpediente: idExpediente,
+      CodigoTipoDocumento: codigoTipoDocumento,
+      GeneradoDocumento: generadoDocumento,
+      NombreDocumento: nombreDocumento,
+      Payload: payload
+    });
   }
 
+  /**
+   * Firma la versión vigente. No mueve el expediente: la acción del flujo se
+   * ejecuta después con `ejecutarTransicion`, que comprueba que esté firmado.
+   */
   firmarDocumento(idExpediente: string, codigoTipoDocumento: string): Observable<any> {
     return this.apiService.POST('api/sigcm/firmarDocumento', {
       IdExpediente: idExpediente,

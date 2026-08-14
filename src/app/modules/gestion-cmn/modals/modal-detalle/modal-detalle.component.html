@@ -92,6 +92,39 @@
             <p class="detalle-sustento">{{ detalle.Sustento }}</p>
           </section>
 
+          <!-- Documentos del expediente -->
+          <section class="seccion" *ngIf="documentos.length">
+            <h3 class="contenido-titulo">Documentos</h3>
+            <p class="contenido-subtitulo">
+              El PDF se genera al ejecutar la acción del flujo y queda guardado en
+              el servidor de archivos.
+            </p>
+            <ul class="lista-documentos">
+              <li *ngFor="let doc of documentos">
+                <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+                <span class="lista-documentos__nombre">
+                  {{ doc.TipoDocumento }}
+                  <small>versión {{ doc.Version }} · {{ doc.NombreDocumento }}</small>
+                </span>
+                <span
+                  class="status-pill"
+                  [ngClass]="doc.Estado === 'FIRMADO' ? 'status-pill--success' : 'status-pill--neutral'"
+                >
+                  {{ doc.Estado | titlecase }}
+                </span>
+                <a
+                  *ngIf="doc.GeneradoDocumento"
+                  [href]="doc.GeneradoDocumento"
+                  target="_blank"
+                  class="btn-icon-outline"
+                  title="Abrir el documento"
+                >
+                  <i class="mdi mdi-open-in-new" aria-hidden="true"></i>
+                </a>
+              </li>
+            </ul>
+          </section>
+
           <section class="seccion">
             <div class="contenido-cabecera">
               <div>

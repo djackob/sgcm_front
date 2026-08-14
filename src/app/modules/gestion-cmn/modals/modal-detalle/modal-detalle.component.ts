@@ -42,6 +42,8 @@ export class ModalDetalleComponent {
   historial: HistorialCmn[] = [];
   observaciones: ObservacionCmn[] = [];
   integracion: OperacionIntegracionCmn[] = [];
+  /** Documentos del expediente con su versión vigente. */
+  documentos: any[] = [];
 
   /** Los cuatro años del cuadro multianual, rotulados desde el año de ejecución. */
   get anios(): number[] {
@@ -101,6 +103,12 @@ export class ModalDetalleComponent {
           this.observaciones = respuesta.Observaciones || [];
           this.integracion = respuesta.Integracion || [];
         }
+      }
+    });
+
+    this.cmnService.listarDocumento(solicitud.IdExpediente).subscribe({
+      next: (respuesta: any) => {
+        this.documentos = respuesta?.estado === 1 ? (respuesta.Documentos || []) : [];
       }
     });
   }

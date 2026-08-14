@@ -11,6 +11,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { PaginationModule } from 'ngx-bootstrap/pagination';
 import { btnWavesDirective } from './directives/btn-waves.directive';
 import { BsDatepickerModule } from 'ngx-bootstrap/datepicker';
+import { InputArchivosComponent } from './components/input-archivos/input-archivos.component';
 
 @NgModule({
   declarations: [
@@ -18,6 +19,10 @@ import { BsDatepickerModule } from 'ngx-bootstrap/datepicker';
     OnlyNumberDirective,
     CountCharactersDirective,
     btnWavesDirective,
+    // Se declara aqui y no es standalone porque llego desde otro sistema de la
+    // casa con esa forma. Los componentes propios del SIGCM si son standalone;
+    // para usarlo desde uno de ellos se importa SharedModule.
+    InputArchivosComponent,
   ],
   imports: [
     CommonModule,
@@ -41,6 +46,7 @@ import { BsDatepickerModule } from 'ngx-bootstrap/datepicker';
     TabsModule,
     PaginationModule,
     BsDatepickerModule,
+    InputArchivosComponent,
   ]
 })
 export class SharedModule { }
