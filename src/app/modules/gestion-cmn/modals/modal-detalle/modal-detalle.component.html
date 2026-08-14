@@ -51,6 +51,13 @@
 
         <!-- Anexo 3 -->
         <ng-container *ngIf="!cargando && pestana === 'anexo3' && detalle">
+          <div class="observacion" *ngIf="observacionVigente">
+            <div class="observacion__cabecera">
+              <span class="status-pill status-pill--warning">Observación</span>
+              <span class="cell-muted">Origen {{ observacionVigente.CodigoRolOrigen }}</span>
+            </div>
+            <p class="observacion__motivo">{{ observacionVigente.Motivo }}</p>
+          </div>
           <div class="detalle-ficha">
             <div>
               <span class="detalle-ficha__etiqueta">Área usuaria</span>
@@ -218,6 +225,33 @@
 
       <div class="modal-footer">
         <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cerrar</button>
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          *ngIf="puedeEditar"
+          (click)="emitirEditar()"
+        >
+          <i class="mdi mdi-pencil-outline" aria-hidden="true"></i>
+          Editar
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          *ngIf="puedeEditar || puedeFirmar"
+          (click)="emitirPdf()"
+        >
+          <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+          Ver Anexo 3 (PDF)
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-primary"
+          *ngIf="puedeFirmar"
+          (click)="emitirFirmar()"
+        >
+          <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
+          Firmar Anexo 3
+        </button>
       </div>
     </div>
   </div>

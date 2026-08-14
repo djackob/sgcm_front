@@ -50,17 +50,46 @@ export class CmnService {
    * entretanto, la rutina responde CONFLICTO en vez de pisar ese cambio.
    */
   ejecutarTransicion(idExpediente: string, codigoTransicion: string,
-                     version: number, comentario: string | null = null): Observable<any> {
+                     version: number, comentario: string | null = null,
+                     tipoInclusion: string | null = null): Observable<any> {
     return this.apiService.POST('api/sigcm/ejecutarTransicion', {
       IdExpediente: idExpediente,
       CodigoTransicion: codigoTransicion,
       Version: version,
-      Comentario: comentario
+      Comentario: comentario,
+      TipoInclusion: tipoInclusion
     });
   }
 
   obtenerTrazabilidad(idExpediente: string): Observable<any> {
     return this.apiService.GET('api/sigcm/obtenerTrazabilidad', { IdExpediente: idExpediente });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Documentos                                                             */
+  /* ---------------------------------------------------------------------- */
+
+  listarDocumento(idExpediente: string): Observable<any> {
+    return this.apiService.GET('api/sigcm/listarDocumento', { IdExpediente: idExpediente });
+  }
+
+  registrarDocumento(datos: {
+    IdExpediente: string;
+    CodigoTipoDocumento: string;
+    GeneradoDocumento: string;
+    NombreDocumento: string;
+    ArchivoHash?: string | null;
+    Payload?: any;
+    MotivoVersion?: string | null;
+  }): Observable<any> {
+    return this.apiService.POST('api/sigcm/registrarDocumento', datos);
+  }
+
+  firmarDocumento(idExpediente: string, codigoTipoDocumento: string): Observable<any> {
+    return this.apiService.POST('api/sigcm/firmarDocumento', {
+      IdExpediente: idExpediente,
+      CodigoTipoDocumento: codigoTipoDocumento
+    });
   }
 
   /* ---------------------------------------------------------------------- */

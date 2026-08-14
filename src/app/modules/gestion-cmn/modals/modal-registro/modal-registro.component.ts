@@ -61,6 +61,10 @@ export class ModalRegistroComponent {
   abierto = false;
   guardando = false;
   cargandoMaestros = false;
+  cargandoEdicion = false;
+  modoEdicion = false;
+  idSolicitudEdicion: string | null = null;
+  codigoEdicion = '';
 
   /* Cabecera */
   anoEje = new Date().getFullYear();
@@ -105,6 +109,11 @@ export class ModalRegistroComponent {
     const info = this.sesion.getInfoUsuario();
     const detalle = info?.detalle?.[0];
 
+    this.modoEdicion = false;
+    this.idSolicitudEdicion = null;
+    this.codigoEdicion = '';
+    this.cargandoEdicion = false;
+
     this.centroCosto = centroCosto || detalle?.centro_costo || '';
     this.centroCostoNombre = detalle?.dependencia || '';
     this.responsable = [info?.nombre, info?.apellido_paterno].filter(Boolean).join(' ');
@@ -117,6 +126,95 @@ export class ModalRegistroComponent {
     this.abierto = true;
 
     this.cargarMaestros();
+  }
+
+  /**
+   * Abre el mismo formulario del Anexo 3 con los datos ya registrados, para
+   * subsanar una observación. El estado del expediente no cambia hasta que el
+   * jefe firma de nuevo.
+   */
+  abrirEdicion(idSolicitud: string): void {
+    const info = this.sesion.getInfoUsuario();
+    const detalle = info?.detalle?.[0];
+
+    this.modoEdicion = true;
+    this.idSolicitudEdicion = idSolicitud;
+    this.codigoEdicion = '';
+    this.cargandoEdicion = true;
+
+    this.centroCosto = detalle?.centro_costo || '';
+    this.centroCostoNombre = detalle?.dependencia || '';
+    this.responsable = [info?.nombre, info?.apellido_paterno].filter(Boolean).join(' ');
+    this.cargo = info?.cargo || detalle?.perfil?.[0]?.perfil || '';
+    this.sustento = '';
+    this.items = [crearItemFormularioCmn()];
+    this.eligiendoCuadro = null;
+    this.abierto = true;
+
+    this.cmnService.obtenerSolicitud(idSolicitud).subscribe({
+      next: (respuesta: any) => {
+        this.cargandoEdicion = false;
+        if (respuesta?.estado !== 1) {
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible cargar la solicitud.');
+          this.abierto = false;
+          return;
+        }
+
+        this.codigoEdicion = respuesta.Codigo || '';
+        this.anoEje = respuesta.AnoEje || this.anoEje;
+        this.centroCosto = respuesta.CentroCosto || this.centroCosto;
+        this.centroCostoNombre = respuesta.CentroCostoNombre || this.centroCostoNombre;
+        this.sustento = respuesta.Sustento || '';
+        this.items = this.itemsDesdeDetalle(respuesta.Items || []);
+        this.cargarMaestros();
+      },
+      error: () => {
+        this.cargandoEdicion = false;
+        this.abierto = false;
+        this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
+      }
+    });
+  }
+
+  private itemsDesdeDetalle(filas: any[]): ItemFormularioCmn[] {
+    if (!filas.length) {
+      return [crearItemFormularioCmn()];
+    }
+
+    return filas.map(fila => {
+      const item = crearItemFormularioCmn();
+      const partes = String(fila.CodigoItem || '').split('.');
+
+      item.TipoMovimiento = fila.TipoMovimiento || 'INCLUSION';
+      item.CodigoItem = fila.CodigoItem || '';
+      item.Descripcion = fila.Descripcion || '';
+      item.UnidadAbreviatura = fila.UnidadAbreviatura || '';
+      item.PrecioUnitario = fila.PrecioUnitario ?? null;
+      item.TipoTarea = fila.TipoTarea || '';
+      item.NivelTarea = fila.NivelTarea || '';
+      item.CodigoTarea = fila.CodigoTarea ?? null;
+      item.SecFunc = fila.SecFunc ?? null;
+      item.Origen = fila.Origen || '';
+      item.FuenteFinanc = fila.FuenteFinanc || '';
+      item.Clasificador = fila.Clasificador || '';
+      item.TipoUso = fila.TipoUso || 'C';
+      item.TipoBien = fila.TipoBien || partes[0] || '';
+      item.GrupoBien = fila.GrupoBien || partes[1] || '';
+      item.ClaseBien = fila.ClaseBien || partes[2] || '';
+      item.FamiliaBien = fila.FamiliaBien || partes[3] || '';
+      item.ItemBien = fila.ItemBien || partes[4] || '';
+      item.RefSecCuadro = fila.RefSecCuadro ?? null;
+      item.RefSecItem = fila.RefSecItem ?? null;
+      item.Cantidades = [
+        fila.CantidadAno0 || null,
+        fila.CantidadAno1 || null,
+        fila.CantidadAno2 || null,
+        fila.CantidadAno3 || null
+      ];
+      const periodo = (fila.Periodos || []).find((p: any) => Number(p.Cantidad) > 0);
+      item.Mes = periodo?.Mes || 1;
+      return item;
+    });
   }
 
   cerrar(): void {
@@ -377,13 +475,17 @@ export class ModalRegistroComponent {
       return;
     }
 
-    const solicitud = {
+    const solicitud: any = {
       AnoEje: this.anoEje,
       SecEjec: this.secEjec,
       CentroCosto: this.centroCosto,
       TipoOperacion: 'MODIFICACION',
       Sustento: this.sustento.trim()
     };
+
+    if (this.modoEdicion && this.idSolicitudEdicion) {
+      solicitud.IdSolicitud = this.idSolicitudEdicion;
+    }
 
     const items = this.items.map(item => ({
       TipoMovimiento: item.TipoMovimiento,
@@ -420,12 +522,14 @@ export class ModalRegistroComponent {
         this.guardando = false;
 
         if (respuesta?.estado !== 1) {
-          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible registrar la solicitud.');
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible guardar la solicitud.');
           return;
         }
 
         this.funciones.mensaje('success',
-          `Se registró la solicitud ${respuesta.Codigo} con ${respuesta.Items} ítem(s).`);
+          this.modoEdicion
+            ? (respuesta.mensaje || `Se actualizó la solicitud ${respuesta.Codigo}.`)
+            : `Se registró la solicitud ${respuesta.Codigo} con ${respuesta.Items} ítem(s).`);
         this.abierto = false;
         this.registrado.emit();
       },

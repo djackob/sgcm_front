@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CmnService } from '../../services/cmn.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
@@ -7,16 +7,15 @@ import {
   ObservacionCmn,
   OperacionIntegracionCmn,
   SolicitudCmn,
-  SolicitudDetalleCmn
+  SolicitudDetalleCmn,
+  TransicionCmn
 } from '../../models/cmn.model';
 
 /**
  * Visor del expediente: el Anexo 3 tal como quedó registrado y su trazabilidad.
  *
- * Es de solo lectura a propósito. Editar una solicitud ya enviada no es una
- * acción de pantalla sino una subsanación, que es una transición de estado con
- * su observación asociada; se ejecuta desde la bandeja como cualquier otra
- * acción del flujo.
+ * Tras una observación, Editar y Firmar viven aquí (como en el mockup), no en
+ * la grilla de la bandeja.
  */
 @Component({
   selector: 'app-modal-detalle',
@@ -27,9 +26,15 @@ import {
 })
 export class ModalDetalleComponent {
 
+  @Output() editar = new EventEmitter<SolicitudCmn>();
+  @Output() firmar = new EventEmitter<{ solicitud: SolicitudCmn; transicion: TransicionCmn }>();
+  @Output() verPdf = new EventEmitter<SolicitudCmn>();
+
   abierto = false;
   cargando = false;
   pestana: 'anexo3' | 'trazabilidad' = 'anexo3';
+  puedeEditar = false;
+  transicionFirmar: TransicionCmn | null = null;
 
   resumen: SolicitudCmn | null = null;
   detalle: SolicitudDetalleCmn | null = null;
@@ -44,18 +49,32 @@ export class ModalDetalleComponent {
     return [base, base + 1, base + 2, base + 3];
   }
 
+  get observacionVigente(): ObservacionCmn | null {
+    return this.observaciones.find(o => o.Estado === 'PENDIENTE' || o.Estado === 'RECEPCIONADA')
+      || null;
+  }
+
+  get puedeFirmar(): boolean {
+    return !!this.transicionFirmar && !!this.resumen;
+  }
+
   constructor(
     private cmnService: CmnService,
     private funciones: Funciones
   ) { }
 
-  abrir(solicitud: SolicitudCmn): void {
+  abrir(
+    solicitud: SolicitudCmn,
+    opciones: { puedeEditar?: boolean; transicionFirmar?: TransicionCmn | null } = {}
+  ): void {
     this.resumen = solicitud;
     this.detalle = null;
     this.historial = [];
     this.observaciones = [];
     this.integracion = [];
     this.pestana = 'anexo3';
+    this.puedeEditar = !!opciones.puedeEditar;
+    this.transicionFirmar = opciones.transicionFirmar || null;
     this.abierto = true;
     this.cargando = true;
 
@@ -68,8 +87,10 @@ export class ModalDetalleComponent {
           this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible obtener la solicitud.');
         }
       },
-      error: () => {
+      error: (error: any) => {
         this.cargando = false;
+        this.funciones.mensaje('error',
+          error?.mensaje || 'No fue posible comunicarse con el servicio.');
       }
     });
 
@@ -86,6 +107,24 @@ export class ModalDetalleComponent {
 
   cerrar(): void {
     this.abierto = false;
+  }
+
+  emitirEditar(): void {
+    if (this.resumen) {
+      this.editar.emit(this.resumen);
+    }
+  }
+
+  emitirFirmar(): void {
+    if (this.resumen && this.transicionFirmar) {
+      this.firmar.emit({ solicitud: this.resumen, transicion: this.transicionFirmar });
+    }
+  }
+
+  emitirPdf(): void {
+    if (this.resumen) {
+      this.verPdf.emit(this.resumen);
+    }
   }
 
   cantidadAnio(item: any, indice: number): number {

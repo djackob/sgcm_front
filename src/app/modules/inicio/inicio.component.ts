@@ -7,7 +7,7 @@ import { Component } from '@angular/core';
   template: `
     <div class="container-componentes p-3">
       <h2>Bienvenido</h2>
-      <p>Sistema de Contrataciones — sesión iniciada correctamente.</p>
+      <p>Sistema de Gestión de Contratos Menores — sesión iniciada correctamente.</p>
     </div>
   `,
 })

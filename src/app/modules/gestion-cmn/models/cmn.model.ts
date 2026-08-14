@@ -72,6 +72,17 @@ export interface ItemSolicitudCmn {
   PrecioUnitario: number;
   SecFunc: number;
   Clasificador: string;
+  TipoTarea?: string;
+  NivelTarea?: string;
+  CodigoTarea?: number | null;
+  Origen?: string;
+  FuenteFinanc?: string;
+  TipoUso?: string;
+  TipoBien?: string;
+  GrupoBien?: string;
+  ClaseBien?: string;
+  FamiliaBien?: string;
+  ItemBien?: string;
   RefSecCuadro: number | null;
   RefSecItem: number | null;
   CantidadAno0: number;

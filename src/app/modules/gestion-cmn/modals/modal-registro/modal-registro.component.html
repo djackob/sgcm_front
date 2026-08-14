@@ -13,9 +13,13 @@
           <h2 id="tituloModalSolicitud" class="modal-titulo">
             Anexo N.º 03 · Solicitud de modificación del CMN
           </h2>
-          <p class="modal-subtitulo">
-            Registre el sustento y los ítems. Al guardar, el expediente queda en
-            borrador y pasa a la firma del Jefe del área usuaria.
+          <p class="modal-subtitulo" *ngIf="!modoEdicion">
+            Registre el sustento y los ítems. Al guardar, el expediente queda
+            pendiente de la firma del Jefe del área usuaria.
+          </p>
+          <p class="modal-subtitulo" *ngIf="modoEdicion">
+            Subsanación{{ codigoEdicion ? ' · ' + codigoEdicion : '' }}.
+            Guarde los cambios y luego firme el Anexo 3. El expediente permanece observado hasta la firma.
           </p>
         </div>
         <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
@@ -44,7 +48,7 @@
           </div>
           <div class="campo">
             <label class="campo-etiqueta" for="anoEje">Año de ejecución</label>
-            <input id="anoEje" type="number" class="campo-control" [(ngModel)]="anoEje" name="anoEje" />
+            <input id="anoEje" type="number" class="campo-control" [(ngModel)]="anoEje" name="anoEje" [readonly]="modoEdicion" />
           </div>
         </div>
 
@@ -263,11 +267,11 @@
         <button
           type="button"
           class="btn btn-app-primary"
-          [disabled]="guardando"
+          [disabled]="guardando || cargandoEdicion"
           (click)="guardar()"
         >
           <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
-          Registrar Anexo 3
+          {{ modoEdicion ? 'Guardar cambios' : 'Registrar Anexo 3' }}
         </button>
       </div>
     </div>

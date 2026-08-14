@@ -146,6 +146,29 @@
 
                 <button
                   type="button"
+                  class="btn-icon-outline btn-anexo btn-anexo--3"
+                  title="Ver Anexo 3 (PDF)"
+                  [disabled]="cargandoPdf"
+                  (click)="verAnexo3Pdf(item)"
+                >
+                  <i class="mdi" [ngClass]="iconoPdfFila(item, 3)" aria-hidden="true"></i>
+                  <span class="btn-anexo__badge">A3</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-icon-outline btn-anexo btn-anexo--4"
+                  *ngIf="puedeVerAnexo4Pdf(item)"
+                  title="Ver Anexo 4 (PDF)"
+                  [disabled]="cargandoPdf"
+                  (click)="verAnexo4Pdf(item)"
+                >
+                  <i class="mdi" [ngClass]="iconoPdfFila(item, 4)" aria-hidden="true"></i>
+                  <span class="btn-anexo__badge">A4</span>
+                </button>
+
+                <button
+                  type="button"
                   class="btn-icon-outline"
                   title="Ver expediente"
                   (click)="verDetalle(item)"
@@ -238,6 +261,47 @@
           </li>
         </ul>
 
+        <div class="cmn-pdf-acciones" *ngIf="muestraPdfAnexo3">
+          <button
+            type="button"
+            class="btn btn-app-secundario"
+            [disabled]="cargandoPdf"
+            (click)="verAnexo3Pdf(accionEnCurso.solicitud)"
+          >
+            <i class="mdi" [ngClass]="cargandoPdf ? 'mdi-loading mdi-spin' : 'mdi-file-pdf-box'" aria-hidden="true"></i>
+            Ver Anexo 3 (PDF)
+          </button>
+        </div>
+
+        <div class="cmn-pdf-acciones" *ngIf="muestraPdfAnexo4">
+          <button
+            type="button"
+            class="btn btn-app-secundario"
+            [disabled]="cargandoPdf"
+            (click)="verAnexo4Pdf(accionEnCurso.solicitud)"
+          >
+            <i class="mdi" [ngClass]="cargandoPdf ? 'mdi-loading mdi-spin' : 'mdi-file-pdf-box'" aria-hidden="true"></i>
+            Ver Anexo 4 (PDF)
+          </button>
+        </div>
+
+        <div class="campo" *ngIf="muestraTipoInclusion">
+          <label class="campo-etiqueta" for="tipoInclusion">
+            Tipo de inclusión
+            <span>(obligatorio)</span>
+          </label>
+          <select
+            id="tipoInclusion"
+            class="campo-control"
+            name="tipoInclusion"
+            [(ngModel)]="tipoInclusion"
+          >
+            <option value="">Seleccione</option>
+            <option value="ORDINARIA">Ordinario</option>
+            <option value="URGENTE">Urgente</option>
+          </select>
+        </div>
+
         <div class="campo">
           <label class="campo-etiqueta" for="comentarioAccion">
             Comentario
@@ -273,4 +337,46 @@
 </div>
 
 <app-modal-registro (registrado)="alRegistrar()" />
-<app-modal-detalle />
+<app-modal-detalle
+  (editar)="editarObservacion($event)"
+  (firmar)="firmarDesdeDetalle($event)"
+  (verPdf)="verAnexo3Pdf($event)"
+/>
+
+<!-- Visor del Anexo -->
+<div class="modal-fondo cmn-pdf-fondo" *ngIf="visorPdfUrl" (click)="cerrarVisorPdf()" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--pdf"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">{{ visorPdfTitulo }}</h2>
+          <p class="modal-subtitulo">{{ visorPdfCodigo }} · {{ visorPdfSubtitulo }}</p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarVisorPdf()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-cuerpo">
+        <div class="cmn-pdf-marco">
+          <iframe
+            id="marcoAnexoPdf"
+            [src]="visorPdfUrl"
+            [title]="visorPdfTitulo + ' en formato PDF'"
+          ></iframe>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-app-secundario" (click)="imprimirAnexo3Pdf()">
+          <i class="mdi mdi-printer-outline" aria-hidden="true"></i>
+          Imprimir / guardar PDF
+        </button>
+        <button type="button" class="btn btn-app-primary" (click)="cerrarVisorPdf()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>

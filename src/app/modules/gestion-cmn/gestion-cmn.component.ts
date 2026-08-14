@@ -1,6 +1,7 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -11,6 +12,8 @@ import { CmnService } from './services/cmn.service';
 import { SessionService } from '../../core/services/session.service';
 import { Funciones } from '../../shared/funciones/funciones';
 import { SolicitudCmn, TransicionCmn } from './models/cmn.model';
+import { htmlAnexo3 } from './documentos/anexo3.plantilla';
+import { htmlAnexo4 } from './documentos/anexo4.plantilla';
 
 /**
  * Bandeja de Gestión CMN.
@@ -34,7 +37,7 @@ import { SolicitudCmn, TransicionCmn } from './models/cmn.model';
   templateUrl: './gestion-cmn.component.html',
   styleUrl: './gestion-cmn.component.scss',
 })
-export class GestionCmnComponent implements OnInit {
+export class GestionCmnComponent implements OnInit, OnDestroy {
 
   @ViewChild(ModalRegistroComponent) modalRegistro!: ModalRegistroComponent;
   @ViewChild(ModalDetalleComponent) modalDetalle!: ModalDetalleComponent;
@@ -64,12 +67,23 @@ export class GestionCmnComponent implements OnInit {
   /* Confirmación de una acción del flujo */
   accionEnCurso: { solicitud: SolicitudCmn; transicion: TransicionCmn } | null = null;
   comentario = '';
+  tipoInclusion = '';
   ejecutando = false;
+
+  visorPdfUrl: SafeResourceUrl | null = null;
+  visorPdfObjectUrl = '';
+  visorPdfCodigo = '';
+  visorPdfTitulo = 'Anexo N.º 03';
+  visorPdfSubtitulo = '';
+  cargandoPdf = false;
+  cargandoPdfId = '';
+  cargandoPdfAnexo: 3 | 4 | null = null;
 
   constructor(
     private cmnService: CmnService,
     private sesion: SessionService,
-    private funciones: Funciones
+    private funciones: Funciones,
+    private sanitizer: DomSanitizer
   ) { }
 
   ngOnInit(): void {
@@ -159,7 +173,13 @@ export class GestionCmnComponent implements OnInit {
   }
 
   accionesDe(solicitud: SolicitudCmn): TransicionCmn[] {
-    return this.acciones[solicitud.IdExpediente] || [];
+    return (this.acciones[solicitud.IdExpediente] || [])
+      .filter(t => t.CodigoTransicion !== 'CMN_SUBSANAR');
+  }
+
+  puedeEditarObservacion(solicitud: SolicitudCmn): boolean {
+    return solicitud.CodigoEstado === 'CMN_OBSERVADO'
+      && (this.codigoRol === 'AREA_ESPECIALISTA' || this.codigoRol === 'AREA_JEFE');
   }
 
   limpiarFiltros(): void {
@@ -221,7 +241,7 @@ export class GestionCmnComponent implements OnInit {
   }
 
   verDetalle(solicitud: SolicitudCmn): void {
-    this.modalDetalle.abrir(solicitud);
+    this.modalDetalle.abrir(solicitud, this.opcionesDetalle(solicitud));
   }
 
   /**
@@ -230,13 +250,170 @@ export class GestionCmnComponent implements OnInit {
    * unidad, encolado hacia SIGA— y no deben depender de un clic accidental.
    */
   pedirConfirmacion(solicitud: SolicitudCmn, transicion: TransicionCmn): void {
+    if (transicion.CodigoTransicion === 'CMN_ENVIAR_OA') {
+      this.confirmarEnvioOa(solicitud, transicion);
+      return;
+    }
+
+    /* Observado: el mockup no pone Editar/Firmar en la grilla; los muestra
+       dentro del visor del Anexo 3. */
+    if (transicion.CodigoTransicion === 'CMN_FIRMAR_OBS') {
+      this.verDetalle(solicitud);
+      return;
+    }
+
     this.accionEnCurso = { solicitud, transicion };
     this.comentario = '';
+    this.tipoInclusion = solicitud.TipoInclusion === 'URGENTE' ? 'URGENTE'
+      : solicitud.TipoInclusion === 'ORDINARIA' ? 'ORDINARIA'
+      : '';
+    this.cerrarVisorPdf();
+  }
+
+  private opcionesDetalle(solicitud: SolicitudCmn): {
+    puedeEditar: boolean;
+    transicionFirmar: TransicionCmn | null;
+  } {
+    return {
+      puedeEditar: this.puedeEditarObservacion(solicitud),
+      transicionFirmar: this.accionesDe(solicitud)
+        .find(t => t.CodigoTransicion === 'CMN_FIRMAR_OBS') || null
+    };
+  }
+
+  editarObservacion(solicitud: SolicitudCmn): void {
+    this.modalDetalle.cerrar();
+    this.modalRegistro.abrirEdicion(solicitud.IdSolicitud);
+  }
+
+  firmarDesdeDetalle(evento: { solicitud: SolicitudCmn; transicion: TransicionCmn }): void {
+    this.funciones.alertaRetorno(
+      'question',
+      'Firmar Anexo 3',
+      `¿Desea firmar el Anexo 3 <b>${evento.solicitud.Codigo}</b>? La firma anterior queda invalidada.`,
+      true,
+      (resultado: any) => {
+        if (resultado?.isConfirmed) {
+          this.modalDetalle.cerrar();
+          this.ejecutarTransicion(evento.solicitud, evento.transicion, null);
+        }
+      }
+    );
+  }
+
+  private confirmarEnvioOa(solicitud: SolicitudCmn, transicion: TransicionCmn): void {
+    this.funciones.alertaRetorno(
+      'question',
+      'Confirmar envío',
+      `¿Desea enviar el Anexo 3 <b>${solicitud.Codigo}</b> a la Oficina de Administración?`,
+      true,
+      (resultado: any) => {
+        if (resultado?.isConfirmed) {
+          this.ejecutarTransicion(solicitud, transicion, null);
+        }
+      }
+    );
+  }
+
+  get muestraPdfAnexo3(): boolean {
+    const codigo = this.accionEnCurso?.transicion.CodigoTransicion;
+    return codigo === 'CMN_FIRMAR_A3' || codigo === 'CMN_FIRMAR_OBS';
+  }
+
+  get muestraPdfAnexo4(): boolean {
+    return this.accionEnCurso?.transicion.CodigoTransicion === 'CMN_FIRMAR_A4';
+  }
+
+  get muestraTipoInclusion(): boolean {
+    return this.accionEnCurso?.transicion.CodigoTransicion === 'CMN_VALIDAR_UA';
+  }
+
+  puedeVerAnexo4Pdf(solicitud: SolicitudCmn): boolean {
+    return solicitud.CodigoEstado === 'CMN_A4_FIRMADO'
+      || solicitud.CodigoEstado === 'CMN_A4_ENVIADO'
+      || solicitud.CodigoEstado === 'CMN_FINALIZADO';
+  }
+
+  iconoPdfFila(solicitud: SolicitudCmn, anexo: 3 | 4): string {
+    if (this.cargandoPdfId === solicitud.IdSolicitud && this.cargandoPdfAnexo === anexo) {
+      return 'mdi-loading mdi-spin';
+    }
+    return anexo === 4 ? 'mdi-file-sign' : 'mdi-file-pdf-box';
+  }
+
+  verAnexo3Pdf(solicitud: SolicitudCmn): void {
+    this.abrirPdfAnexo(solicitud, 3);
+  }
+
+  verAnexo4Pdf(solicitud: SolicitudCmn): void {
+    this.abrirPdfAnexo(solicitud, 4);
+  }
+
+  private abrirPdfAnexo(solicitud: SolicitudCmn, anexo: 3 | 4): void {
+    if (!solicitud || this.cargandoPdf) {
+      return;
+    }
+
+    this.cargandoPdf = true;
+    this.cargandoPdfId = solicitud.IdSolicitud;
+    this.cargandoPdfAnexo = anexo;
+    this.cmnService.obtenerSolicitud(solicitud.IdSolicitud).subscribe({
+      next: (respuesta: any) => {
+        this.cargandoPdf = false;
+        this.cargandoPdfId = '';
+        this.cargandoPdfAnexo = null;
+        if (respuesta?.estado !== 1) {
+          this.funciones.mensaje('error',
+            respuesta?.mensaje || `No fue posible armar el Anexo ${anexo}.`);
+          return;
+        }
+        const html = anexo === 4
+          ? htmlAnexo4(respuesta, window.location.origin)
+          : htmlAnexo3(respuesta, window.location.origin);
+        this.cerrarVisorPdf();
+        this.visorPdfCodigo = solicitud.Codigo;
+        this.visorPdfTitulo = anexo === 4 ? 'Anexo N.º 04' : 'Anexo N.º 03';
+        this.visorPdfSubtitulo = anexo === 4
+          ? 'Aprobación de modificaciones del CMN'
+          : 'Solicitud de modificación del CMN';
+        this.visorPdfObjectUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        this.visorPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.visorPdfObjectUrl);
+      },
+      error: () => {
+        this.cargandoPdf = false;
+        this.cargandoPdfId = '';
+        this.cargandoPdfAnexo = null;
+        this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
+      }
+    });
+  }
+
+  imprimirAnexo3Pdf(): void {
+    const marco = document.getElementById('marcoAnexoPdf') as HTMLIFrameElement | null;
+    marco?.contentWindow?.focus();
+    marco?.contentWindow?.print();
+  }
+
+  cerrarVisorPdf(): void {
+    if (this.visorPdfObjectUrl) {
+      URL.revokeObjectURL(this.visorPdfObjectUrl);
+    }
+    this.visorPdfObjectUrl = '';
+    this.visorPdfUrl = null;
+    this.visorPdfCodigo = '';
+    this.visorPdfTitulo = 'Anexo N.º 03';
+    this.visorPdfSubtitulo = '';
   }
 
   cancelarAccion(): void {
+    this.cerrarVisorPdf();
     this.accionEnCurso = null;
     this.comentario = '';
+    this.tipoInclusion = '';
+  }
+
+  ngOnDestroy(): void {
+    this.cerrarVisorPdf();
   }
 
   confirmarAccion(): void {
@@ -251,13 +428,37 @@ export class GestionCmnComponent implements OnInit {
       return;
     }
 
+    if (transicion.CodigoTransicion === 'CMN_VALIDAR_UA' && !this.tipoInclusion) {
+      this.funciones.mensaje('info', 'Seleccione el tipo de inclusión: Ordinario o Urgente.');
+      return;
+    }
+
+    this.ejecutarTransicion(
+      solicitud,
+      transicion,
+      this.comentario.trim() || null,
+      transicion.CodigoTransicion === 'CMN_VALIDAR_UA' ? this.tipoInclusion : null
+    );
+  }
+
+  private ejecutarTransicion(
+    solicitud: SolicitudCmn,
+    transicion: TransicionCmn,
+    comentario: string | null,
+    tipoInclusion: string | null = null
+  ): void {
+    if (this.ejecutando) {
+      return;
+    }
+
     this.ejecutando = true;
 
     this.cmnService.ejecutarTransicion(
       solicitud.IdExpediente,
       transicion.CodigoTransicion,
       solicitud.Version,
-      this.comentario.trim() || null
+      comentario,
+      tipoInclusion
     ).subscribe({
       next: (respuesta: any) => {
         this.ejecutando = false;
@@ -267,8 +468,10 @@ export class GestionCmnComponent implements OnInit {
           return;
         }
 
+        this.cerrarVisorPdf();
         this.accionEnCurso = null;
         this.comentario = '';
+        this.tipoInclusion = '';
         this.funciones.mensaje('success', respuesta.mensaje || 'Se registró la acción.');
         this.cargarBandeja();
       },
