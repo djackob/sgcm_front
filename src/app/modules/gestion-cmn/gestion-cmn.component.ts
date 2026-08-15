@@ -485,6 +485,10 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
+    /* Los pasos siguientes leen la acción de aquí, y no de sus argumentos: hay
+       caminos —el envío a OA, la firma desde el detalle— que confirman con su
+       propio diálogo y entran directamente, sin pasar por el panel de acción. */
+    this.accionEnCurso = { solicitud, transicion };
     this.ejecutando = true;
 
     const tipoDocumento = DOCUMENTO_QUE_GENERA[transicion.CodigoTransicion];
@@ -495,12 +499,9 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (transicion.RequiereFirma && transicion.DocumentoRequerido) {
-      this.paso = 'Registrando la firma…';
-      this.firmarYEjecutar(transicion.DocumentoRequerido);
-      return;
-    }
-
+    /* Firmar no exige un POST previo: paEjecutarTransicion crea el asiento del
+       Anexo 3 si aún no hay PDF y deja la versión firmada. Así el jefe puede
+       firmar en un solo clic, como en el flujo que ya funcionaba. */
     this.enviarTransicion();
   }
 
