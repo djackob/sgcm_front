@@ -554,7 +554,9 @@ export class ModalRegistroComponent {
       next: (detalle: any) => {
         if (detalle?.estado !== 1) {
           this.terminarGuardado(registro, false,
-            'La solicitud se guardó, pero no fue posible armar el Anexo 3.');
+            detalle?.mensaje
+              ? `La solicitud se guardó, pero no fue posible armar el Anexo 3: ${detalle.mensaje}`
+              : 'La solicitud se guardó, pero no fue posible armar el Anexo 3.');
           return;
         }
 

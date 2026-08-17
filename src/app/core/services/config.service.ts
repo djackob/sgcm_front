@@ -23,9 +23,15 @@ export class ConfigService {
       });
 
       const jsonFile = `assets/config/config.json`;
-      this.httpClient.get<AppConfig>(jsonFile, { headers }).subscribe((data: any) => {
-        ConfigService.settings = data;
-        resolve();
+      this.httpClient.get<AppConfig>(jsonFile, { headers }).subscribe({
+        next: (data: any) => {
+          ConfigService.settings = data;
+          resolve();
+        },
+        error: (err) => {
+          console.error('config.json inválido o no se pudo leer. No use comentarios //: JSON.parse los rechaza.', err);
+          resolve();
+        }
       });
     });
   }

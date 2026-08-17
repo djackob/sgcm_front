@@ -35,6 +35,18 @@ const DOCUMENTO_QUE_GENERA: { [codigoTransicion: string]: string } = {
   CMN_GENERAR_A4: 'CMN_ANEXO_4_APROBACION_MODIFICACION'
 };
 
+/** Tras firmar el A3 el PDF del servidor es el documento oficial e inmutable. */
+const ESTADOS_ANEXO3_ARCHIVO_OFICIAL = new Set([
+  'CMN_A3_FIRMADO',
+  'CMN_EN_EVAL_OA',
+  'CMN_EN_EVAL_UA',
+  'CMN_VALIDADO_UA',
+  'CMN_PEND_FIRMA_A4',
+  'CMN_A4_FIRMADO',
+  'CMN_A4_ENVIADO',
+  'CMN_FINALIZADO'
+]);
+
 /**
  * Bandeja de Gestión CMN.
  *
@@ -388,6 +400,14 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
+    /* Antes de firmar el A3 se regenera con la plantilla vigente. Si se bajara
+       el archivo del servidor quedaría congelado el PDF que se subió la primera
+       vez, aunque la plantilla del front haya cambiado. */
+    if (anexo === 3 && !ESTADOS_ANEXO3_ARCHIVO_OFICIAL.has(solicitud.CodigoEstado)) {
+      this.generarYMostrarAnexo3(solicitud, false);
+      return;
+    }
+
     const idFila = idDocumentoSistema(
       anexo === 4 ? solicitud.DocumentoSistemaAnexo4 : solicitud.DocumentoSistemaAnexo3
     );
@@ -442,14 +462,12 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
         this.cargandoPdf = false;
         this.cargandoPdfId = '';
         this.cargandoPdfAnexo = null;
-        this.cerrarVisorPdf();
-        this.visorPdfCodigo = solicitud.Codigo;
-        this.visorPdfTitulo = anexo === 4 ? 'Anexo N.º 04' : 'Anexo N.º 03';
-        this.visorPdfSubtitulo = anexo === 4
-          ? 'Aprobación de modificaciones del CMN'
-          : 'Solicitud de modificación del CMN';
-        this.visorPdfObjectUrl = URL.createObjectURL(blob);
-        this.visorPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.visorPdfObjectUrl);
+        this.abrirVisorPdfBlob(
+          solicitud,
+          anexo,
+          blob,
+          anexo === 4 ? 'Aprobación de modificaciones del CMN' : 'Solicitud de modificación del CMN'
+        );
       },
       error: () => {
         this.cargandoPdf = false;
@@ -458,6 +476,84 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
         this.funciones.mensaje('error', 'No fue posible descargar el archivo del servidor.');
       }
     });
+  }
+
+  /**
+   * Arma el Anexo 3 con la plantilla actual, lo muestra y —si aún no está
+   * firmado— lo vuelve a subir para reemplazar el PDF antiguo del servidor.
+   */
+  private generarYMostrarAnexo3(solicitud: SolicitudCmn, actualizarServidor: boolean): void {
+    this.cargandoPdf = true;
+    this.cargandoPdfId = solicitud.IdSolicitud;
+    this.cargandoPdfAnexo = 3;
+
+    this.cmnService.obtenerSolicitud(solicitud.IdSolicitud).subscribe({
+      next: (detalle: SolicitudDetalleCmn | any) => {
+        if (detalle?.estado !== 1) {
+          this.cargandoPdf = false;
+          this.cargandoPdfId = '';
+          this.cargandoPdfAnexo = null;
+          this.funciones.mensaje('error', detalle?.mensaje || 'No fue posible leer la solicitud para el Anexo 3.');
+          return;
+        }
+
+        const definicion = construirAnexo3(detalle);
+        const nombre = nombreArchivoAnexo3(detalle);
+        this.documentoService.generarPdf(definicion).then(blob => {
+          this.cargandoPdf = false;
+          this.cargandoPdfId = '';
+          this.cargandoPdfAnexo = null;
+          this.abrirVisorPdfBlob(
+            solicitud,
+            3,
+            blob,
+            'Solicitud de modificación del CMN · formato oficial'
+          );
+
+          if (!actualizarServidor) {
+            return;
+          }
+
+          const archivo = new File([blob], nombre, { type: 'application/pdf' });
+          this.maestraService.subirArchivo(archivo, 'cmn').subscribe({
+            next: (respuesta: any) => {
+              const documentoSistema = idDocumentoSistema(respuesta?.documento_sistema);
+              if (respuesta?.estado !== 1 || !documentoSistema) {
+                return;
+              }
+              solicitud.DocumentoSistemaAnexo3 = documentoSistema;
+              this.cmnService.registrarDocumento(
+                solicitud.IdExpediente,
+                'CMN_ANEXO_3_SOLICITUD_MODIFICACION',
+                documentoSistema,
+                respuesta.documento_original || nombre,
+                { Codigo: detalle.Codigo, Items: detalle.Items?.length || 0 }
+              ).subscribe();
+            }
+          });
+        }).catch(() => {
+          this.cargandoPdf = false;
+          this.cargandoPdfId = '';
+          this.cargandoPdfAnexo = null;
+          this.funciones.mensaje('error', 'No fue posible generar el Anexo 3.');
+        });
+      },
+      error: () => {
+        this.cargandoPdf = false;
+        this.cargandoPdfId = '';
+        this.cargandoPdfAnexo = null;
+        this.funciones.mensaje('error', 'No fue posible leer la solicitud para el Anexo 3.');
+      }
+    });
+  }
+
+  private abrirVisorPdfBlob(solicitud: SolicitudCmn, anexo: 3 | 4, blob: Blob, subtitulo: string): void {
+    this.cerrarVisorPdf();
+    this.visorPdfCodigo = solicitud.Codigo;
+    this.visorPdfTitulo = anexo === 4 ? 'Anexo N.º 04' : 'Anexo N.º 03';
+    this.visorPdfSubtitulo = subtitulo;
+    this.visorPdfObjectUrl = URL.createObjectURL(blob);
+    this.visorPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.visorPdfObjectUrl);
   }
 
   imprimirAnexo3Pdf(): void {
@@ -542,9 +638,15 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
-    /* Firmar no exige un POST previo: paEjecutarTransicion crea el asiento del
-       Anexo 3 si aún no hay PDF y deja la versión firmada. Así el jefe puede
-       firmar en un solo clic, como en el flujo que ya funcionaba. */
+    /* Firmar Anexo 3 / 4: primero paFirmarDocumento (deja la versión vigente
+       en FIRMADO) y recién entonces la transición. El motor exige el documento
+       ya firmado; sin este POST responde CONFLICTO_DOCUMENTO. */
+    if (transicion.RequiereFirma && transicion.DocumentoRequerido) {
+      this.paso = 'Registrando la firma…';
+      this.firmarYEjecutar(transicion.DocumentoRequerido);
+      return;
+    }
+
     this.enviarTransicion();
   }
 

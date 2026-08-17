@@ -1,12 +1,12 @@
 {
-  "__AMBIENTE": "Este archivo NO admite comentarios // porque el navegador lo lee con JSON.parse (config.service.ts), que los rechaza y dejaria la aplicacion sin configuracion. Por eso el valor de produccion viaja como una clave gemela con guion bajo. Para desplegar: mover el valor de apiUrl_PRODUCCION a apiUrl.",
+  "__AMBIENTE": "Este archivo NO admite comentarios // porque el navegador lo lee con JSON.parse. apiUrl es la URL activa. Para el backend local, copiar apiUrl_LOCAL a apiUrl.",
 
-  "env": "local",
+  "env": "anin",
 
-  "apiUrl_PRODUCCION": "http://192.168.40.72:9004/",
-  "apiUrl": "http://localhost:5120/",
+  "apiUrl_LOCAL": "https://localhost:7182/",
+  "apiUrl": "http://192.168.40.72:9004/",
 
-  "__secEjec": "Unidad ejecutora en SIGA (SEC_EJEC). La copia local es SIGA_1750. Confirmar el valor de produccion con Abastecimiento antes de desplegar.",
+  "__secEjec": "Unidad ejecutora en SIGA (SEC_EJEC). La copia local es SIGA_1750.",
   "secEjec": 1750,
 
   "profile": [],
