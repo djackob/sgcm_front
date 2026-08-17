@@ -76,7 +76,7 @@ export class CmnService {
 
   /**
    * Registra el PDF ya subido al file server.
-   * El orden es: subir el archivo, y recién entonces registrar su URL aquí.
+   * El orden es: subir el archivo, y recién entonces guardar documento_sistema aquí.
    */
   registrarDocumento(idExpediente: string, codigoTipoDocumento: string,
                      generadoDocumento: string, nombreDocumento: string,

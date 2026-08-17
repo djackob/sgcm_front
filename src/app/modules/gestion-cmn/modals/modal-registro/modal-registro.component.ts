@@ -6,7 +6,10 @@ import { BreadcrumbComponent } from '../../../../shared/components/breadcrumb/br
 import { CmnService } from '../../services/cmn.service';
 import { SessionService } from '../../../../core/services/session.service';
 import { ConfigService } from '../../../../core/services/config.service';
+import { DocumentoService } from '../../../../core/services/documento.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
+import { idDocumentoSistema } from '../../../../shared/funciones/archivo';
+import { construirAnexo3, nombreArchivoAnexo3 } from '../../documentos/anexo3.pdfmake';
 import {
   CatalogoSiga,
   CuadroVigenteSiga,
@@ -60,6 +63,7 @@ export class ModalRegistroComponent {
 
   abierto = false;
   guardando = false;
+  pasoGuardar = '';
   cargandoMaestros = false;
   cargandoEdicion = false;
   modoEdicion = false;
@@ -90,6 +94,7 @@ export class ModalRegistroComponent {
   constructor(
     private cmnService: CmnService,
     private sesion: SessionService,
+    private documentoService: DocumentoService,
     private funciones: Funciones
   ) { }
 
@@ -516,27 +521,98 @@ export class ModalRegistroComponent {
     }));
 
     this.guardando = true;
+    this.pasoGuardar = 'Registrando la solicitud…';
 
     this.cmnService.registrarSolicitud(solicitud, items).subscribe({
       next: (respuesta: any) => {
-        this.guardando = false;
-
         if (respuesta?.estado !== 1) {
+          this.guardando = false;
+          this.pasoGuardar = '';
           this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible guardar la solicitud.');
           return;
         }
 
-        this.funciones.mensaje('success',
-          this.modoEdicion
-            ? (respuesta.mensaje || `Se actualizó la solicitud ${respuesta.Codigo}.`)
-            : `Se registró la solicitud ${respuesta.Codigo} con ${respuesta.Items} ítem(s).`);
-        this.abierto = false;
-        this.registrado.emit();
+        this.subirArchivoAnexo3(respuesta);
       },
       error: () => {
         this.guardando = false;
+        this.pasoGuardar = '';
         this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
       }
     });
+  }
+
+  /**
+   * Después de guardar la solicitud se arma el PDF del Anexo 3, se sube al
+   * file server y se registra documento_sistema. Sin ese id el botón de la
+   * grilla no tiene qué descargar.
+   */
+  private subirArchivoAnexo3(registro: any): void {
+    this.pasoGuardar = 'Generando el Anexo 3…';
+
+    this.cmnService.obtenerSolicitud(registro.IdSolicitud).subscribe({
+      next: (detalle: any) => {
+        if (detalle?.estado !== 1) {
+          this.terminarGuardado(registro, false,
+            'La solicitud se guardó, pero no fue posible armar el Anexo 3.');
+          return;
+        }
+
+        const definicion = construirAnexo3(detalle);
+        const nombre = nombreArchivoAnexo3(detalle);
+        this.pasoGuardar = 'Subiendo el Anexo 3 al servidor…';
+
+        this.documentoService.generarYSubir(definicion, nombre, 'cmn').subscribe({
+          next: (archivo: any) => {
+            const documentoSistema = idDocumentoSistema(archivo?.documento_sistema);
+            if (archivo?.estado !== 1 || !documentoSistema) {
+              this.terminarGuardado(registro, false,
+                archivo?.mensaje || 'La solicitud se guardó, pero no se pudo subir el Anexo 3.');
+              return;
+            }
+
+            this.pasoGuardar = 'Registrando el archivo…';
+            this.cmnService.registrarDocumento(
+              registro.IdExpediente,
+              'CMN_ANEXO_3_SOLICITUD_MODIFICACION',
+              documentoSistema,
+              archivo.documento_original,
+              { Codigo: detalle.Codigo, Items: detalle.Items?.length || 0 }
+            ).subscribe({
+              next: (doc: any) => {
+                this.terminarGuardado(registro, doc?.estado === 1,
+                  doc?.estado === 1
+                    ? null
+                    : (doc?.mensaje || 'La solicitud se guardó, pero no se registró el archivo del Anexo 3.'));
+              },
+              error: () => this.terminarGuardado(registro, false,
+                'La solicitud se guardó, pero no se registró el archivo del Anexo 3.')
+            });
+          },
+          error: () => this.terminarGuardado(registro, false,
+            'La solicitud se guardó, pero no se pudo subir el Anexo 3 al servidor.')
+        });
+      },
+      error: () => this.terminarGuardado(registro, false,
+        'La solicitud se guardó, pero no fue posible armar el Anexo 3.')
+    });
+  }
+
+  private terminarGuardado(registro: any, archivoOk: boolean, aviso?: string | null): void {
+    this.guardando = false;
+    this.pasoGuardar = '';
+    this.abierto = false;
+    this.registrado.emit();
+
+    if (archivoOk) {
+      this.funciones.mensaje('success',
+        this.modoEdicion
+          ? (registro.mensaje || `Se actualizó la solicitud ${registro.Codigo} y se guardó el Anexo 3.`)
+          : `Se registró la solicitud ${registro.Codigo} y se guardó el Anexo 3 en el servidor.`);
+      return;
+    }
+
+    this.funciones.mensaje('warning',
+      aviso || `Se registró la solicitud ${registro.Codigo}, pero el Anexo 3 no quedó en el servidor.`);
   }
 }

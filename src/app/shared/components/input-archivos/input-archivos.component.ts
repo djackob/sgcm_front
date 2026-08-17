@@ -11,6 +11,7 @@ import { Funciones } from '../../funciones/funciones';
 import { ConfigService } from '../../../core/services/config.service';
 import { CommonModule } from '@angular/common';
 import { MaestraService } from '../../services/maestra.service';
+import { idDocumentoSistema } from '../../funciones/archivo';
 
 @Component({
   selector: 'app-input-archivos',
@@ -95,7 +96,7 @@ export class InputArchivosComponent implements OnInit, OnChanges {
           const isExactlyGenerado = keyLower === 'generadodocumento';
 
           if (startsWithGenerado || endsWithGenerado || isExactlyGenerado) {
-            codigoEncontrado = value;
+            codigoEncontrado = idDocumentoSistema(value);
             break; // Tomar el primero que encuentre
           }
         }
@@ -103,14 +104,15 @@ export class InputArchivosComponent implements OnInit, OnChanges {
 
       // Si no se encontró, buscar campos alternativos comunes
       if (!codigoEncontrado) {
-        codigoEncontrado =
+        codigoEncontrado = idDocumentoSistema(
           this.ArchivoData.GeneradoDocumento ||
           this.ArchivoData.generado_documento ||
           this.ArchivoData.nombre_archivo_generado ||
           this.ArchivoData.codigo_archivo ||
           this.ArchivoData.codigoArchivo ||
           this.ArchivoData.documento_sistema ||
-          '';
+          ''
+        );
       }
 
       // Buscar nombre del archivo de manera genérica
@@ -157,7 +159,7 @@ export class InputArchivosComponent implements OnInit, OnChanges {
 
     // 2. Si no se encontró y hay CodigoArchivo directo (compatibilidad hacia atrás)
     if (!codigoEncontrado && this.CodigoArchivo) {
-      codigoEncontrado = this.CodigoArchivo;
+      codigoEncontrado = idDocumentoSistema(this.CodigoArchivo);
     }
 
     // 3. Si se encontró código, configurar para descarga
@@ -260,11 +262,11 @@ export class InputArchivosComponent implements OnInit, OnChanges {
             if (response.estado > 0) {
               event.uploaded = response;
               event.nombre_original_documento = response.documento_original;
-              event.generado_nombre_documento = response.documento_sistema;
+              event.generado_nombre_documento = idDocumentoSistema(response.documento_sistema);
               event.nombreArchivo = InputSalida.value;
 
               // Guardar información para descarga
-              this.codigoArchivoSubido = response.documento_sistema;
+              this.codigoArchivoSubido = event.generado_nombre_documento;
               this.nombreArchivoSubido =
                 response.documento_original || FileEntrada.name;
               this.mostrarDescargaSubido =
@@ -312,52 +314,18 @@ export class InputArchivosComponent implements OnInit, OnChanges {
       return;
     }
 
-    // Si el código ya es una URL completa, descargar directamente
-    if (
-      this.codigoArchivoSubido.startsWith('http://') ||
-      this.codigoArchivoSubido.startsWith('https://')
-    ) {
-      var downloadLink = document.createElement('a');
-      downloadLink.href = this.codigoArchivoSubido;
-      downloadLink.download = this.nombreArchivoSubido || 'archivo';
-      downloadLink.target = '_blank';
-      downloadLink.style.display = 'none';
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      setTimeout(() => {
-        document.body.removeChild(downloadLink);
-      }, 100);
-      return;
-    }
-
     this.descargando = true;
-    this.maestraService.descargarArchivo(this.codigoArchivoSubido).subscribe(
-      (data: any) => {
+    this.maestraService.abrirArchivo(
+      this.codigoArchivoSubido,
+      this.nombreArchivoSubido || 'archivo'
+    ).subscribe({
+      next: () => {
         this.descargando = false;
-        if (data.estado == 1) {
-          var downloadLink = document.createElement('a');
-          downloadLink.href = data.mensaje;
-          downloadLink.download = this.nombreArchivoSubido || 'archivo';
-          downloadLink.style.display = 'none';
-          document.body.appendChild(downloadLink);
-          downloadLink.click();
-          setTimeout(() => {
-            document.body.removeChild(downloadLink);
-          }, 100);
-        } else {
-          this.funciones.mensaje(
-            'error',
-            'Error al momento de descargar el archivo'
-          );
-        }
       },
-      () => {
+      error: () => {
         this.descargando = false;
-        this.funciones.mensaje(
-          'error',
-          'Error al momento de descargar el archivo'
-        );
+        this.funciones.mensaje('error', 'Error al momento de descargar el archivo');
       }
-    );
+    });
   }
 }

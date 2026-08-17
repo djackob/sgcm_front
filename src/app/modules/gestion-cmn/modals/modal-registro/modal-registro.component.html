@@ -273,6 +273,7 @@
           <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
           {{ modoEdicion ? 'Guardar cambios' : 'Registrar Anexo 3' }}
         </button>
+        <span class="modal-footer__info" *ngIf="pasoGuardar">{{ pasoGuardar }}</span>
       </div>
     </div>
   </div>

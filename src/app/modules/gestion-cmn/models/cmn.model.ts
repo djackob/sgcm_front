@@ -31,6 +31,10 @@ export interface SolicitudCmn {
   Items: number;
   MontoTotal: number;
   ActualizadoEn: string;
+  /** Id de archivo (documento_sistema) del Anexo 3 vigente. */
+  DocumentoSistemaAnexo3?: string | null;
+  /** Id de archivo (documento_sistema) del Anexo 4 vigente. */
+  DocumentoSistemaAnexo4?: string | null;
 }
 
 /**
@@ -117,6 +121,8 @@ export interface SolicitudDetalleCmn extends RespuestaSigcm {
   Estado: string;
   Responsable: string;
   Items: ItemSolicitudCmn[];
+  DocumentoSistemaAnexo3?: string | null;
+  DocumentoSistemaAnexo4?: string | null;
 }
 
 /** Un paso del historial. sigcm.paObtenerTrazabilidad */

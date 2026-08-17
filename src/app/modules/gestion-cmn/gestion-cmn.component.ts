@@ -13,9 +13,10 @@ import { SessionService } from '../../core/services/session.service';
 import { DocumentoService } from '../../core/services/documento.service';
 import { Funciones } from '../../shared/funciones/funciones';
 import { SolicitudCmn, SolicitudDetalleCmn, TransicionCmn } from './models/cmn.model';
-import { htmlAnexo3 } from './documentos/anexo3.plantilla';
-import { htmlAnexo4 } from './documentos/anexo4.plantilla';
 import { construirAnexo3, nombreArchivoAnexo3 } from './documentos/anexo3.pdfmake';
+import { construirAnexo4, nombreArchivoAnexo4 } from './documentos/anexo4.pdfmake';
+import { MaestraService } from '../../shared/services/maestra.service';
+import { idDocumentoSistema } from '../../shared/funciones/archivo';
 
 /**
  * Qué documento produce cada acción del flujo.
@@ -30,7 +31,8 @@ import { construirAnexo3, nombreArchivoAnexo3 } from './documentos/anexo3.pdfmak
  * `DocumentoGenerado` en `sigcm.Transicion`, y este mapa desaparece.
  */
 const DOCUMENTO_QUE_GENERA: { [codigoTransicion: string]: string } = {
-  CMN_GENERAR_A3: 'CMN_ANEXO_3_SOLICITUD_MODIFICACION'
+  CMN_GENERAR_A3: 'CMN_ANEXO_3_SOLICITUD_MODIFICACION',
+  CMN_GENERAR_A4: 'CMN_ANEXO_4_APROBACION_MODIFICACION'
 };
 
 /**
@@ -107,6 +109,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     private cmnService: CmnService,
     private sesion: SessionService,
     private documentoService: DocumentoService,
+    private maestraService: MaestraService,
     private funciones: Funciones,
     private sanitizer: DomSanitizer
   ) { }
@@ -358,7 +361,9 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   }
 
   puedeVerAnexo4Pdf(solicitud: SolicitudCmn): boolean {
-    return solicitud.CodigoEstado === 'CMN_A4_FIRMADO'
+    return !!idDocumentoSistema(solicitud.DocumentoSistemaAnexo4)
+      || solicitud.CodigoEstado === 'CMN_PEND_FIRMA_A4'
+      || solicitud.CodigoEstado === 'CMN_A4_FIRMADO'
       || solicitud.CodigoEstado === 'CMN_A4_ENVIADO'
       || solicitud.CodigoEstado === 'CMN_FINALIZADO';
   }
@@ -383,36 +388,74 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const idFila = idDocumentoSistema(
+      anexo === 4 ? solicitud.DocumentoSistemaAnexo4 : solicitud.DocumentoSistemaAnexo3
+    );
+    if (idFila) {
+      this.mostrarArchivoAnexo(solicitud, anexo, idFila);
+      return;
+    }
+
+    const tipo = anexo === 4
+      ? 'CMN_ANEXO_4_APROBACION_MODIFICACION'
+      : 'CMN_ANEXO_3_SOLICITUD_MODIFICACION';
+
     this.cargandoPdf = true;
     this.cargandoPdfId = solicitud.IdSolicitud;
     this.cargandoPdfAnexo = anexo;
-    this.cmnService.obtenerSolicitud(solicitud.IdSolicitud).subscribe({
+    this.cmnService.listarDocumento(solicitud.IdExpediente).subscribe({
       next: (respuesta: any) => {
+        const documentos = respuesta?.Documentos || [];
+        const doc = documentos.find((d: any) => d.CodigoTipoDocumento === tipo);
+        const id = idDocumentoSistema(doc?.GeneradoDocumento);
+        if (!id) {
+          this.cargandoPdf = false;
+          this.cargandoPdfId = '';
+          this.cargandoPdfAnexo = null;
+          this.funciones.mensaje(
+            'info',
+            anexo === 4
+              ? 'El Anexo 4 aún no fue generado. Use la acción «Generar Anexo 4» para guardarlo en el servidor.'
+              : 'El Anexo 3 aún no fue generado. Use la acción «Generar Anexo 3» para guardarlo en el servidor.'
+          );
+          return;
+        }
+        this.mostrarArchivoAnexo(solicitud, anexo, id);
+      },
+      error: () => {
         this.cargandoPdf = false;
         this.cargandoPdfId = '';
         this.cargandoPdfAnexo = null;
-        if (respuesta?.estado !== 1) {
-          this.funciones.mensaje('error',
-            respuesta?.mensaje || `No fue posible armar el Anexo ${anexo}.`);
-          return;
-        }
-        const html = anexo === 4
-          ? htmlAnexo4(respuesta, window.location.origin)
-          : htmlAnexo3(respuesta, window.location.origin);
+        this.funciones.mensaje('error', 'No fue posible consultar el documento del expediente.');
+      }
+    });
+  }
+
+  private mostrarArchivoAnexo(solicitud: SolicitudCmn, anexo: 3 | 4, id: string): void {
+    this.cargandoPdf = true;
+    this.cargandoPdfId = solicitud.IdSolicitud;
+    this.cargandoPdfAnexo = anexo;
+    this.maestraService.descargarArchivo(id, 'cmn').pipe(
+      catchError(() => this.maestraService.descargarArchivo(id))
+    ).subscribe({
+      next: (blob: Blob) => {
+        this.cargandoPdf = false;
+        this.cargandoPdfId = '';
+        this.cargandoPdfAnexo = null;
         this.cerrarVisorPdf();
         this.visorPdfCodigo = solicitud.Codigo;
         this.visorPdfTitulo = anexo === 4 ? 'Anexo N.º 04' : 'Anexo N.º 03';
         this.visorPdfSubtitulo = anexo === 4
           ? 'Aprobación de modificaciones del CMN'
           : 'Solicitud de modificación del CMN';
-        this.visorPdfObjectUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        this.visorPdfObjectUrl = URL.createObjectURL(blob);
         this.visorPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.visorPdfObjectUrl);
       },
       error: () => {
         this.cargandoPdf = false;
         this.cargandoPdfId = '';
         this.cargandoPdfAnexo = null;
-        this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
+        this.funciones.mensaje('error', 'No fue posible descargar el archivo del servidor.');
       }
     });
   }
@@ -519,8 +562,9 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
           return;
         }
 
-        const definicion = construirAnexo3(detalle);
-        const nombre = nombreArchivoAnexo3(detalle);
+        const esAnexo4 = codigoTipoDocumento === 'CMN_ANEXO_4_APROBACION_MODIFICACION';
+        const definicion = esAnexo4 ? construirAnexo4(detalle) : construirAnexo3(detalle);
+        const nombre = esAnexo4 ? nombreArchivoAnexo4(detalle) : nombreArchivoAnexo3(detalle);
 
         this.paso = 'Subiendo el documento…';
 
@@ -531,11 +575,12 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
               return;
             }
 
+            const documentoSistema = idDocumentoSistema(archivo.documento_sistema);
             this.paso = 'Registrando el documento…';
 
             this.cmnService.registrarDocumento(
               solicitud.IdExpediente, codigoTipoDocumento,
-              archivo.documento_sistema, archivo.documento_original,
+              documentoSistema, archivo.documento_original,
               { Codigo: detalle.Codigo, Items: detalle.Items?.length || 0 }
             ).subscribe({
               next: (registro: any) => {
@@ -543,7 +588,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
                   this.fallar(registro?.mensaje || 'No fue posible registrar el documento.');
                   return;
                 }
-                this.documentoGenerado = archivo.documento_sistema;
+                this.documentoGenerado = documentoSistema;
                 this.enviarTransicion();
               },
               error: () => this.fallar('No fue posible registrar el documento.')
@@ -605,12 +650,12 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
         this.comentarioPendiente = null;
         this.tipoInclusionPendiente = null;
 
-        const enlace = this.documentoGenerado
-          ? `<br><br><a href="${this.documentoGenerado}" target="_blank">Ver el documento generado</a>`
+        const extra = this.documentoGenerado
+          ? '<br><br>Ábralo con el icono del Anexo en la bandeja.'
           : '';
         this.documentoGenerado = '';
 
-        this.funciones.mensaje('success', (respuesta.mensaje || 'Se registró la acción.') + enlace);
+        this.funciones.mensaje('success', (respuesta.mensaje || 'Se registró la acción.') + extra);
         this.cargarBandeja();
       },
       error: () => this.fallar('No fue posible comunicarse con el servicio.')

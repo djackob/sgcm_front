@@ -23,7 +23,7 @@ export interface ArchivoSubido {
  * POR QUÉ EL PDF SE ARMA EN EL NAVEGADOR
  * Es la decisión tomada para este sistema: el frontend ya tiene los datos en
  * pantalla y la plantilla del anexo, así que produce el archivo y lo sube. El
- * backend no arma documentos; recibe la URL y la registra.
+ * backend no arma documentos; recibe el id (documento_sistema) y lo registra.
  *
  * La consecuencia a tener presente: el archivo se genera donde está el usuario,
  * así que el PDF firmado y su huella se calculan sobre lo que ese navegador
