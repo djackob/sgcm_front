@@ -1,0 +1,207 @@
+/* Estilos de modal / campo / tabla: globales en styles/components.
+   Aquí solo lo propio de este formulario. */
+
+.modal-app-dialog--ancho {
+  max-width: 1080px;
+  width: 100%;
+}
+
+.req-cargando {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.req-seccion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 1.5rem 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #1e293b;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
+.req-nota {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.req-ayuda {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.req-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.85rem;
+
+  &__ancho {
+    grid-column: 1 / -1;
+  }
+
+  /* Cantidad, precio y pedido caben en una línea y se leen como una unidad. */
+  &--item {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    margin-top: 0.6rem;
+  }
+}
+
+.req-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+}
+
+/* El par identificador + nombre visible del archivo va junto: son las dos
+   columnas con que la casa identifica un adjunto. */
+.req-archivo {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 0.5rem;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.req-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.req-item {
+  padding: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+
+  &__cabecera {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+
+  &__numero {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  &__total {
+    margin-left: auto;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  &__elegido {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+
+    div {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    button {
+      margin-left: auto;
+      flex: 0 0 auto;
+    }
+  }
+}
+
+.req-resultados {
+  margin: 0.4rem 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+
+  li {
+    padding: 0.45rem 0.65rem;
+    font-size: 0.8rem;
+    color: #475569;
+    cursor: pointer;
+
+    + li {
+      border-top: 1px solid #f1f5f9;
+    }
+
+    &:hover {
+      background: #f1f5f9;
+    }
+  }
+}
+
+/* El monto es calculado, no escribible: se presenta como un resultado y no
+   como un campo, para que no se intente corregir a mano. */
+.req-monto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  background: #f1f5f9;
+
+  &__etiqueta {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  &__valor {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+  }
+
+  /* Aviso, no bloqueo: quien decide si excede las ocho UIT es la rutina, con
+     el tope del año que tenga sembrado. */
+  &--excede {
+    background: #fef3c7;
+
+    .req-monto__valor {
+      color: #b45309;
+    }
+  }
+}
+
+.scm-table--compacta {
+  .campo-control {
+    min-width: 90px;
+  }
+}

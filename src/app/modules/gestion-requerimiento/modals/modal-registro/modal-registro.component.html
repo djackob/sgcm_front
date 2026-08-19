@@ -1,0 +1,393 @@
+<div class="modal-fondo" *ngIf="abierto" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--ancho"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <app-breadcrumb [items]="breadcrumb" />
+          <h2 class="modal-titulo">
+            {{ modoEdicion ? 'Editar requerimiento' : 'Nuevo requerimiento' }}
+            <span class="modal-codigo" *ngIf="codigoEdicion">· {{ codigoEdicion }}</span>
+          </h2>
+          <p class="modal-subtitulo">
+            {{ centroCostoNombre }} · centro de costo {{ centroCosto }} · {{ responsable }}
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo">
+        <div class="req-cargando" *ngIf="cargandoEdicion">
+          <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando el requerimiento…
+        </div>
+
+        <ng-container *ngIf="!cargandoEdicion">
+
+          <!-- 1. Datos generales -->
+          <h3 class="req-seccion">1. Datos generales</h3>
+
+          <div class="req-grid">
+            <div class="campo req-grid__ancho">
+              <label class="campo-etiqueta" for="denominacion">
+                Denominación de la necesidad <span>(obligatorio)</span>
+              </label>
+              <input
+                id="denominacion"
+                type="text"
+                class="campo-control"
+                maxlength="500"
+                [(ngModel)]="denominacion"
+                placeholder="Qué se necesita contratar"
+              />
+            </div>
+
+            <div class="campo">
+              <label class="campo-etiqueta" for="objeto">Objeto de la prestación</label>
+              <select id="objeto" class="campo-control" [(ngModel)]="codigoTipoContratacion">
+                <option *ngFor="let o of objetos" [value]="o.valor">{{ o.nombre }}</option>
+              </select>
+              <small class="req-ayuda">
+                Define el documento técnico:
+                <ng-container *ngFor="let d of documentosDelObjeto; let ultimo = last">
+                  {{ d.etiqueta }} ({{ d.anexo }}){{ ultimo ? '' : ' → ' }}
+                </ng-container>
+              </small>
+            </div>
+
+            <div class="campo">
+              <label class="campo-etiqueta" for="dec">Dependencia encargada (DEC)</label>
+              <select id="dec" class="campo-control" [(ngModel)]="codigoDec">
+                <option value="ABASTECIMIENTO">Unidad de Abastecimiento</option>
+                <option value="DAI">DAI</option>
+              </select>
+              <small class="req-ayuda">
+                {{ codigoDec === 'DAI'
+                   ? 'Va directo a DAI, sin pasar por la Oficina de Administración.'
+                   : 'Pasa por la Oficina de Administración antes de Abastecimiento.' }}
+              </small>
+            </div>
+
+            <div class="campo">
+              <label class="campo-etiqueta" for="plazo">
+                Plazo de ejecución en días <span>(obligatorio)</span>
+              </label>
+              <input id="plazo" type="number" min="1" class="campo-control" [(ngModel)]="plazoDias" />
+            </div>
+
+            <div class="campo">
+              <label class="campo-etiqueta" for="fechaInicio">Inicio previsto</label>
+              <input id="fechaInicio" type="date" class="campo-control" [(ngModel)]="fechaInicioPrevisto" />
+              <small class="req-ayuda">
+                El requerimiento se presenta al menos 10 días hábiles antes (PLZ-01).
+              </small>
+            </div>
+
+            <div class="campo">
+              <label class="campo-etiqueta" for="ate">Área técnica especializada (ATE)</label>
+              <input id="ate" type="text" class="campo-control" maxlength="200" [(ngModel)]="ate" />
+            </div>
+
+            <div class="campo">
+              <label class="campo-etiqueta" for="ruc">RUC sugerido</label>
+              <input id="ruc" type="text" class="campo-control" maxlength="11" [(ngModel)]="rucSugerido" />
+            </div>
+          </div>
+
+          <!-- 2. Condición frente al CMN -->
+          <h3 class="req-seccion">2. Condición frente al CMN</h3>
+
+          <div class="req-grid">
+            <div class="campo">
+              <label class="campo-etiqueta" for="condicionCmn">¿Está incluida en el CMN?</label>
+              <select
+                id="condicionCmn"
+                class="campo-control"
+                [(ngModel)]="condicionCmn"
+                (change)="cambiarCondicionCmn()"
+              >
+                <option value="INCLUIDO">Sí, está incluida</option>
+                <option value="NO_INCLUIDO">No está incluida</option>
+              </select>
+            </div>
+
+            <div class="campo" *ngIf="condicionCmn === 'NO_INCLUIDO'">
+              <label class="campo-etiqueta" for="solicitudCmn">
+                Modificación del CMN finalizada
+              </label>
+              <select id="solicitudCmn" class="campo-control" [(ngModel)]="idSolicitudCmn">
+                <option [ngValue]="null">
+                  {{ cargandoCmn ? 'Cargando…' : 'Ninguna · adjuntaré el Anexo 4 firmado' }}
+                </option>
+                <option *ngFor="let s of solicitudesCmn" [ngValue]="s.IdSolicitud">
+                  {{ s.Codigo }} · centro de costo {{ s.CentroCosto }}
+                </option>
+              </select>
+              <small class="req-ayuda">
+                Si no hay ninguna, tramite la modificación en Gestión CMN o adjunte
+                el Anexo 4 firmado.
+              </small>
+            </div>
+
+            <div class="campo req-grid__ancho">
+              <label class="campo-etiqueta" for="docCmn">
+                {{ condicionCmn === 'INCLUIDO' ? 'Anexo 1 firmado' : 'Anexo 4 firmado' }}
+                <span *ngIf="condicionCmn === 'INCLUIDO'">(obligatorio)</span>
+                <span *ngIf="condicionCmn === 'NO_INCLUIDO' && !idSolicitudCmn">(obligatorio)</span>
+              </label>
+              <div class="req-archivo">
+                <input
+                  id="docCmn"
+                  type="text"
+                  class="campo-control"
+                  [(ngModel)]="generadoDocumentoCmn"
+                  placeholder="URL o identificador del archivo en el file server"
+                />
+                <input
+                  type="text"
+                  class="campo-control"
+                  [(ngModel)]="nombreDocumentoCmn"
+                  placeholder="Nombre visible del archivo"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Disponibilidad presupuestal -->
+          <h3 class="req-seccion">3. Disponibilidad presupuestal</h3>
+
+          <div class="req-grid">
+            <div class="campo req-grid__ancho">
+              <label class="req-check">
+                <input type="checkbox" [(ngModel)]="tieneDisponibilidad" />
+                <span>Se cuenta con disponibilidad presupuestal o habilitación aprobada</span>
+              </label>
+            </div>
+
+            <div class="campo req-grid__ancho" *ngIf="tieneDisponibilidad">
+              <label class="campo-etiqueta" for="docDisp">
+                Evidencia del saldo disponible <span>(obligatorio)</span>
+              </label>
+              <div class="req-archivo">
+                <input
+                  id="docDisp"
+                  type="text"
+                  class="campo-control"
+                  [(ngModel)]="generadoDocumentoDisponibilidad"
+                  placeholder="URL o identificador del archivo en el file server"
+                />
+                <input
+                  type="text"
+                  class="campo-control"
+                  [(ngModel)]="nombreDocumentoDisponibilidad"
+                  placeholder="Nombre visible del archivo"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Pedidos SIGA -->
+          <h3 class="req-seccion">
+            4. Pedidos SIGA
+            <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarPedido()">
+              <i class="mdi mdi-plus" aria-hidden="true"></i> Agregar pedido
+            </button>
+          </h3>
+
+          <p class="req-nota">
+            Los pedidos se capturan a mano: todavía no existe una vista de pedidos
+            de SIGA contra la cual comprobarlos, y por eso la base los guarda como
+            no verificados.
+          </p>
+
+          <div class="table-responsive">
+            <table class="table scm-table scm-table--compacta">
+              <thead>
+                <tr>
+                  <th>N.° de pedido</th>
+                  <th>Fecha</th>
+                  <th>Meta (SecFunc)</th>
+                  <th>Origen</th>
+                  <th>Fuente</th>
+                  <th>Clasificador</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let pedido of pedidos; let i = index">
+                  <td>
+                    <input type="text" class="campo-control" maxlength="20"
+                           [(ngModel)]="pedido.NumeroPedido" placeholder="000123" />
+                  </td>
+                  <td>
+                    <input type="date" class="campo-control" [(ngModel)]="pedido.FechaPedido" />
+                  </td>
+                  <td>
+                    <input type="number" class="campo-control" [(ngModel)]="pedido.SecFunc" />
+                  </td>
+                  <td>
+                    <input type="text" class="campo-control" maxlength="1" [(ngModel)]="pedido.Origen" />
+                  </td>
+                  <td>
+                    <input type="text" class="campo-control" maxlength="2" [(ngModel)]="pedido.FuenteFinanc" />
+                  </td>
+                  <td>
+                    <input type="text" class="campo-control" maxlength="20" [(ngModel)]="pedido.Clasificador" />
+                  </td>
+                  <td>
+                    <button type="button" class="btn-icon-outline" title="Quitar pedido"
+                            (click)="quitarPedido(i)">
+                      <i class="mdi mdi-trash-can-outline" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 5. Ítems -->
+          <h3 class="req-seccion">
+            5. Ítems del requerimiento
+            <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarItem()">
+              <i class="mdi mdi-plus" aria-hidden="true"></i> Agregar ítem
+            </button>
+          </h3>
+
+          <div class="req-items">
+            <article class="req-item" *ngFor="let item of items; let i = index">
+              <header class="req-item__cabecera">
+                <span class="req-item__numero">Ítem {{ i + 1 }}</span>
+                <span class="req-item__total">S/ {{ totalItem(item) | number: '1.2-2' }}</span>
+                <button type="button" class="btn-icon-outline" title="Quitar ítem"
+                        (click)="quitarItem(i)">
+                  <i class="mdi mdi-trash-can-outline" aria-hidden="true"></i>
+                </button>
+              </header>
+
+              <!-- Bien del catálogo, o servicio descrito -->
+              <div class="campo" *ngIf="!item.ItemBien">
+                <label class="campo-etiqueta">Buscar en el catálogo de SIGA</label>
+                <div class="campo-con-boton">
+                  <input
+                    type="text"
+                    class="campo-control"
+                    [(ngModel)]="item.textoBusqueda"
+                    (keyup.enter)="buscarCatalogo(item)"
+                    placeholder="Descripción del bien o servicio"
+                  />
+                  <button type="button" class="btn btn-app-secundario btn-sm"
+                          [disabled]="item.buscando" (click)="buscarCatalogo(item)">
+                    <i class="mdi" [ngClass]="item.buscando ? 'mdi-loading mdi-spin' : 'mdi-magnify'"
+                       aria-hidden="true"></i>
+                    Buscar
+                  </button>
+                </div>
+
+                <ul class="req-resultados" *ngIf="item.resultados.length">
+                  <li *ngFor="let fila of item.resultados" (click)="elegirCatalogo(item, fila)">
+                    <b>{{ fila.CodigoItem }}</b> · {{ fila.Descripcion }}
+                  </li>
+                </ul>
+              </div>
+
+              <div class="req-item__elegido" *ngIf="item.ItemBien">
+                <div>
+                  <b>{{ item.CodigoItem }}</b>
+                  <span class="cell-subtitle">{{ item.Descripcion }}</span>
+                </div>
+                <button type="button" class="btn btn-app-secundario btn-sm"
+                        (click)="limpiarCatalogo(item)">
+                  Cambiar
+                </button>
+              </div>
+
+              <div class="campo" *ngIf="!item.ItemBien">
+                <label class="campo-etiqueta">Descripción del servicio</label>
+                <input
+                  type="text"
+                  class="campo-control"
+                  maxlength="350"
+                  [(ngModel)]="item.DescripcionServicio"
+                  placeholder="Si no está en el catálogo, descríbalo aquí"
+                />
+              </div>
+
+              <div class="req-grid req-grid--item">
+                <div class="campo">
+                  <label class="campo-etiqueta">Cantidad</label>
+                  <input type="number" min="0" step="0.01" class="campo-control"
+                         [(ngModel)]="item.Cantidad" />
+                </div>
+
+                <div class="campo">
+                  <label class="campo-etiqueta">Precio unitario S/</label>
+                  <input type="number" min="0" step="0.000001" class="campo-control"
+                         [(ngModel)]="item.PrecioUnitario" />
+                </div>
+
+                <div class="campo">
+                  <label class="campo-etiqueta">Pedido SIGA</label>
+                  <select class="campo-control" [(ngModel)]="item.NumeroPedido">
+                    <option value="">Sin pedido asignado</option>
+                    <option *ngFor="let numero of numerosDePedido" [value]="numero">
+                      {{ numero }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <!-- Monto -->
+          <div class="req-monto" [class.req-monto--excede]="excedeTope">
+            <div>
+              <span class="req-monto__etiqueta">Monto del requerimiento</span>
+              <small class="req-ayuda" *ngIf="montoTope">
+                Tope de ocho UIT para {{ anoEje }}: S/ {{ montoTope | number: '1.2-2' }}
+              </small>
+              <small class="req-ayuda" *ngIf="!montoTope">
+                Es la suma de los ítems. El tope de ocho UIT lo verifica el servidor.
+              </small>
+            </div>
+            <span class="req-monto__valor">S/ {{ montoTotal | number: '1.2-2' }}</span>
+          </div>
+
+          <!-- 6. Sustento -->
+          <h3 class="req-seccion">6. Sustento</h3>
+
+          <div class="campo">
+            <label class="campo-etiqueta" for="sustento">
+              Sustento de la necesidad <span>(obligatorio)</span>
+            </label>
+            <textarea
+              id="sustento"
+              class="campo-control"
+              rows="4"
+              [(ngModel)]="sustento"
+              placeholder="Por qué se requiere y para qué se va a usar"
+            ></textarea>
+          </div>
+
+        </ng-container>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cerrar</button>
+        <button
+          type="button"
+          class="btn btn-app-primary"
+          [disabled]="guardando || cargandoEdicion"
+          (click)="guardar()"
+        >
+          <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
+          {{ modoEdicion ? 'Guardar cambios' : 'Registrar requerimiento' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

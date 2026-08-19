@@ -1,4 +1,4 @@
-<div class="modal-fondo" *ngIf="abierto" (click)="cerrar()" role="presentation">
+<div class="modal-fondo" *ngIf="abierto" role="presentation">
   <div
     class="modal-app-dialog modal-app-dialog--ancho"
     role="dialog"
@@ -263,7 +263,7 @@
         <span class="modal-footer__info">
           Total de la solicitud: <b>S/ {{ totalSolicitud | number: '1.2-2' }}</b>
         </span>
-        <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cancelar</button>
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cerrar</button>
         <button
           type="button"
           class="btn btn-app-primary"
@@ -283,7 +283,6 @@
 <div
   class="modal-fondo modal-fondo--sobre"
   *ngIf="eligiendoCuadro !== null"
-  (click)="eligiendoCuadro = null"
   role="presentation"
 >
   <div class="modal-app-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">

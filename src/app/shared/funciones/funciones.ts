@@ -46,6 +46,8 @@ export class Funciones {
       confirmButtonText: confirmButtonText,
       cancelButtonText: cancelButtonText,
       returnFocus: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
       showCancelButton: (tipo == "question") ? true : cancelButton,
       focusCancel: (tipo == "question") ? true : cancelButton,
     }).then(condicion);
@@ -66,6 +68,7 @@ export class Funciones {
       icon: tipo,
       html: texto,
       allowOutsideClick: false,
+      allowEscapeKey: false,
       showConfirmButton: confirmar,
       didClose: algunaAccion,
     });
@@ -95,6 +98,7 @@ export class Funciones {
       html: texto,
       showCancelButton: cancel,
       allowOutsideClick: false,
+      allowEscapeKey: false,
       confirmButtonText: 'Si',
       cancelButtonText: 'No',
       focusCancel: true,

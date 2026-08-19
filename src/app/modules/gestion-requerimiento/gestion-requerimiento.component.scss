@@ -1,0 +1,132 @@
+/* Estilos de página / tabla / botones: globales en styles/components.
+   Aquí solo lo propio de esta bandeja. */
+
+.req-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: flex-end;
+  padding: 0.9rem 0 1.1rem;
+
+  &__campo {
+    display: flex;
+    flex: 1 1 200px;
+    flex-direction: column;
+    min-width: 0;
+
+    &--corto {
+      flex: 0 0 110px;
+    }
+
+    &--check {
+      flex: 0 0 auto;
+      justify-content: flex-end;
+    }
+  }
+
+  &__ayuda {
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    color: #94a3b8;
+  }
+
+  &__acciones {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.4rem;
+  }
+}
+
+.req-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+}
+
+.req-cargando {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.req-vacio {
+  padding: 2.5rem 1rem;
+  text-align: center;
+
+  i {
+    font-size: 2rem;
+    color: #cbd5e1;
+  }
+
+  h3 {
+    margin: 0.5rem 0 0.25rem;
+    font-size: 1rem;
+    color: #334155;
+  }
+
+  p {
+    max-width: 460px;
+    margin: 0 auto;
+    font-size: 0.82rem;
+  }
+}
+
+.req-paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.9rem;
+
+  div {
+    display: flex;
+    gap: 0.4rem;
+  }
+}
+
+/* La celda de acciones puede traer más de un botón: el motor de estados
+   devuelve todas las transiciones posibles, no una sola. En este módulo eso es
+   visible en el estado «Firmado por el Área usuaria», donde conviven Remitir a
+   OA y Remitir a DAI hasta que la DEC decide cuál corresponde. */
+.action-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.req-avisos {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    padding: 0.5rem 0.65rem;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.8rem;
+    line-height: 1.35;
+
+    + li {
+      margin-top: 0.35rem;
+    }
+  }
+}
+
+.modal-app-dialog--angosto {
+  max-width: 560px;
+}
+
+.text-end {
+  text-align: right;
+}

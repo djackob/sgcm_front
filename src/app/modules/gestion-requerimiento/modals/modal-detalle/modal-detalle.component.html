@@ -1,0 +1,231 @@
+<div class="modal-fondo" *ngIf="abierto" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--ancho"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">{{ fila?.Codigo }}</h2>
+          <p class="modal-subtitulo">{{ fila?.Denominacion }}</p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo">
+        <div class="det-cargando" *ngIf="cargando">
+          <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando el expediente…
+        </div>
+
+        <ng-container *ngIf="!cargando && detalle">
+
+          <!-- Estado -->
+          <div class="det-estado">
+            <span class="status-pill status-pill--info">{{ detalle.Estado }}</span>
+            <span class="cell-muted">
+              versión {{ detalle.Version }} · responsable {{ detalle.Responsable }}
+            </span>
+          </div>
+
+          <!-- Datos generales -->
+          <h3 class="det-seccion">Datos generales</h3>
+
+          <dl class="det-datos">
+            <div>
+              <dt>Objeto de la prestación</dt>
+              <dd>{{ detalle.TipoContratacion }}</dd>
+            </div>
+            <div>
+              <dt>Dependencia encargada (DEC)</dt>
+              <dd>{{ nombreDec }}</dd>
+            </div>
+            <div>
+              <dt>Centro de costo</dt>
+              <dd>{{ detalle.CentroCosto }} · {{ detalle.CentroCostoNombre }}</dd>
+            </div>
+            <div>
+              <dt>Monto</dt>
+              <dd class="det-datos__fuerte">S/ {{ detalle.Monto | number: '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Plazo de ejecución</dt>
+              <dd>{{ detalle.PlazoDias }} día(s)</dd>
+            </div>
+            <div>
+              <dt>Inicio previsto</dt>
+              <dd>{{ detalle.FechaInicioPrevisto || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Condición frente al CMN</dt>
+              <dd>
+                {{ condicionCmnTexto }}
+                <span class="cell-subtitle" *ngIf="detalle.SolicitudCmn">
+                  Se apoya en {{ detalle.SolicitudCmn }}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Disponibilidad presupuestal</dt>
+              <dd>{{ detalle.TieneDisponibilidad ? 'Declarada' : 'No declarada' }}</dd>
+            </div>
+            <div *ngIf="detalle.Ate">
+              <dt>Área técnica especializada</dt>
+              <dd>{{ detalle.Ate }}</dd>
+            </div>
+            <div *ngIf="detalle.RucSugerido">
+              <dt>RUC sugerido</dt>
+              <dd>{{ detalle.RucSugerido }}</dd>
+            </div>
+          </dl>
+
+          <div class="det-sustento">
+            <h4>Sustento</h4>
+            <p>{{ detalle.Sustento }}</p>
+          </div>
+
+          <!-- Documentos técnicos -->
+          <h3 class="det-seccion">Documento técnico según el objeto</h3>
+
+          <div class="det-documentos">
+            <article class="det-documento" *ngFor="let doc of documentosEsperados; let i = index">
+              <span class="det-documento__orden">{{ i + 1 }}</span>
+              <div class="det-documento__info">
+                <b>{{ doc.etiqueta }}</b>
+                <span class="cell-subtitle">{{ doc.anexo }}</span>
+              </div>
+              <span class="status-pill" [ngClass]="'status-pill--' + tonoDocumento(doc.registrado)">
+                {{ doc.registrado ? doc.registrado.Estado : 'Pendiente' }}
+              </span>
+              <span class="cell-muted det-documento__firma" *ngIf="doc.registrado?.FirmadoEn">
+                Firmado el {{ doc.registrado?.FirmadoEn }}
+              </span>
+              <span class="cell-muted det-documento__firma" *ngIf="doc.registrado && !doc.registrado.FirmadoEn">
+                v{{ doc.registrado.Version }} · sin firma
+              </span>
+            </article>
+          </div>
+
+          <p class="det-nota" *ngIf="detalle.CodigoTipoContratacion === 'LOCACION'">
+            En Locación el orden es obligatorio: la propuesta del Área usuaria se
+            firma antes de elaborar el TDR.
+          </p>
+
+          <!-- Pedidos SIGA -->
+          <h3 class="det-seccion">Pedidos SIGA vinculados</h3>
+
+          <div class="table-responsive">
+            <table class="table scm-table">
+              <thead>
+                <tr>
+                  <th>N.° de pedido</th>
+                  <th>Fecha</th>
+                  <th>Meta</th>
+                  <th>Fuente</th>
+                  <th>Clasificador</th>
+                  <th>Verificado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let pedido of detalle.Pedidos">
+                  <td>{{ pedido.NumeroPedido }}</td>
+                  <td class="cell-muted">{{ pedido.FechaPedido || '—' }}</td>
+                  <td class="cell-muted">{{ pedido.SecFunc || '—' }}</td>
+                  <td class="cell-muted">
+                    {{ pedido.Origen || '—' }}{{ pedido.FuenteFinanc ? ' · ' + pedido.FuenteFinanc : '' }}
+                  </td>
+                  <td class="cell-muted">{{ pedido.Clasificador || '—' }}</td>
+                  <td>
+                    <span class="status-pill"
+                          [ngClass]="pedido.Verificado ? 'status-pill--success' : 'status-pill--neutral'">
+                      {{ pedido.Verificado ? 'Verificado' : 'Sin verificar' }}
+                    </span>
+                  </td>
+                </tr>
+                <tr *ngIf="detalle.Pedidos.length === 0">
+                  <td colspan="6" class="cell-muted">Sin pedidos vinculados.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Ítems -->
+          <h3 class="det-seccion">Ítems</h3>
+
+          <div class="table-responsive">
+            <table class="table scm-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Bien o servicio</th>
+                  <th>Pedido</th>
+                  <th class="text-end">Cantidad</th>
+                  <th class="text-end">P. unitario S/</th>
+                  <th class="text-end">Monto S/</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of detalle.Items">
+                  <td class="cell-muted">{{ item.Orden }}</td>
+                  <td>
+                    <span class="cell-title">{{ item.Descripcion }}</span>
+                    <span class="cell-subtitle" *ngIf="item.ItemBien">
+                      {{ item.CodigoItem }}
+                      <ng-container *ngIf="item.UnidadAbreviatura">· {{ item.UnidadAbreviatura }}</ng-container>
+                    </span>
+                    <span class="cell-subtitle" *ngIf="!item.ItemBien">
+                      Descrito en texto · fuera del catálogo
+                    </span>
+                  </td>
+                  <td class="cell-muted">{{ item.NumeroPedido || '—' }}</td>
+                  <td class="cell-muted text-end">{{ item.Cantidad | number: '1.2-2' }}</td>
+                  <td class="cell-muted text-end">{{ item.PrecioUnitario | number: '1.2-6' }}</td>
+                  <td class="text-end">{{ item.Monto | number: '1.2-2' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Trazabilidad -->
+          <h3 class="det-seccion">Trazabilidad</h3>
+
+          <ol class="det-historial">
+            <li *ngFor="let paso of historial">
+              <div class="det-historial__punto"></div>
+              <div class="det-historial__cuerpo">
+                <b>{{ paso.CodigoEstadoDestino }}</b>
+                <span class="cell-subtitle">
+                  {{ paso.Actor }} · {{ paso.ActorRol }} · {{ paso.Unidad }}
+                </span>
+                <span class="cell-subtitle">{{ paso.OcurridoEn }}</span>
+                <p class="det-historial__comentario" *ngIf="paso.Comentario">
+                  {{ paso.Comentario }}
+                </p>
+              </div>
+            </li>
+            <li *ngIf="historial.length === 0" class="cell-muted">
+              Sin movimientos registrados.
+            </li>
+          </ol>
+
+        </ng-container>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          *ngIf="puedeEditar"
+          (click)="emitirEditar()"
+        >
+          <i class="mdi mdi-pencil-outline" aria-hidden="true"></i>
+          Editar requerimiento
+        </button>
+        <button type="button" class="btn btn-app-primary" (click)="cerrar()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>

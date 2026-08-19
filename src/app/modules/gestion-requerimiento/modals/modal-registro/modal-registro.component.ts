@@ -1,0 +1,603 @@
+import { Component, EventEmitter, Output } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+
+import { BreadcrumbComponent } from '../../../../shared/components/breadcrumb/breadcrumb.component';
+import { RequerimientoService } from '../../services/requerimiento.service';
+import { SessionService } from '../../../../core/services/session.service';
+import { ConfigService } from '../../../../core/services/config.service';
+import { Funciones } from '../../../../shared/funciones/funciones';
+import {
+  CatalogoSiga,
+  DOCUMENTO_TECNICO,
+  ItemFormularioRequerimiento,
+  PedidoFormularioRequerimiento,
+  TipoContratacionRequerimiento,
+  crearItemFormularioRequerimiento,
+  crearPedidoFormularioRequerimiento
+} from '../../models/requerimiento.model';
+
+/**
+ * Registro del requerimiento — REQ-01 a REQ-09.
+ *
+ * QUÉ SE VALIDA AQUÍ Y QUÉ NO
+ * En el formulario se comprueba lo necesario para no gastar un viaje al servidor
+ * con un formulario evidentemente incompleto: campos vacíos, cantidades en cero,
+ * la exigencia documental de la condición CMN. Las cuatro validaciones que
+ * definen el módulo —el tope de ocho UIT del año, la condición frente al CMN
+ * comprobada contra cmn.Solicitud, los diez días hábiles de antelación y la
+ * coherencia entre la suma de los ítems y el monto declarado— son de la rutina,
+ * y no se replican: dos validaciones que dicen lo mismo terminan diciendo cosas
+ * distintas.
+ *
+ * El tope de ocho UIT sí se muestra, pero como ayuda visual y no como regla: se
+ * lee de requerimiento.ParametroAnio a través del maestro, cambia cada año y la
+ * que decide es la rutina.
+ *
+ * EL MONTO NO SE ESCRIBE
+ * Es la suma de los ítems. Dejarlo editable permitiría declarar un monto que no
+ * corresponde a lo que se va a contratar, y la rutina lo rechazaría igual: es un
+ * campo calculado, y se muestra como tal.
+ *
+ * LOS PEDIDOS SIGA SE CAPTURAN, NO SE VERIFICAN
+ * No existe todavía una vista de pedidos de SIGA contra la cual comprobarlos, y
+ * por eso la base los guarda con Verificado = 0. El formulario los pide a mano.
+ * Cuando exista siga.vwPedido, este bloque pasa a ser un buscador como el del
+ * catálogo y la rutina empieza a validarlos.
+ */
+@Component({
+  selector: 'app-modal-registro-requerimiento',
+  standalone: true,
+  imports: [CommonModule, FormsModule, BreadcrumbComponent],
+  templateUrl: './modal-registro.component.html',
+  styleUrl: './modal-registro.component.scss',
+})
+export class ModalRegistroRequerimientoComponent {
+
+  @Output() registrado = new EventEmitter<void>();
+
+  readonly breadcrumb = ['Requerimiento', 'Registro de la necesidad'];
+
+  readonly objetos: { valor: TipoContratacionRequerimiento; nombre: string }[] = [
+    { valor: 'BIEN', nombre: 'Bien' },
+    { valor: 'SERVICIO', nombre: 'Servicio' },
+    { valor: 'CONSULTORIA', nombre: 'Consultoría' },
+    { valor: 'LOCACION', nombre: 'Locación de servicios' }
+  ];
+
+  abierto = false;
+  guardando = false;
+  cargandoEdicion = false;
+  cargandoCmn = false;
+  modoEdicion = false;
+  idRequerimientoEdicion: string | null = null;
+  codigoEdicion = '';
+
+  /* Cabecera */
+  anoEje = new Date().getFullYear();
+  centroCosto = '';
+  centroCostoNombre = '';
+  responsable = '';
+  cargo = '';
+
+  denominacion = '';
+  codigoTipoContratacion: TipoContratacionRequerimiento = 'BIEN';
+  codigoDec: 'ABASTECIMIENTO' | 'DAI' = 'ABASTECIMIENTO';
+  condicionCmn: 'INCLUIDO' | 'NO_INCLUIDO' = 'INCLUIDO';
+  idSolicitudCmn: string | null = null;
+  generadoDocumentoCmn = '';
+  nombreDocumentoCmn = '';
+  plazoDias: number | null = null;
+  fechaInicioPrevisto = '';
+  ate = '';
+  rucSugerido = '';
+  tieneDisponibilidad = false;
+  generadoDocumentoDisponibilidad = '';
+  nombreDocumentoDisponibilidad = '';
+  sustento = '';
+
+  /** Tope de ocho UIT del año. Referencia visual; la regla es de la rutina. */
+  montoTope: number | null = null;
+
+  /** Solicitudes CMN finalizadas, para el caso NO_INCLUIDO (REQ-04). */
+  solicitudesCmn: { IdSolicitud: string; Codigo: string; CentroCosto: string }[] = [];
+
+  pedidos: PedidoFormularioRequerimiento[] = [];
+  items: ItemFormularioRequerimiento[] = [];
+
+  constructor(
+    private requerimientoService: RequerimientoService,
+    private sesion: SessionService,
+    private funciones: Funciones
+  ) { }
+
+  private get secEjec(): number {
+    return ConfigService.settings?.secEjec || 1750;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Apertura y cierre                                                      */
+  /* ---------------------------------------------------------------------- */
+
+  abrir(centroCosto: string, anoEje: number): void {
+    const info = this.sesion.getInfoUsuario();
+    const detalle = info?.detalle?.[0];
+
+    this.modoEdicion = false;
+    this.idRequerimientoEdicion = null;
+    this.codigoEdicion = '';
+    this.cargandoEdicion = false;
+
+    this.centroCosto = centroCosto || detalle?.centro_costo || '';
+    this.centroCostoNombre = detalle?.dependencia || '';
+    this.responsable = [info?.nombre, info?.apellido_paterno].filter(Boolean).join(' ');
+    this.cargo = info?.cargo || detalle?.perfil?.[0]?.perfil || '';
+    this.anoEje = anoEje || new Date().getFullYear();
+
+    this.limpiarFormulario();
+    this.abierto = true;
+
+    this.cargarTope();
+  }
+
+  /**
+   * Abre el mismo formulario con los datos ya registrados, para subsanar una
+   * observación (REQ-27, REQ-28) o para completar un borrador. La subsanación no
+   * se limita al punto observado: puede corregir datos generales, pedidos e
+   * ítems, y por eso se reabre el formulario entero y no una parte.
+   */
+  abrirEdicion(idRequerimiento: string): void {
+    const info = this.sesion.getInfoUsuario();
+    const detalle = info?.detalle?.[0];
+
+    this.modoEdicion = true;
+    this.idRequerimientoEdicion = idRequerimiento;
+    this.codigoEdicion = '';
+    this.cargandoEdicion = true;
+
+    this.centroCosto = detalle?.centro_costo || '';
+    this.centroCostoNombre = detalle?.dependencia || '';
+    this.responsable = [info?.nombre, info?.apellido_paterno].filter(Boolean).join(' ');
+    this.cargo = info?.cargo || detalle?.perfil?.[0]?.perfil || '';
+
+    this.limpiarFormulario();
+    this.abierto = true;
+
+    this.requerimientoService.obtenerRequerimiento(idRequerimiento).subscribe({
+      next: (respuesta: any) => {
+        this.cargandoEdicion = false;
+        if (respuesta?.estado !== 1) {
+          this.abierto = false;
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible cargar el requerimiento.');
+          return;
+        }
+
+        this.codigoEdicion = respuesta.Codigo || '';
+        this.anoEje = respuesta.AnoEje || this.anoEje;
+        this.centroCosto = respuesta.CentroCosto || this.centroCosto;
+        this.centroCostoNombre = respuesta.CentroCostoNombre || this.centroCostoNombre;
+        this.denominacion = respuesta.Denominacion || '';
+        this.codigoTipoContratacion = respuesta.CodigoTipoContratacion || 'BIEN';
+        this.codigoDec = respuesta.CodigoDec || 'ABASTECIMIENTO';
+        this.condicionCmn = respuesta.CondicionCmn || 'INCLUIDO';
+        this.idSolicitudCmn = respuesta.IdSolicitudCmn || null;
+        this.generadoDocumentoCmn = respuesta.GeneradoDocumentoCmn || '';
+        this.nombreDocumentoCmn = respuesta.NombreDocumentoCmn || '';
+        this.plazoDias = respuesta.PlazoDias ?? null;
+        this.fechaInicioPrevisto = (respuesta.FechaInicioPrevisto || '').substring(0, 10);
+        this.ate = respuesta.Ate || '';
+        this.rucSugerido = respuesta.RucSugerido || '';
+        this.tieneDisponibilidad = !!respuesta.TieneDisponibilidad;
+        this.generadoDocumentoDisponibilidad = respuesta.GeneradoDocumentoDisponibilidad || '';
+        this.nombreDocumentoDisponibilidad = respuesta.NombreDocumentoDisponibilidad || '';
+        this.sustento = respuesta.Sustento || '';
+        this.pedidos = this.pedidosDesdeDetalle(respuesta.Pedidos || []);
+        this.items = this.itemsDesdeDetalle(respuesta.Items || []);
+
+        this.cargarTope();
+        if (this.condicionCmn === 'NO_INCLUIDO') {
+          this.cargarSolicitudesCmn();
+        }
+      },
+      error: () => {
+        this.cargandoEdicion = false;
+        this.abierto = false;
+        this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
+      }
+    });
+  }
+
+  private limpiarFormulario(): void {
+    this.denominacion = '';
+    this.codigoTipoContratacion = 'BIEN';
+    this.codigoDec = 'ABASTECIMIENTO';
+    this.condicionCmn = 'INCLUIDO';
+    this.idSolicitudCmn = null;
+    this.generadoDocumentoCmn = '';
+    this.nombreDocumentoCmn = '';
+    this.plazoDias = null;
+    this.fechaInicioPrevisto = '';
+    this.ate = '';
+    this.rucSugerido = '';
+    this.tieneDisponibilidad = false;
+    this.generadoDocumentoDisponibilidad = '';
+    this.nombreDocumentoDisponibilidad = '';
+    this.sustento = '';
+    this.solicitudesCmn = [];
+    this.pedidos = [crearPedidoFormularioRequerimiento()];
+    this.items = [crearItemFormularioRequerimiento()];
+  }
+
+  private pedidosDesdeDetalle(filas: any[]): PedidoFormularioRequerimiento[] {
+    if (!filas.length) {
+      return [crearPedidoFormularioRequerimiento()];
+    }
+
+    return filas.map(fila => ({
+      NumeroPedido: fila.NumeroPedido || '',
+      FechaPedido: (fila.FechaPedido || '').substring(0, 10),
+      SecFunc: fila.SecFunc ?? null,
+      Origen: fila.Origen || '',
+      FuenteFinanc: fila.FuenteFinanc || '',
+      Clasificador: fila.Clasificador || ''
+    }));
+  }
+
+  private itemsDesdeDetalle(filas: any[]): ItemFormularioRequerimiento[] {
+    if (!filas.length) {
+      return [crearItemFormularioRequerimiento()];
+    }
+
+    return filas.map(fila => {
+      const item = crearItemFormularioRequerimiento();
+      item.TipoBien = fila.TipoBien || '';
+      item.GrupoBien = fila.GrupoBien || '';
+      item.ClaseBien = fila.ClaseBien || '';
+      item.FamiliaBien = fila.FamiliaBien || '';
+      item.ItemBien = fila.ItemBien || '';
+      item.DescripcionServicio = fila.DescripcionServicio || '';
+      item.UnidadMedida = fila.UnidadMedida ?? null;
+      item.UnidadAbreviatura = fila.UnidadAbreviatura || '';
+      item.Cantidad = fila.Cantidad ?? null;
+      item.PrecioUnitario = fila.PrecioUnitario ?? null;
+      item.NumeroPedido = fila.NumeroPedido || '';
+      item.CodigoItem = fila.ItemBien ? (fila.CodigoItem || '') : '';
+      item.Descripcion = fila.Descripcion || '';
+      return item;
+    });
+  }
+
+  cerrar(): void {
+    this.abierto = false;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Condición frente al CMN (REQ-03, REQ-04)                               */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Cambiar la condición limpia la evidencia de la anterior: el Anexo 1 de un
+   * requerimiento incluido y el Anexo 4 de uno no incluido son documentos
+   * distintos, y arrastrar uno al otro caso deja al expediente sustentado con el
+   * papel equivocado.
+   */
+  cambiarCondicionCmn(): void {
+    this.idSolicitudCmn = null;
+    this.generadoDocumentoCmn = '';
+    this.nombreDocumentoCmn = '';
+
+    if (this.condicionCmn === 'NO_INCLUIDO' && this.solicitudesCmn.length === 0) {
+      this.cargarSolicitudesCmn();
+    }
+  }
+
+  private cargarSolicitudesCmn(): void {
+    this.cargandoCmn = true;
+    this.requerimientoService.listarSolicitudCmnFinalizada(this.anoEje).subscribe({
+      next: (respuesta: any) => {
+        this.cargandoCmn = false;
+        this.solicitudesCmn = (respuesta?.Solicitudes || []).map((s: any) => ({
+          IdSolicitud: s.IdSolicitud,
+          Codigo: s.Codigo,
+          CentroCosto: s.CentroCosto
+        }));
+      },
+      error: () => { this.cargandoCmn = false; }
+    });
+  }
+
+  /** El tope de ocho UIT del año, para mostrarlo junto al monto calculado. */
+  private cargarTope(): void {
+    this.requerimientoService.listarMaestroSiga('PARAMETRO_EJECUTORA_ANIO', {
+      AnoEje: this.anoEje, SecEjec: this.secEjec
+    }).subscribe({
+      next: (r: any) => {
+        // El maestro puede no traer el tope: es un dato del módulo, no de SIGA.
+        // Si no llega se deja en nulo y la pantalla no muestra la referencia;
+        // la regla la aplica la rutina de todos modos.
+        this.montoTope = r?.datos?.[0]?.MontoTope ?? null;
+      },
+      error: () => { this.montoTope = null; }
+    });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Documento técnico según el objeto (REQ-07, REQ-08)                     */
+  /* ---------------------------------------------------------------------- */
+
+  get documentosDelObjeto(): { codigo: string; etiqueta: string; anexo: string }[] {
+    return DOCUMENTO_TECNICO[this.codigoTipoContratacion] || [];
+  }
+
+  get esLocacion(): boolean {
+    return this.codigoTipoContratacion === 'LOCACION';
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Pedidos SIGA                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  agregarPedido(): void {
+    this.pedidos = [...this.pedidos, crearPedidoFormularioRequerimiento()];
+  }
+
+  quitarPedido(indice: number): void {
+    if (this.pedidos.length === 1) {
+      this.funciones.mensaje('info', 'El requerimiento debe vincular al menos un pedido SIGA.');
+      return;
+    }
+
+    const numero = this.pedidos[indice].NumeroPedido;
+    this.pedidos = this.pedidos.filter((_, i) => i !== indice);
+
+    // Los ítems que apuntaban a ese pedido quedan sin pedido, no se borran:
+    // el usuario quitó el pedido, no la línea de lo que va a contratar.
+    if (numero) {
+      this.items.forEach(item => {
+        if (item.NumeroPedido === numero) {
+          item.NumeroPedido = '';
+        }
+      });
+    }
+  }
+
+  get numerosDePedido(): string[] {
+    return this.pedidos.map(p => p.NumeroPedido.trim()).filter(n => !!n);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Ítems                                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  agregarItem(): void {
+    this.items = [...this.items, crearItemFormularioRequerimiento()];
+  }
+
+  quitarItem(indice: number): void {
+    if (this.items.length === 1) {
+      this.funciones.mensaje('info', 'El requerimiento debe conservar al menos un ítem.');
+      return;
+    }
+    this.items = this.items.filter((_, i) => i !== indice);
+  }
+
+  buscarCatalogo(item: ItemFormularioRequerimiento): void {
+    const texto = item.textoBusqueda.trim();
+    if (texto.length < 3) {
+      this.funciones.mensaje('info', 'Escriba al menos tres caracteres de la descripción.');
+      return;
+    }
+
+    item.buscando = true;
+    this.requerimientoService.listarMaestroSiga('CATALOGO', {
+      SecEjec: this.secEjec, AnoEje: this.anoEje, Texto: texto, Limite: 25
+    }).subscribe({
+      next: (r: any) => {
+        item.buscando = false;
+        item.resultados = r?.datos || [];
+        if (item.resultados.length === 0) {
+          this.funciones.mensaje('info', 'Sin coincidencias en el catálogo de SIGA.');
+        }
+      },
+      error: () => { item.buscando = false; }
+    });
+  }
+
+  elegirCatalogo(item: ItemFormularioRequerimiento, fila: CatalogoSiga): void {
+    item.CodigoItem = fila.CodigoItem;
+    item.Descripcion = fila.Descripcion;
+    item.TipoBien = fila.TipoBien;
+    item.GrupoBien = fila.GrupoBien;
+    item.ClaseBien = fila.ClaseBien;
+    item.FamiliaBien = fila.FamiliaBien;
+    item.ItemBien = fila.ItemBien;
+    item.UnidadMedida = fila.UnidadMedida;
+    // Elegir del catálogo excluye la descripción libre: la base exige uno u
+    // otro, y tener los dos deja ambiguo qué se está contratando.
+    item.DescripcionServicio = '';
+    item.PrecioUnitario = item.PrecioUnitario ?? fila.PrecioRef;
+    item.resultados = [];
+  }
+
+  /**
+   * Vuelve la línea a descripción libre. Un servicio o una consultoría puede no
+   * estar en el catálogo de bienes, y en ese caso las cinco partes van nulas.
+   */
+  limpiarCatalogo(item: ItemFormularioRequerimiento): void {
+    item.CodigoItem = '';
+    item.Descripcion = '';
+    item.TipoBien = '';
+    item.GrupoBien = '';
+    item.ClaseBien = '';
+    item.FamiliaBien = '';
+    item.ItemBien = '';
+    item.UnidadMedida = null;
+    item.UnidadAbreviatura = '';
+    item.resultados = [];
+    item.textoBusqueda = '';
+  }
+
+  totalItem(item: ItemFormularioRequerimiento): number {
+    return (Number(item.Cantidad) || 0) * (Number(item.PrecioUnitario) || 0);
+  }
+
+  /** El monto del requerimiento es la suma de sus ítems, no un campo escribible. */
+  get montoTotal(): number {
+    return this.items.reduce((suma, item) => suma + this.totalItem(item), 0);
+  }
+
+  get excedeTope(): boolean {
+    return !!this.montoTope && this.montoTotal > this.montoTope;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Guardar                                                                */
+  /* ---------------------------------------------------------------------- */
+
+  private primerError(): string | null {
+    if (!this.centroCosto) {
+      return 'Este perfil no tiene centro de costo asociado y no puede registrar requerimientos.';
+    }
+    if (!this.denominacion.trim()) {
+      return 'La denominación del requerimiento es obligatoria.';
+    }
+    if (!this.sustento.trim()) {
+      return 'El sustento del requerimiento es obligatorio.';
+    }
+    if (!this.plazoDias || this.plazoDias <= 0) {
+      return 'El plazo de ejecución debe ser mayor que cero.';
+    }
+
+    /* REQ-03: incluido en el CMN exige el Anexo 1 firmado. */
+    if (this.condicionCmn === 'INCLUIDO' && !this.generadoDocumentoCmn.trim()) {
+      return 'La necesidad está incluida en el CMN: adjunte el Anexo 1 firmado.';
+    }
+
+    /* REQ-04: no incluido exige un Anexo 4 finalizado o el Anexo 4 firmado. */
+    if (this.condicionCmn === 'NO_INCLUIDO'
+        && !this.idSolicitudCmn
+        && !this.generadoDocumentoCmn.trim()) {
+      return 'La necesidad no está incluida en el CMN: seleccione una modificación del CMN finalizada o adjunte el Anexo 4 firmado.';
+    }
+
+    /* REQ-05: la evidencia del saldo o de la habilitación aprobada. */
+    if (this.tieneDisponibilidad && !this.generadoDocumentoDisponibilidad.trim()) {
+      return 'Declaró disponibilidad presupuestal: registre la evidencia del saldo disponible.';
+    }
+
+    if (this.numerosDePedido.length === 0) {
+      return 'El requerimiento debe vincular al menos un pedido SIGA.';
+    }
+
+    for (let i = 0; i < this.items.length; i++) {
+      const item = this.items[i];
+      const n = i + 1;
+
+      if (!item.ItemBien && !item.DescripcionServicio.trim()) {
+        return `El ítem ${n} necesita un bien del catálogo o una descripción del servicio.`;
+      }
+      if (!item.Cantidad || item.Cantidad <= 0) {
+        return `El ítem ${n} necesita una cantidad mayor que cero.`;
+      }
+      if (!item.PrecioUnitario || item.PrecioUnitario <= 0) {
+        return `El ítem ${n} necesita un precio unitario mayor que cero.`;
+      }
+    }
+
+    if (this.montoTotal <= 0) {
+      return 'El monto del requerimiento debe ser mayor que cero.';
+    }
+
+    return null;
+  }
+
+  guardar(): void {
+    if (this.guardando) {
+      return;
+    }
+
+    const error = this.primerError();
+    if (error) {
+      this.funciones.mensaje('info', error);
+      return;
+    }
+
+    const requerimiento: any = {
+      AnoEje: this.anoEje,
+      SecEjec: this.secEjec,
+      CentroCosto: this.centroCosto,
+      Denominacion: this.denominacion.trim(),
+      CodigoTipoContratacion: this.codigoTipoContratacion,
+      CodigoDec: this.codigoDec,
+      CondicionCmn: this.condicionCmn,
+      IdSolicitudCmn: this.idSolicitudCmn,
+      GeneradoDocumentoCmn: this.generadoDocumentoCmn.trim() || null,
+      NombreDocumentoCmn: this.nombreDocumentoCmn.trim() || null,
+      // El monto viaja calculado: la rutina comprueba que coincida con la suma
+      // de los ítems, así que mandar otra cosa sólo produce un rechazo.
+      Monto: Number(this.montoTotal.toFixed(2)),
+      PlazoDias: Number(this.plazoDias),
+      FechaInicioPrevisto: this.fechaInicioPrevisto || null,
+      Ate: this.ate.trim() || null,
+      RucSugerido: this.rucSugerido.trim() || null,
+      TieneDisponibilidad: this.tieneDisponibilidad,
+      GeneradoDocumentoDisponibilidad: this.generadoDocumentoDisponibilidad.trim() || null,
+      NombreDocumentoDisponibilidad: this.nombreDocumentoDisponibilidad.trim() || null,
+      Sustento: this.sustento.trim(),
+      DatosAdicionales: {}
+    };
+
+    if (this.modoEdicion && this.idRequerimientoEdicion) {
+      requerimiento.IdRequerimiento = this.idRequerimientoEdicion;
+    }
+
+    const pedidos = this.pedidos
+      .filter(p => p.NumeroPedido.trim())
+      .map(p => ({
+        AnoEje: this.anoEje,
+        SecEjec: this.secEjec,
+        NumeroPedido: p.NumeroPedido.trim(),
+        FechaPedido: p.FechaPedido || null,
+        CentroCosto: this.centroCosto,
+        SecFunc: p.SecFunc || null,
+        Origen: p.Origen.trim() || null,
+        FuenteFinanc: p.FuenteFinanc.trim() || null,
+        Clasificador: p.Clasificador.trim() || null
+      }));
+
+    const items = this.items.map(item => ({
+      TipoBien: item.TipoBien || null,
+      GrupoBien: item.GrupoBien || null,
+      ClaseBien: item.ClaseBien || null,
+      FamiliaBien: item.FamiliaBien || null,
+      ItemBien: item.ItemBien || null,
+      DescripcionServicio: item.ItemBien ? null : (item.DescripcionServicio.trim() || null),
+      UnidadMedida: item.UnidadMedida,
+      Cantidad: Number(item.Cantidad),
+      PrecioUnitario: Number(item.PrecioUnitario),
+      NumeroPedido: item.NumeroPedido || null
+    }));
+
+    this.guardando = true;
+
+    this.requerimientoService.registrarRequerimiento(requerimiento, pedidos, items).subscribe({
+      next: (respuesta: any) => {
+        this.guardando = false;
+
+        if (respuesta?.estado !== 1) {
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible guardar el requerimiento.');
+          return;
+        }
+
+        this.abierto = false;
+        this.registrado.emit();
+        this.funciones.mensaje('success',
+          respuesta.mensaje || `Se registró el requerimiento ${respuesta.Codigo}.`);
+      },
+      error: () => {
+        this.guardando = false;
+        this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
+      }
+    });
+  }
+}

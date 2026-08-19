@@ -2,9 +2,9 @@
   <header class="cabecera-pagina">
     <div class="cabecera">
       <app-breadcrumb [items]="breadcrumb" />
-      <h1 class="page-title">Gestión CMN</h1>
+      <h1 class="page-title">Requerimiento a Notificación</h1>
       <p class="page-subtitle">
-        Programación y modificación del Cuadro Multianual de Necesidades
+        Desde el registro de la necesidad hasta la emisión y notificación de la orden
       </p>
     </div>
 
@@ -12,13 +12,13 @@
       <button
         type="button"
         class="btn btn-app-primary"
-        *ngIf="centroCosto"
-        (click)="nuevaSolicitud()"
+        *ngIf="puedeRegistrar"
+        (click)="nuevoRequerimiento()"
       >
         <i class="mdi mdi-plus" aria-hidden="true"></i>
-        Solicitud de modificación CMN
+        Nuevo requerimiento
       </button>
-      <span class="status-pill status-pill--neutral" *ngIf="!centroCosto">
+      <span class="status-pill status-pill--neutral" *ngIf="!puedeRegistrar">
         Perfil de atención: sin registro inicial
       </span>
     </div>
@@ -27,29 +27,45 @@
   <section class="content-card">
     <div class="contenido-cabecera">
       <div>
-        <h2 class="contenido-titulo">Bandeja de Gestión CMN</h2>
+        <h2 class="contenido-titulo">Bandeja de requerimientos</h2>
         <p class="contenido-subtitulo">
-          Solicitud (Anexo 3) y aprobación (Anexo 4) de modificaciones al CMN.
+          Registro de la necesidad, documento técnico según el objeto y revisión de la DEC.
         </p>
       </div>
       <span class="contenido-conteo">{{ total }} expediente(s)</span>
     </div>
 
     <!-- Filtros -->
-    <div class="cmn-filtros">
-      <div class="cmn-filtros__campo">
+    <div class="req-filtros">
+      <div class="req-filtros__campo">
         <label class="campo-etiqueta" for="filtroTexto">Buscar</label>
         <input
           id="filtroTexto"
           type="text"
           class="campo-control"
-          placeholder="Código o sustento"
+          placeholder="Código o denominación"
           [(ngModel)]="filtro.Texto"
           (keyup.enter)="buscar()"
         />
       </div>
 
-      <div class="cmn-filtros__campo cmn-filtros__campo--corto">
+      <div class="req-filtros__campo">
+        <label class="campo-etiqueta" for="filtroObjeto">Objeto</label>
+        <select
+          id="filtroObjeto"
+          class="campo-control"
+          [(ngModel)]="filtro.CodigoTipoContratacion"
+          (change)="buscar()"
+        >
+          <option value="">Todos</option>
+          <option value="BIEN">Bien</option>
+          <option value="SERVICIO">Servicio</option>
+          <option value="CONSULTORIA">Consultoría</option>
+          <option value="LOCACION">Locación de servicios</option>
+        </select>
+      </div>
+
+      <div class="req-filtros__campo req-filtros__campo--corto">
         <label class="campo-etiqueta" for="filtroAno">Año</label>
         <input
           id="filtroAno"
@@ -59,17 +75,17 @@
         />
       </div>
 
-      <div class="cmn-filtros__campo cmn-filtros__campo--check">
-        <label class="cmn-check">
+      <div class="req-filtros__campo req-filtros__campo--check">
+        <label class="req-check">
           <input type="checkbox" [(ngModel)]="filtro.SoloMiBandeja" (change)="buscar()" />
           <span>Solo mi bandeja</span>
         </label>
-        <small class="cmn-filtros__ayuda">
+        <small class="req-filtros__ayuda">
           Lo que está en mi unidad y espera una acción de mi rol.
         </small>
       </div>
 
-      <div class="cmn-filtros__acciones">
+      <div class="req-filtros__acciones">
         <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
           <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
         </button>
@@ -79,7 +95,7 @@
       </div>
     </div>
 
-    <div class="cmn-cargando" *ngIf="cargando">
+    <div class="req-cargando" *ngIf="cargando">
       <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando bandeja…
     </div>
 
@@ -88,29 +104,37 @@
         <thead>
           <tr>
             <th>Expediente</th>
-            <th>Solicitud CMN</th>
+            <th>Necesidad</th>
+            <th>Objeto / DEC</th>
             <th>Estado actual</th>
-            <th>Responsable actual</th>
             <th class="text-end">Monto S/</th>
             <th>Acción del perfil</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of solicitudes">
+          <tr *ngFor="let item of requerimientos">
             <td data-column-name="Expediente">
               <a href="javascript:void(0)" class="cell-link" (click)="verDetalle(item)">
                 {{ item.Codigo }}
               </a>
-              <span class="cell-subtitle">v{{ item.Version }} · {{ item.FechaSolicitud }}</span>
+              <span class="cell-subtitle">
+                v{{ item.Version }} · {{ item.Pedidos }} pedido(s) SIGA
+              </span>
             </td>
 
-            <td data-column-name="Solicitud CMN">
-              <span class="cell-title">
-                {{ item.TipoOperacion | titlecase }} del CMN · {{ item.Items }} ítem(s)
-              </span>
+            <td data-column-name="Necesidad">
+              <span class="cell-title">{{ item.Denominacion }}</span>
               <span class="cell-subtitle">
-                Centro de costo {{ item.CentroCosto }}
-                <ng-container *ngIf="item.TipoInclusion">· {{ item.TipoInclusion | titlecase }}</ng-container>
+                Centro de costo {{ item.CentroCosto }} · {{ item.Items }} ítem(s)
+                <ng-container *ngIf="item.PlazoDias">· plazo {{ item.PlazoDias }} día(s)</ng-container>
+              </span>
+            </td>
+
+            <td data-column-name="Objeto / DEC">
+              <span class="cell-title">{{ item.TipoContratacion }}</span>
+              <span class="cell-subtitle">
+                DEC: {{ item.CodigoDec === 'DAI' ? 'DAI' : 'Unidad de Abastecimiento' }}
+                <ng-container *ngIf="item.CondicionCmn === 'NO_INCLUIDO'"> · no incluido en el CMN</ng-container>
               </span>
             </td>
 
@@ -118,14 +142,11 @@
               <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">
                 {{ item.Estado }}
               </span>
-            </td>
-
-            <td data-column-name="Responsable actual" class="cell-muted">
-              {{ item.RolResponsable || '—' }}
+              <span class="cell-subtitle">{{ item.RolResponsable || '—' }}</span>
             </td>
 
             <td data-column-name="Monto S/" class="cell-muted text-end">
-              {{ item.MontoTotal | number: '1.2-2' }}
+              {{ item.Monto | number: '1.2-2' }}
             </td>
 
             <td data-column-name="Acción del perfil" class="td-acciones">
@@ -146,25 +167,12 @@
 
                 <button
                   type="button"
-                  class="btn-icon-outline btn-anexo btn-anexo--3"
-                  title="Ver Anexo 3 (PDF)"
-                  [disabled]="cargandoPdf"
-                  (click)="verAnexo3Pdf(item)"
+                  class="btn-icon-outline"
+                  *ngIf="puedeEditar(item)"
+                  title="Editar el requerimiento"
+                  (click)="editarRequerimiento(item)"
                 >
-                  <i class="mdi" [ngClass]="iconoPdfFila(item, 3)" aria-hidden="true"></i>
-                  <span class="btn-anexo__badge">A3</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="btn-icon-outline btn-anexo btn-anexo--4"
-                  *ngIf="puedeVerAnexo4Pdf(item)"
-                  title="Ver Anexo 4 (PDF)"
-                  [disabled]="cargandoPdf"
-                  (click)="verAnexo4Pdf(item)"
-                >
-                  <i class="mdi" [ngClass]="iconoPdfFila(item, 4)" aria-hidden="true"></i>
-                  <span class="btn-anexo__badge">A4</span>
+                  <i class="mdi mdi-pencil-outline" aria-hidden="true"></i>
                 </button>
 
                 <button
@@ -179,16 +187,16 @@
             </td>
           </tr>
 
-          <tr *ngIf="solicitudes.length === 0">
+          <tr *ngIf="requerimientos.length === 0">
             <td colspan="6">
-              <div class="cmn-vacio">
+              <div class="req-vacio">
                 <i class="mdi mdi-inbox-outline" aria-hidden="true"></i>
-                <h3>Sin solicitudes CMN</h3>
-                <p class="cell-muted" *ngIf="centroCosto">
-                  Registre una solicitud para iniciar el flujo, o desmarque
+                <h3>Sin requerimientos</h3>
+                <p class="cell-muted" *ngIf="puedeRegistrar">
+                  Registre un requerimiento para iniciar el flujo, o desmarque
                   «Solo mi bandeja» para ver los expedientes de otros perfiles.
                 </p>
-                <p class="cell-muted" *ngIf="!centroCosto">
+                <p class="cell-muted" *ngIf="!puedeRegistrar">
                   No hay documentos pendientes para este perfil.
                 </p>
               </div>
@@ -198,7 +206,7 @@
       </table>
     </div>
 
-    <div class="cmn-paginacion" *ngIf="total > filtro.Limite">
+    <div class="req-paginacion" *ngIf="total > filtro.Limite">
       <span class="cell-muted">Mostrando {{ desde }}–{{ hasta }} de {{ total }}</span>
       <div>
         <button
@@ -235,7 +243,7 @@
         <div class="modal-cabecera-info">
           <h2 class="modal-titulo">{{ accionEnCurso.transicion.NombreAccion }}</h2>
           <p class="modal-subtitulo">
-            {{ accionEnCurso.solicitud.Codigo }} ·
+            {{ accionEnCurso.requerimiento.Codigo }} ·
             pasa a <b>{{ accionEnCurso.transicion.EstadoDestino }}</b>
           </p>
         </div>
@@ -245,62 +253,28 @@
       </div>
 
       <div class="modal-cuerpo">
-        <ul class="cmn-avisos">
+        <ul class="req-avisos">
           <li *ngIf="accionEnCurso.transicion.RequiereFirma">
             <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
-            Esta acción registra una firma sobre
-            {{ accionEnCurso.transicion.DocumentoRequerido }}.
-          </li>
-          <li *ngIf="accionEnCurso.transicion.EncolaIntegracion">
-            <i class="mdi mdi-database-export-outline" aria-hidden="true"></i>
-            Encola operaciones hacia SIGA.
+            Esta acción registra la firma del Jefe del Área usuaria sobre el
+            documento técnico. Si el documento se modifica después, la firma
+            queda invalidada y hay que firmar de nuevo.
           </li>
           <li *ngIf="accionEnCurso.transicion.GeneraObservacion">
             <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
             Devuelve el expediente al área usuaria como observado.
           </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_REMITIR_OA'">
+            <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
+            La DEC es la Unidad de Abastecimiento: el expediente pasa primero por
+            la Oficina de Administración.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_REMITIR_DAI'">
+            <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
+            La DEC es DAI: el expediente va directo, sin pasar por la Oficina de
+            Administración.
+          </li>
         </ul>
-
-        <div class="cmn-pdf-acciones" *ngIf="muestraPdfAnexo3">
-          <button
-            type="button"
-            class="btn btn-app-secundario"
-            [disabled]="cargandoPdf"
-            (click)="verAnexo3Pdf(accionEnCurso.solicitud)"
-          >
-            <i class="mdi" [ngClass]="cargandoPdf ? 'mdi-loading mdi-spin' : 'mdi-file-pdf-box'" aria-hidden="true"></i>
-            Ver Anexo 3 (PDF)
-          </button>
-        </div>
-
-        <div class="cmn-pdf-acciones" *ngIf="muestraPdfAnexo4">
-          <button
-            type="button"
-            class="btn btn-app-secundario"
-            [disabled]="cargandoPdf"
-            (click)="verAnexo4Pdf(accionEnCurso.solicitud)"
-          >
-            <i class="mdi" [ngClass]="cargandoPdf ? 'mdi-loading mdi-spin' : 'mdi-file-pdf-box'" aria-hidden="true"></i>
-            Ver Anexo 4 (PDF)
-          </button>
-        </div>
-
-        <div class="campo" *ngIf="muestraTipoInclusion">
-          <label class="campo-etiqueta" for="tipoInclusion">
-            Tipo de inclusión
-            <span>(obligatorio)</span>
-          </label>
-          <select
-            id="tipoInclusion"
-            class="campo-control"
-            name="tipoInclusion"
-            [(ngModel)]="tipoInclusion"
-          >
-            <option value="">Seleccione</option>
-            <option value="ORDINARIA">Ordinario</option>
-            <option value="URGENTE">Urgente</option>
-          </select>
-        </div>
 
         <div class="campo">
           <label class="campo-etiqueta" for="comentarioAccion">
@@ -337,47 +311,5 @@
   </div>
 </div>
 
-<app-modal-registro (registrado)="alRegistrar()" />
-<app-modal-detalle
-  (editar)="editarObservacion($event)"
-  (firmar)="firmarDesdeDetalle($event)"
-  (verPdf)="verAnexo3Pdf($event)"
-/>
-
-<!-- Visor del Anexo -->
-<div class="modal-fondo cmn-pdf-fondo" *ngIf="visorPdfUrl" role="presentation">
-  <div
-    class="modal-app-dialog modal-app-dialog--pdf"
-    role="dialog"
-    aria-modal="true"
-    (click)="$event.stopPropagation()"
-  >
-    <div class="modal-app">
-      <div class="modal-cabecera">
-        <div class="modal-cabecera-info">
-          <h2 class="modal-titulo">{{ visorPdfTitulo }}</h2>
-          <p class="modal-subtitulo">{{ visorPdfCodigo }} · {{ visorPdfSubtitulo }}</p>
-        </div>
-        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarVisorPdf()">
-          <i class="mdi mdi-close" aria-hidden="true"></i>
-        </button>
-      </div>
-      <div class="modal-cuerpo">
-        <div class="cmn-pdf-marco">
-          <iframe
-            id="marcoAnexoPdf"
-            [src]="visorPdfUrl"
-            [title]="visorPdfTitulo + ' en formato PDF'"
-          ></iframe>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-app-secundario" (click)="imprimirAnexo3Pdf()">
-          <i class="mdi mdi-printer-outline" aria-hidden="true"></i>
-          Imprimir / guardar PDF
-        </button>
-        <button type="button" class="btn btn-app-primary" (click)="cerrarVisorPdf()">Cerrar</button>
-      </div>
-    </div>
-  </div>
-</div>
+<app-modal-registro-requerimiento (registrado)="alRegistrar()" />
+<app-modal-detalle-requerimiento (editar)="editarRequerimiento($event)" />
