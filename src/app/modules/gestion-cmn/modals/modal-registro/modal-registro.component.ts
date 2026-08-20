@@ -17,6 +17,7 @@ import {
   ItemFormularioCmn,
   MetaSiga,
   TareaSiga,
+  TechoSiga,
   crearItemFormularioCmn
 } from '../../models/cmn.model';
 
@@ -82,6 +83,7 @@ export class ModalRegistroComponent {
   tareas: TareaSiga[] = [];
   metas: MetaSiga[] = [];
   fuentes: FuenteFinancSiga[] = [];
+  techos: TechoSiga[] = [];
   cuadroVigente: CuadroVigenteSiga[] = [];
 
   /* Ítems del formulario */
@@ -248,7 +250,12 @@ export class ModalRegistroComponent {
     this.cmnService.listarMaestroSiga('FUENTE_FINANC', base)
       .subscribe({ next: (r: any) => this.fuentes = r?.datos || [] });
 
-    this.cmnService.listarMaestroSiga('CUADRO_VIGENTE', { ...base, CentroCosto: this.centroCosto })
+    this.cmnService.listarMaestroSiga('TECHO', { ...base, CentroCosto: this.centroCosto })
+      .subscribe({ next: (r: any) => this.techos = r?.datos || [] });
+
+    this.cmnService.listarMaestroSiga('CUADRO_VIGENTE', {
+      ...base, CentroCosto: this.centroCosto, TipoMovimiento: 'EXCLUSION'
+    })
       .subscribe({ next: (r: any) => this.cuadroVigente = r?.datos || [] });
   }
 
@@ -299,7 +306,12 @@ export class ModalRegistroComponent {
 
     item.buscando = true;
     this.cmnService.listarMaestroSiga('CATALOGO', {
-      SecEjec: this.secEjec, AnoEje: this.anoEje, Texto: texto, Limite: 25
+      SecEjec: this.secEjec,
+      AnoEje: this.anoEje,
+      CentroCosto: this.centroCosto,
+      TipoMovimiento: item.TipoMovimiento,
+      Texto: texto,
+      Limite: 25
     }).subscribe({
       next: (r: any) => {
         item.buscando = false;
@@ -337,7 +349,8 @@ export class ModalRegistroComponent {
       return this.cuadroVigente.slice(0, 60);
     }
     return this.cuadroVigente
-      .filter(x => (x.CodigoItem || '').toLowerCase().includes(texto))
+      .filter(x => (x.CodigoItem || '').toLowerCase().includes(texto)
+        || (x.Descripcion || '').toLowerCase().includes(texto))
       .slice(0, 60);
   }
 
@@ -354,7 +367,7 @@ export class ModalRegistroComponent {
     const item = this.items[this.eligiendoCuadro];
 
     item.CodigoItem = fila.CodigoItem;
-    item.Descripcion = 'Ítem del cuadro vigente ' + fila.CodigoItem;
+    item.Descripcion = fila.Descripcion || 'Ítem del cuadro vigente ' + fila.CodigoItem;
     item.TipoBien = fila.TipoBien;
     item.GrupoBien = fila.GrupoBien;
     item.ClaseBien = fila.ClaseBien;
@@ -383,7 +396,24 @@ export class ModalRegistroComponent {
     item.TipoTarea = tarea?.TipoTarea || '';
     item.NivelTarea = tarea?.NivelTarea || '';
     item.CodigoTarea = tarea?.CodigoTarea ?? null;
-    item.TipoUso = tarea?.TipoUso || item.TipoUso;
+
+    /* EL TipoUso NO SE TOMA DE LA TAREA.
+       Aquí decía `item.TipoUso = tarea?.TipoUso || item.TipoUso`, y son dos
+       conceptos distintos que se llaman igual: el del maestro de tareas
+       clasifica la TAREA, y el de la línea clasifica el ÍTEM del cuadro. En
+       SIGA_1750, la tarea 1/C/104 de la OTI trae 'X' mientras las 8 222 líneas
+       del cuadro modificado de 2026 llevan 'C'.
+
+       El efecto era desconcertante: el ítem se registraba bien —estado, techo y
+       solicitud correctos— pero SIGA agrupa la grilla por Actividad Operativa y
+       Tipo Uso, así que la línea nueva caía en un grupo aparte al final, con su
+       propio subtotal, y parecía que no se había registrado.
+
+       Para una inclusión el valor lo pone la base ('C', el DEFAULT de
+       cmn.SolicitudItem); para exclusión o modificación se copia de la línea
+       vigente del cuadro, que es lo que hacen elegirCuadro y elegirCatalogo. */
+
+    this.validarClasificador(item);
   }
 
   claveTarea(tarea: TareaSiga): string {
@@ -398,6 +428,32 @@ export class ModalRegistroComponent {
     const fuente = this.fuentes.find(f => this.claveFuente(f) === valor);
     item.Origen = fuente?.Origen || '';
     item.FuenteFinanc = fuente?.FuenteFinanc || '';
+    this.validarClasificador(item);
+  }
+
+  /** Clasificadores respaldados por el techo real del centro de costo. */
+  clasificadoresDisponibles(item: ItemFormularioCmn): TechoSiga[] {
+    const vistos = new Set<string>();
+    return this.techos.filter(techo => {
+      const coincide = techo.SecFunc === item.SecFunc
+        && techo.Origen === item.Origen
+        && techo.FuenteFinanc === item.FuenteFinanc;
+      if (!coincide || !techo.Clasificador || vistos.has(techo.Clasificador)) {
+        return false;
+      }
+      vistos.add(techo.Clasificador);
+      return true;
+    });
+  }
+
+  validarClasificador(item: ItemFormularioCmn): void {
+    if (item.TipoMovimiento !== 'INCLUSION') {
+      return;
+    }
+    const disponibles = this.clasificadoresDisponibles(item);
+    if (!disponibles.some(x => x.Clasificador === item.Clasificador)) {
+      item.Clasificador = '';
+    }
   }
 
   claveFuente(fuente: FuenteFinancSiga): string {
@@ -460,6 +516,9 @@ export class ModalRegistroComponent {
       }
       if (!item.FuenteFinanc) {
         return `El ítem ${n} necesita una fuente de financiamiento.`;
+      }
+      if (!item.Clasificador) {
+        return `El ítem ${n} necesita un clasificador válido de SIGA.`;
       }
       if (item.Cantidades.every(c => !c || Number(c) <= 0)) {
         return `El ítem ${n} no tiene ninguna cantidad mayor que cero.`;

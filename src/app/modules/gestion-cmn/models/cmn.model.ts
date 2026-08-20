@@ -31,10 +31,111 @@ export interface SolicitudCmn {
   Items: number;
   MontoTotal: number;
   ActualizadoEn: string;
+  /** Área usuaria que originó el expediente. En la bandeja de Abastecimiento
+   *  conviven varias y sin esto la fila no dice de quién es. */
+  AreaUsuaria?: string;
+  SiglaArea?: string;
+  /** Anexo 4 que ya agrupa esta solicitud, si lo hay. */
+  IdPaquete?: string | null;
+  CodigoAnexo4?: string | null;
   /** Id de archivo (documento_sistema) del Anexo 3 vigente. */
   DocumentoSistemaAnexo3?: string | null;
   /** Id de archivo (documento_sistema) del Anexo 4 vigente. */
   DocumentoSistemaAnexo4?: string | null;
+}
+
+/**
+ * Una firma de la cadena, tal como la devuelve sigcm.paListarDocumento.
+ *
+ * Los anexos llevan varias firmas: el Anexo 3 cuatro y el Anexo 4 tres. La
+ * lista viene completa —firmadas y pendientes— para que la pantalla pueda
+ * mostrar en qué punto de la cadena está el documento sin deducirlo del estado.
+ */
+export interface FirmaDocumentoCmn {
+  OrdenFirma: number;
+  CodigoRol: string;
+  Rol: string;
+  Estado: 'FIRMADA' | 'PENDIENTE' | 'INVALIDADA';
+  FirmanteNombre: string | null;
+  FirmanteCargo: string | null;
+  FirmadoEn: string | null;
+}
+
+/** Documento del expediente. sigcm.paListarDocumento */
+export interface DocumentoCmn {
+  IdDocumento: string;
+  CodigoTipoDocumento: string;
+  Numero: string;
+  TipoDocumento: string;
+  Version: number;
+  /** BORRADOR mientras no hay firmas, PARCIAL con algunas, FIRMADO con todas. */
+  Estado: 'BORRADOR' | 'PARCIAL' | 'FIRMADO' | 'SUPERADA' | 'ANULADA';
+  GeneradoDocumento: string | null;
+  NombreDocumento: string | null;
+  FirmadoEn: string | null;
+  Consolidado: boolean;
+  PuedeFirmarEsteRol: boolean;
+  EsteRolYaFirmo: boolean;
+  Firmas: FirmaDocumentoCmn[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Anexo 4                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Un Anexo 3 dentro de un Anexo 4, con sus ítems.
+ *
+ * El Anexo 4 se imprime agrupado por área usuaria: cada bloque es una de estas.
+ */
+export interface SolicitudDelPaqueteCmn {
+  Orden: number;
+  IdSolicitud: string;
+  Codigo: string;
+  CentroCosto: string;
+  Sustento: string;
+  TipoOperacion: string;
+  TipoInclusion: string | null;
+  FechaSolicitud: string;
+  IdExpediente: string;
+  CodigoExpediente: string;
+  CodigoEstado: string;
+  Version: number;
+  AreaUsuaria: string;
+  SiglaArea: string;
+  Responsable: string | null;
+  CargoResponsable: string | null;
+  Items: ItemSolicitudCmn[];
+}
+
+/**
+ * El Anexo 4 completo. cmn.paGenerarAnexo4 y cmn.paObtenerAnexo4.
+ *
+ * Un Anexo 4 puede cubrir uno o varios Anexos 3 de áreas usuarias distintas:
+ * `Solicitudes` trae siempre al menos uno, y el PDF se arma recorriéndolos.
+ */
+export interface PaqueteAnexo4Cmn extends RespuestaSigcm {
+  IdPaquete: string;
+  Codigo: string;
+  AnoEje: number;
+  SecEjec: number;
+  TipoInclusion: 'ORDINARIA' | 'URGENTE';
+  Sustento: string | null;
+  Anulado: boolean;
+  FechaGeneracion: string;
+  GeneradoPor: string;
+  CargoGenerador: string | null;
+  UnidadGeneradora: string;
+  TotalSolicitudes: number;
+  TotalItems: number;
+  MontoTotal: number;
+  Solicitudes: SolicitudDelPaqueteCmn[];
+}
+
+/** Un expediente del lote, para mover varios con una sola acción. */
+export interface ExpedienteLoteCmn {
+  IdExpediente: string;
+  Version: number;
 }
 
 /**
@@ -211,6 +312,8 @@ export interface CuadroVigenteSiga {
   FuenteFinanc: string;
   Clasificador: string;
   TipoUso: string;
+  Descripcion: string;
+  CatalogoActivo: boolean;
 }
 
 export interface TareaSiga {
@@ -238,6 +341,24 @@ export interface FuenteFinancSiga {
   Descripcion: string;
   MontoAsignado: number;
   Activo: boolean;
+}
+
+/** Combinacion presupuestal real disponible para el centro de costo en SIGA. */
+export interface TechoSiga {
+  Secuencia: number;
+  CentroCosto: string;
+  FaseCuadro: number;
+  TipoTarea: string;
+  NivelTarea: string;
+  CodigoTarea: number;
+  SecFunc: number;
+  SecFuncProp: number | null;
+  Origen: string;
+  FuenteFinanc: string;
+  Clasificador: string;
+  MontoTecho0: number;
+  MontoUsado0: number;
+  MontoDisponible0: number;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -179,6 +179,7 @@
                   class="campo-control"
                   [ngModel]="claveTareaItem(item)"
                   [name]="'tarea' + i"
+                  [disabled]="item.TipoMovimiento !== 'INCLUSION'"
                   (ngModelChange)="elegirTarea(item, $event)"
                 >
                   <option value="null|null|null">Seleccione…</option>
@@ -190,7 +191,13 @@
 
               <div class="campo">
                 <label class="campo-etiqueta">Meta</label>
-                <select class="campo-control" [(ngModel)]="item.SecFunc" [name]="'meta' + i">
+                <select
+                  class="campo-control"
+                  [(ngModel)]="item.SecFunc"
+                  [name]="'meta' + i"
+                  [disabled]="item.TipoMovimiento !== 'INCLUSION'"
+                  (ngModelChange)="validarClasificador(item)"
+                >
                   <option [ngValue]="null">Seleccione…</option>
                   <option *ngFor="let meta of metas" [ngValue]="meta.SecFunc">
                     {{ meta.SecFunc }} · {{ meta.Nombre }}
@@ -204,6 +211,7 @@
                   class="campo-control"
                   [ngModel]="claveFuenteItem(item)"
                   [name]="'fuente' + i"
+                  [disabled]="item.TipoMovimiento !== 'INCLUSION'"
                   (ngModelChange)="elegirFuente(item, $event)"
                 >
                   <option value="|">Seleccione…</option>
@@ -215,12 +223,29 @@
 
               <div class="campo">
                 <label class="campo-etiqueta">Clasificador</label>
-                <input
-                  type="text"
+                <select
+                  *ngIf="item.TipoMovimiento === 'INCLUSION'; else clasificadorFijo"
                   class="campo-control"
                   [(ngModel)]="item.Clasificador"
                   [name]="'clasificador' + i"
-                />
+                >
+                  <option value="">Seleccione…</option>
+                  <option
+                    *ngFor="let techo of clasificadoresDisponibles(item)"
+                    [value]="techo.Clasificador"
+                  >
+                    {{ techo.Clasificador }}
+                  </option>
+                </select>
+                <ng-template #clasificadorFijo>
+                  <input
+                    type="text"
+                    class="campo-control"
+                    [ngModel]="item.Clasificador"
+                    [name]="'clasificador' + i"
+                    readonly
+                  />
+                </ng-template>
               </div>
 
               <div class="campo">
@@ -231,12 +256,18 @@
                   class="campo-control"
                   [(ngModel)]="item.PrecioUnitario"
                   [name]="'precio' + i"
+                  [readonly]="item.TipoMovimiento === 'EXCLUSION'"
                 />
               </div>
 
               <div class="campo">
                 <label class="campo-etiqueta">Mes de imputación</label>
-                <select class="campo-control" [(ngModel)]="item.Mes" [name]="'mes' + i">
+                <select
+                  class="campo-control"
+                  [(ngModel)]="item.Mes"
+                  [name]="'mes' + i"
+                  [disabled]="item.TipoMovimiento === 'EXCLUSION'"
+                >
                   <option *ngFor="let mes of meses" [ngValue]="mes.valor">{{ mes.nombre }}</option>
                 </select>
               </div>
@@ -252,6 +283,7 @@
                   class="campo-control"
                   [(ngModel)]="item.Cantidades[a]"
                   [name]="'cantidad' + i + '_' + a"
+                  [readonly]="item.TipoMovimiento === 'EXCLUSION'"
                 />
               </div>
             </div>
@@ -304,7 +336,7 @@
         <input
           type="text"
           class="campo-control"
-          placeholder="Filtrar por código de ítem"
+          placeholder="Filtrar por código o descripción"
           [(ngModel)]="filtroCuadro"
           name="filtroCuadro"
         />
@@ -314,6 +346,7 @@
             <thead>
               <tr>
                 <th>Código</th>
+                <th>Descripción</th>
                 <th>Cuadro/Ítem</th>
                 <th class="text-end">P. unit.</th>
                 <th class="text-end" *ngFor="let anio of anios">{{ anio }}</th>
@@ -323,6 +356,7 @@
             <tbody>
               <tr *ngFor="let fila of cuadroFiltrado">
                 <td>{{ fila.CodigoItem }}</td>
+                <td>{{ fila.Descripcion }}</td>
                 <td class="cell-muted">{{ fila.SecCuadro }}/{{ fila.SecItem }}</td>
                 <td class="text-end">{{ fila.PrecioUnit | number: '1.2-2' }}</td>
                 <td class="text-end">{{ fila.CantAno0 | number: '1.0-2' }}</td>
@@ -340,7 +374,7 @@
                 </td>
               </tr>
               <tr *ngIf="cuadroFiltrado.length === 0">
-                <td colspan="8" class="cell-muted">
+                <td colspan="9" class="cell-muted">
                   Sin ítems en el cuadro vigente para este centro de costo.
                 </td>
               </tr>

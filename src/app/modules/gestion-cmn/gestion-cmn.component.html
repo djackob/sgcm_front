@@ -83,10 +83,63 @@
       <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando bandeja…
     </div>
 
+    <!--
+      Barra del Anexo 4 múltiple.
+
+      Aparece sólo cuando hay Anexos 3 que se puedan agrupar, es decir cuando el
+      perfil que mira es el especialista de Abastecimiento y tiene expedientes
+      aprobados sin Anexo 4. Para todos los demás perfiles la bandeja se ve
+      exactamente como antes: no se muestra una barra vacía que haya que explicar.
+    -->
+    <div class="cmn-seleccion" *ngIf="!cargando && haySeleccionables">
+      <div class="cmn-seleccion__texto">
+        <i class="mdi mdi-checkbox-multiple-marked-outline" aria-hidden="true"></i>
+        <span *ngIf="totalSeleccionadas === 0">
+          Marque los Anexos 3 aprobados que desea agrupar en un mismo Anexo 4.
+          Pueden ser de áreas usuarias distintas.
+        </span>
+        <span *ngIf="totalSeleccionadas > 0">
+          <b>{{ totalSeleccionadas }}</b> Anexo(s) 3 marcado(s)
+          de <b>{{ areasSeleccionadas }}</b> área(s) usuaria(s).
+        </span>
+      </div>
+
+      <div class="cmn-seleccion__acciones">
+        <button
+          type="button"
+          class="btn btn-app-secondary btn-sm"
+          *ngIf="totalSeleccionadas > 0"
+          (click)="limpiarSeleccion()"
+        >
+          Quitar marcas
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-app-primary btn-sm"
+          [disabled]="totalSeleccionadas === 0 || ejecutando"
+          (click)="generarAnexo4Multiple()"
+        >
+          <i class="mdi mdi-file-document-multiple-outline" aria-hidden="true"></i>
+          Generar Anexo 4 múltiple
+          <span *ngIf="totalSeleccionadas > 0">({{ totalSeleccionadas }})</span>
+        </button>
+      </div>
+    </div>
+
     <div class="table-responsive" *ngIf="!cargando">
       <table class="table scm-table">
         <thead>
           <tr>
+            <th class="th-check" *ngIf="haySeleccionables">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                title="Marcar todos los de esta página"
+                [checked]="todasSeleccionadas"
+                (change)="alternarTodas()"
+              />
+            </th>
             <th>Expediente</th>
             <th>Solicitud CMN</th>
             <th>Estado actual</th>
@@ -96,7 +149,18 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of solicitudes">
+          <tr *ngFor="let item of solicitudes" [class.fila-marcada]="estaSeleccionada(item)">
+            <td class="td-check" *ngIf="haySeleccionables" data-column-name="Anexo 4">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                *ngIf="puedeSeleccionar(item)"
+                [checked]="estaSeleccionada(item)"
+                [attr.aria-label]="'Incluir ' + item.Codigo + ' en el Anexo 4'"
+                (change)="alternarSeleccion(item)"
+              />
+            </td>
+
             <td data-column-name="Expediente">
               <a href="javascript:void(0)" class="cell-link" (click)="verDetalle(item)">
                 {{ item.Codigo }}
@@ -109,8 +173,12 @@
                 {{ item.TipoOperacion | titlecase }} del CMN · {{ item.Items }} ítem(s)
               </span>
               <span class="cell-subtitle">
+                <!-- El área usuaria es dato clave en Abastecimiento, donde en la
+                     misma bandeja conviven expedientes de varias oficinas. -->
+                <ng-container *ngIf="item.AreaUsuaria">{{ item.SiglaArea || item.AreaUsuaria }} · </ng-container>
                 Centro de costo {{ item.CentroCosto }}
                 <ng-container *ngIf="item.TipoInclusion">· {{ item.TipoInclusion | titlecase }}</ng-container>
+                <ng-container *ngIf="item.CodigoAnexo4"> · Anexo 4 {{ item.CodigoAnexo4 }}</ng-container>
               </span>
             </td>
 
@@ -180,7 +248,7 @@
           </tr>
 
           <tr *ngIf="solicitudes.length === 0">
-            <td colspan="6">
+            <td [attr.colspan]="haySeleccionables ? 7 : 6">
               <div class="cmn-vacio">
                 <i class="mdi mdi-inbox-outline" aria-hidden="true"></i>
                 <h3>Sin solicitudes CMN</h3>
@@ -223,6 +291,21 @@
 </div>
 
 <!-- Confirmación de la acción del flujo -->
+<!--
+  Progreso del Anexo 4.
+
+  El armado son cinco llamadas encadenadas —reservar, generar, subir, registrar,
+  firmar y derivar— y ninguna abre el panel de acción. Sin este aviso la pantalla
+  se queda quieta justo cuando el usuario duda de si su clic llegó, y el riesgo
+  real es que vuelva a pulsar y genere un segundo Anexo 4.
+-->
+<div class="cmn-progreso" *ngIf="generandoAnexo4" role="alert" aria-live="polite">
+  <div class="cmn-progreso__caja">
+    <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i>
+    <span>{{ paso || 'Generando el Anexo 4…' }}</span>
+  </div>
+</div>
+
 <div class="modal-fondo" *ngIf="accionEnCurso" role="presentation">
   <div
     class="modal-app-dialog modal-app-dialog--angosto"
@@ -235,7 +318,12 @@
         <div class="modal-cabecera-info">
           <h2 class="modal-titulo">{{ accionEnCurso.transicion.NombreAccion }}</h2>
           <p class="modal-subtitulo">
-            {{ accionEnCurso.solicitud.Codigo }} ·
+            <ng-container *ngIf="expedientesDeLaAccion <= 1">
+              {{ accionEnCurso.solicitud.Codigo }} ·
+            </ng-container>
+            <ng-container *ngIf="expedientesDeLaAccion > 1">
+              Anexo 4 {{ paqueteEnCurso?.Codigo }} · {{ expedientesDeLaAccion }} expedientes ·
+            </ng-container>
             pasa a <b>{{ accionEnCurso.transicion.EstadoDestino }}</b>
           </p>
         </div>
@@ -253,11 +341,17 @@
           </li>
           <li *ngIf="accionEnCurso.transicion.EncolaIntegracion">
             <i class="mdi mdi-database-export-outline" aria-hidden="true"></i>
-            Encola operaciones hacia SIGA.
+            Encola operaciones hacia SIGA<ng-container *ngIf="expedientesDeLaAccion > 1">,
+            una aprobación por cada una de las {{ expedientesDeLaAccion }} solicitudes</ng-container>.
           </li>
           <li *ngIf="accionEnCurso.transicion.GeneraObservacion">
             <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
             Devuelve el expediente al área usuaria como observado.
+          </li>
+          <li *ngIf="expedientesDeLaAccion > 1">
+            <i class="mdi mdi-file-document-multiple-outline" aria-hidden="true"></i>
+            Mueve los <b>{{ expedientesDeLaAccion }} expedientes</b> del Anexo 4 a la vez:
+            o avanzan todos o no avanza ninguno.
           </li>
         </ul>
 
@@ -287,7 +381,7 @@
 
         <div class="campo" *ngIf="muestraTipoInclusion">
           <label class="campo-etiqueta" for="tipoInclusion">
-            Tipo de inclusión
+            Tipo de modificación
             <span>(obligatorio)</span>
           </label>
           <select
@@ -300,6 +394,16 @@
             <option value="ORDINARIA">Ordinario</option>
             <option value="URGENTE">Urgente</option>
           </select>
+          <!-- La consecuencia se dice aquí y no después: es lo que decide si el
+               Anexo 4 podrá generarse hoy o habrá que esperar al viernes, y una
+               vez firmado el Anexo 3 ya no se puede cambiar. -->
+          <p class="campo-ayuda">
+            Lo <b>ordinario</b> se agrupa en un Anexo 4 que sólo puede generarse los viernes.
+            Lo <b>urgente</b> puede generarse cualquier día.
+            <ng-container *ngIf="tipoInclusion === 'ORDINARIA' && !hoyEsViernes">
+              <br>Hoy no es viernes: este expediente quedará esperando.
+            </ng-container>
+          </p>
         </div>
 
         <div class="campo">

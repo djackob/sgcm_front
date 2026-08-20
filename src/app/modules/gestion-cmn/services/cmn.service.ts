@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { MetodoService } from '../../../core/services/metodo.service';
+import { ExpedienteLoteCmn } from '../models/cmn.model';
 
 /**
  * Acceso al módulo Gestión CMN. Un método por endpoint, sin lógica.
@@ -61,8 +62,57 @@ export class CmnService {
     });
   }
 
+  /**
+   * La misma acción sobre varios expedientes a la vez, en una sola transacción.
+   *
+   * Es lo que mueve un Anexo 4 que agrupa Anexos 3 de varias áreas usuarias:
+   * o avanzan todos o no avanza ninguno. Cada expediente manda su propia
+   * Version, porque el control de concurrencia es por expediente y no por lote.
+   */
+  ejecutarTransicionLote(expedientes: ExpedienteLoteCmn[], codigoTransicion: string,
+                         comentario: string | null = null,
+                         tipoInclusion: string | null = null): Observable<any> {
+    return this.apiService.POST('api/sigcm/ejecutarTransicion', {
+      IdExpedientes: expedientes,
+      CodigoTransicion: codigoTransicion,
+      Comentario: comentario,
+      TipoInclusion: tipoInclusion
+    });
+  }
+
   obtenerTrazabilidad(idExpediente: string): Observable<any> {
     return this.apiService.GET('api/sigcm/obtenerTrazabilidad', { IdExpediente: idExpediente });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Anexo 4                                                                */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Reserva el Anexo 4 y emite su código, antes de armar el PDF.
+   *
+   * El orden importa y no es negociable: el código se imprime en el documento, y
+   * la regla de calendario —los Anexos 4 ordinarios salen los viernes— tiene que
+   * fallar antes de que el navegador genere y suba nada.
+   */
+  generarAnexo4(idSolicitudes: string[], sustento: string | null = null): Observable<any> {
+    return this.apiService.POST('api/cmn/generarAnexo4', {
+      IdSolicitudes: idSolicitudes,
+      Sustento: sustento
+    });
+  }
+
+  /** El Anexo 4 completo, por su id o por el de cualquiera de sus Anexos 3. */
+  obtenerAnexo4(clave: { IdPaquete?: string; IdSolicitud?: string }): Observable<any> {
+    return this.apiService.GET('api/cmn/obtenerAnexo4', clave);
+  }
+
+  /** Deshace un Anexo 4 aún no firmado y libera sus Anexos 3. */
+  anularAnexo4(idPaquete: string, motivo: string): Observable<any> {
+    return this.apiService.POST('api/cmn/anularAnexo4', {
+      IdPaquete: idPaquete,
+      Motivo: motivo
+    });
   }
 
   /* ---------------------------------------------------------------------- */
@@ -84,6 +134,26 @@ export class CmnService {
     return this.apiService.POST('api/sigcm/registrarDocumento', {
       IdExpediente: idExpediente,
       CodigoTipoDocumento: codigoTipoDocumento,
+      GeneradoDocumento: generadoDocumento,
+      NombreDocumento: nombreDocumento,
+      Payload: payload
+    });
+  }
+
+  /**
+   * Registra UN documento que cubre varios expedientes: el Anexo 4 consolidado.
+   *
+   * Lleva número propio porque no puede tomarlo del código de ninguno de los
+   * expedientes —elegir uno sería arbitrario—: es el código del Anexo 4 que
+   * `generarAnexo4` ya emitió.
+   */
+  registrarDocumentoConsolidado(idExpedientes: string[], codigoTipoDocumento: string,
+                                numero: string, generadoDocumento: string,
+                                nombreDocumento: string, payload: any = null): Observable<any> {
+    return this.apiService.POST('api/sigcm/registrarDocumento', {
+      IdExpedientes: idExpedientes,
+      CodigoTipoDocumento: codigoTipoDocumento,
+      Numero: numero,
       GeneradoDocumento: generadoDocumento,
       NombreDocumento: nombreDocumento,
       Payload: payload

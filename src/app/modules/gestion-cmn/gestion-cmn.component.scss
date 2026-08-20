@@ -198,3 +198,89 @@
 .text-end {
   text-align: right;
 }
+
+/* --------------------------------------------------------------------------
+   Anexo 4 múltiple
+   --------------------------------------------------------------------------
+   La barra de selección sólo se renderiza cuando hay algo que agrupar, así que
+   estos estilos no afectan a ningún otro perfil.
+   -------------------------------------------------------------------------- */
+
+.cmn-seleccion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+}
+
+.cmn-seleccion__texto {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #1e3a8a;
+
+  .mdi {
+    font-size: 1.1rem;
+  }
+}
+
+.cmn-seleccion__acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.th-check,
+.td-check {
+  width: 2.5rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.fila-marcada {
+  background: #eff6ff;
+}
+
+.campo-ayuda {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+/* Progreso del armado del Anexo 4. Es una secuencia de cinco llamadas y sin
+   esto la pantalla se queda quieta el tiempo que tarda generar y subir el PDF,
+   que es justo cuando el usuario se pregunta si el clic llegó. */
+.cmn-progreso {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.cmn-progreso__caja {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.1rem 1.4rem;
+  border-radius: 0.6rem;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+  font-size: 0.9rem;
+  color: #1e293b;
+
+  .mdi {
+    font-size: 1.4rem;
+    color: #2563eb;
+  }
+}
