@@ -70,6 +70,15 @@ export class ModalRegistroComponent {
   modoEdicion = false;
   idSolicitudEdicion: string | null = null;
   codigoEdicion = '';
+  /**
+   * Si la solicitud que se está editando YA tiene su Anexo 3 en el servidor.
+   *
+   * Decide si al guardar hay que rehacer el PDF. En una subsanación sí: el
+   * documento del servidor quedó con los datos observados y nadie más lo va a
+   * regenerar —`CMN_SUBSANAR` no produce documento—. En un borrador no hay nada
+   * que rehacer todavía; el PDF nace cuando se pulsa «Generar Anexo 3».
+   */
+  private teniaAnexo3 = false;
 
   /* Cabecera */
   anoEje = new Date().getFullYear();
@@ -120,6 +129,7 @@ export class ModalRegistroComponent {
     this.idSolicitudEdicion = null;
     this.codigoEdicion = '';
     this.cargandoEdicion = false;
+    this.teniaAnexo3 = false;
 
     this.centroCosto = centroCosto || detalle?.centro_costo || '';
     this.centroCostoNombre = detalle?.dependencia || '';
@@ -148,6 +158,7 @@ export class ModalRegistroComponent {
     this.idSolicitudEdicion = idSolicitud;
     this.codigoEdicion = '';
     this.cargandoEdicion = true;
+    this.teniaAnexo3 = false;
 
     this.centroCosto = detalle?.centro_costo || '';
     this.centroCostoNombre = detalle?.dependencia || '';
@@ -168,6 +179,7 @@ export class ModalRegistroComponent {
         }
 
         this.codigoEdicion = respuesta.Codigo || '';
+        this.teniaAnexo3 = !!idDocumentoSistema(respuesta.DocumentoSistemaAnexo3);
         this.anoEje = respuesta.AnoEje || this.anoEje;
         this.centroCosto = respuesta.CentroCosto || this.centroCosto;
         this.centroCostoNombre = respuesta.CentroCostoNombre || this.centroCostoNombre;
@@ -591,7 +603,24 @@ export class ModalRegistroComponent {
           return;
         }
 
-        this.subirArchivoAnexo3(respuesta);
+        /* Un borrador NO deja documento en el file server.
+
+           Antes se armaba y se subía el Anexo 3 aquí mismo, y eso adelantaba un
+           paso que el flujo tiene aparte: el expediente nacía en BORRADOR pero
+           ya con PDF, así que la bandeja ofrecía el icono del Anexo 3 de algo
+           que todavía no se había generado, y el aviso prometía un documento
+           «guardado en el servidor» que aún no correspondía a ningún estado del
+           trámite. El PDF nace con «Generar Anexo 3», que es la transición que
+           lo declara hecho.
+
+           La subsanación es el caso contrario: ahí el documento ya existe, se
+           corrigió lo observado y ninguna transición posterior lo rehace. */
+        if (this.modoEdicion && this.teniaAnexo3) {
+          this.subirArchivoAnexo3(respuesta);
+          return;
+        }
+
+        this.terminarGuardado(respuesta, true);
       },
       error: () => {
         this.guardando = false;
@@ -668,12 +697,13 @@ export class ModalRegistroComponent {
     if (archivoOk) {
       this.funciones.mensaje('success',
         this.modoEdicion
-          ? (registro.mensaje || `Se actualizó la solicitud ${registro.Codigo} y se guardó el Anexo 3.`)
-          : `Se registró la solicitud ${registro.Codigo} y se guardó el Anexo 3 en el servidor.`);
+          ? (registro.mensaje || `Se actualizó la solicitud ${registro.Codigo}.`)
+          : `Se registró la solicitud ${registro.Codigo}. Queda en borrador: puede editarla `
+            + 'y, cuando esté conforme, use «Generar Anexo 3» para emitir el documento.');
       return;
     }
 
     this.funciones.mensaje('warning',
-      aviso || `Se registró la solicitud ${registro.Codigo}, pero el Anexo 3 no quedó en el servidor.`);
+      aviso || `Se guardó la solicitud ${registro.Codigo}, pero el Anexo 3 no quedó en el servidor.`);
   }
 }

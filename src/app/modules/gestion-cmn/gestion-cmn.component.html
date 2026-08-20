@@ -215,6 +215,7 @@
                 <button
                   type="button"
                   class="btn-icon-outline btn-anexo btn-anexo--3"
+                  *ngIf="puedeVerAnexo3Pdf(item)"
                   title="Ver Anexo 3 (PDF)"
                   [disabled]="cargandoPdf"
                   (click)="verAnexo3Pdf(item)"
