@@ -4,7 +4,8 @@
   "env": "anin",
 
   "apiUrl_LOCAL": "https://localhost:7182/",
-  "apiUrl": "http://192.168.40.72:9004/",
+  "apiUrl_DESARROLLO": "http://192.168.40.72:9004/",
+  "apiUrl": "https://localhost:7182/",
 
   "__secEjec": "Unidad ejecutora en SIGA (SEC_EJEC). La copia local es SIGA_1750.",
   "secEjec": 1750,
