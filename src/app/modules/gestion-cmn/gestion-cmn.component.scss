@@ -118,6 +118,11 @@
     + li {
       margin-top: 0.35rem;
     }
+
+    &.cmn-aviso-ok {
+      background: #ecfdf3;
+      color: #166534;
+    }
   }
 }
 
@@ -132,6 +137,23 @@
 
 .cmn-pdf-fondo {
   z-index: 1060;
+}
+
+.cmn-pdf-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.85rem;
+}
+
+.cmn-firma-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: auto;
+  color: #166534;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .btn-icon-outline .mdi-file-pdf-box {
@@ -246,6 +268,30 @@
 
 .fila-marcada {
   background: #eff6ff;
+}
+
+.fila-paquete {
+  background: #f1f5f9;
+
+  td {
+    border-top: 1px solid #cbd5e1;
+    vertical-align: middle;
+  }
+
+  .cell-title,
+  .cell-link {
+    font-weight: 700;
+    color: #0f172a;
+  }
+}
+
+.fila-miembro {
+  background: #fafbfc;
+
+  td[data-column-name="Expediente"] {
+    padding-left: 1.6rem;
+    box-shadow: inset 3px 0 0 #94a3b8;
+  }
 }
 
 .campo-ayuda {

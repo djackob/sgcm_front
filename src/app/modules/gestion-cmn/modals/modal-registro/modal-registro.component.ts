@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { forkJoin } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 
 import { BreadcrumbComponent } from '../../../../shared/components/breadcrumb/breadcrumb.component';
@@ -74,9 +75,8 @@ export class ModalRegistroComponent {
    * Si la solicitud que se está editando YA tiene su Anexo 3 en el servidor.
    *
    * Decide si al guardar hay que rehacer el PDF. En una subsanación sí: el
-   * documento del servidor quedó con los datos observados y nadie más lo va a
-   * regenerar —`CMN_SUBSANAR` no produce documento—. En un borrador no hay nada
-   * que rehacer todavía; el PDF nace cuando se pulsa «Generar Anexo 3».
+   * documento del servidor quedó con los datos observados. En un borrador no hay
+   * nada que rehacer todavía; el PDF nace cuando se pulsa «Derivar Anexo 3».
    */
   private teniaAnexo3 = false;
 
@@ -171,8 +171,8 @@ export class ModalRegistroComponent {
 
     this.cmnService.obtenerSolicitud(idSolicitud).subscribe({
       next: (respuesta: any) => {
-        this.cargandoEdicion = false;
         if (respuesta?.estado !== 1) {
+          this.cargandoEdicion = false;
           this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible cargar la solicitud.');
           this.abierto = false;
           return;
@@ -184,8 +184,13 @@ export class ModalRegistroComponent {
         this.centroCosto = respuesta.CentroCosto || this.centroCosto;
         this.centroCostoNombre = respuesta.CentroCostoNombre || this.centroCostoNombre;
         this.sustento = respuesta.Sustento || '';
-        this.items = this.itemsDesdeDetalle(respuesta.Items || []);
-        this.cargarMaestros();
+
+        /* Los combos se pintan después de los maestros: si se asignan los ítems
+           antes, el select no encuentra la opción y queda en "Seleccione…". */
+        this.cargarMaestros(() => {
+          this.items = this.itemsDesdeDetalle(respuesta.Items || []);
+          this.cargandoEdicion = false;
+        });
       },
       error: () => {
         this.cargandoEdicion = false;
@@ -209,14 +214,16 @@ export class ModalRegistroComponent {
       item.Descripcion = fila.Descripcion || '';
       item.UnidadAbreviatura = fila.UnidadAbreviatura || '';
       item.PrecioUnitario = fila.PrecioUnitario ?? null;
-      item.TipoTarea = fila.TipoTarea || '';
-      item.NivelTarea = fila.NivelTarea || '';
-      item.CodigoTarea = fila.CodigoTarea ?? null;
-      item.SecFunc = fila.SecFunc ?? null;
-      item.Origen = fila.Origen || '';
-      item.FuenteFinanc = fila.FuenteFinanc || '';
+      item.TipoTarea = String(fila.TipoTarea || '').trim();
+      item.NivelTarea = String(fila.NivelTarea || '').trim();
+      item.CodigoTarea = fila.CodigoTarea != null && fila.CodigoTarea !== ''
+        ? Number(fila.CodigoTarea) : null;
+      item.SecFunc = fila.SecFunc != null && fila.SecFunc !== ''
+        ? Number(fila.SecFunc) : null;
+      item.Origen = String(fila.Origen || '').trim();
+      item.FuenteFinanc = String(fila.FuenteFinanc || '').trim();
       item.Clasificador = fila.Clasificador || '';
-      item.TipoUso = fila.TipoUso || 'C';
+      item.TipoUso = String(fila.TipoUso || 'C').trim() || 'C';
       item.TipoBien = fila.TipoBien || partes[0] || '';
       item.GrupoBien = fila.GrupoBien || partes[1] || '';
       item.ClaseBien = fila.ClaseBien || partes[2] || '';
@@ -245,30 +252,51 @@ export class ModalRegistroComponent {
    * elección obligatoria en cada ítem. El catálogo NO se trae: son miles de
    * filas y se busca por descripción, que es como el área usuaria lo conoce.
    */
-  private cargarMaestros(): void {
+  private cargarMaestros(alTerminar?: () => void): void {
     this.cargandoMaestros = true;
 
     const base = { AnoEje: this.anoEje, SecEjec: this.secEjec, Limite: 500 };
 
-    this.cmnService.listarMaestroSiga('TAREA', { ...base, CentroCosto: this.centroCosto })
-      .subscribe({
-        next: (r: any) => { this.tareas = r?.datos || []; this.cargandoMaestros = false; },
-        error: () => { this.cargandoMaestros = false; }
-      });
-
-    this.cmnService.listarMaestroSiga('META', base)
-      .subscribe({ next: (r: any) => this.metas = r?.datos || [] });
-
-    this.cmnService.listarMaestroSiga('FUENTE_FINANC', base)
-      .subscribe({ next: (r: any) => this.fuentes = r?.datos || [] });
-
-    this.cmnService.listarMaestroSiga('TECHO', { ...base, CentroCosto: this.centroCosto })
-      .subscribe({ next: (r: any) => this.techos = r?.datos || [] });
-
-    this.cmnService.listarMaestroSiga('CUADRO_VIGENTE', {
-      ...base, CentroCosto: this.centroCosto, TipoMovimiento: 'EXCLUSION'
-    })
-      .subscribe({ next: (r: any) => this.cuadroVigente = r?.datos || [] });
+    forkJoin({
+      tareas: this.cmnService.listarMaestroSiga('TAREA', { ...base, CentroCosto: this.centroCosto }),
+      metas: this.cmnService.listarMaestroSiga('META', base),
+      fuentes: this.cmnService.listarMaestroSiga('FUENTE_FINANC', base),
+      techos: this.cmnService.listarMaestroSiga('TECHO', { ...base, CentroCosto: this.centroCosto }),
+      cuadro: this.cmnService.listarMaestroSiga('CUADRO_VIGENTE', {
+        ...base, CentroCosto: this.centroCosto, TipoMovimiento: 'EXCLUSION'
+      })
+    }).subscribe({
+      next: (r: any) => {
+        this.tareas = (r.tareas?.datos || []).map((t: TareaSiga) => ({
+          ...t,
+          TipoTarea: String(t.TipoTarea || '').trim(),
+          NivelTarea: String(t.NivelTarea || '').trim(),
+          CodigoTarea: Number(t.CodigoTarea)
+        }));
+        this.metas = (r.metas?.datos || []).map((m: MetaSiga) => ({
+          ...m,
+          SecFunc: Number(m.SecFunc)
+        }));
+        this.fuentes = (r.fuentes?.datos || []).map((f: FuenteFinancSiga) => ({
+          ...f,
+          Origen: String(f.Origen || '').trim(),
+          FuenteFinanc: String(f.FuenteFinanc || '').trim()
+        }));
+        this.techos = (r.techos?.datos || []).map((t: TechoSiga) => ({
+          ...t,
+          SecFunc: Number(t.SecFunc),
+          Origen: String(t.Origen || '').trim(),
+          FuenteFinanc: String(t.FuenteFinanc || '').trim()
+        }));
+        this.cuadroVigente = r.cuadro?.datos || [];
+        this.cargandoMaestros = false;
+        alTerminar?.();
+      },
+      error: () => {
+        this.cargandoMaestros = false;
+        alTerminar?.();
+      }
+    });
   }
 
   /* ---------------------------------------------------------------------- */
@@ -429,7 +457,7 @@ export class ModalRegistroComponent {
   }
 
   claveTarea(tarea: TareaSiga): string {
-    return `${tarea.TipoTarea}|${tarea.NivelTarea}|${tarea.CodigoTarea}`;
+    return `${String(tarea.TipoTarea || '').trim()}|${String(tarea.NivelTarea || '').trim()}|${Number(tarea.CodigoTarea)}`;
   }
 
   claveTareaItem(item: ItemFormularioCmn): string {
@@ -446,20 +474,31 @@ export class ModalRegistroComponent {
   /** Clasificadores respaldados por el techo real del centro de costo. */
   clasificadoresDisponibles(item: ItemFormularioCmn): TechoSiga[] {
     const vistos = new Set<string>();
-    return this.techos.filter(techo => {
-      const coincide = techo.SecFunc === item.SecFunc
-        && techo.Origen === item.Origen
-        && techo.FuenteFinanc === item.FuenteFinanc;
+    const lista = this.techos.filter(techo => {
+      const coincide = Number(techo.SecFunc) === Number(item.SecFunc)
+        && String(techo.Origen || '').trim() === String(item.Origen || '').trim()
+        && String(techo.FuenteFinanc || '').trim() === String(item.FuenteFinanc || '').trim();
       if (!coincide || !techo.Clasificador || vistos.has(techo.Clasificador)) {
         return false;
       }
       vistos.add(techo.Clasificador);
       return true;
     });
+
+    if (item.Clasificador && !lista.some(x => x.Clasificador === item.Clasificador)) {
+      lista.unshift({
+        Clasificador: item.Clasificador,
+        SecFunc: item.SecFunc as number,
+        Origen: item.Origen,
+        FuenteFinanc: item.FuenteFinanc
+      } as TechoSiga);
+    }
+
+    return lista;
   }
 
   validarClasificador(item: ItemFormularioCmn): void {
-    if (item.TipoMovimiento !== 'INCLUSION') {
+    if (item.TipoMovimiento !== 'INCLUSION' || this.techos.length === 0) {
       return;
     }
     const disponibles = this.clasificadoresDisponibles(item);
@@ -469,7 +508,7 @@ export class ModalRegistroComponent {
   }
 
   claveFuente(fuente: FuenteFinancSiga): string {
-    return `${fuente.Origen}|${fuente.FuenteFinanc}`;
+    return `${String(fuente.Origen || '').trim()}|${String(fuente.FuenteFinanc || '').trim()}`;
   }
 
   claveFuenteItem(item: ItemFormularioCmn): string {
@@ -610,7 +649,7 @@ export class ModalRegistroComponent {
            ya con PDF, así que la bandeja ofrecía el icono del Anexo 3 de algo
            que todavía no se había generado, y el aviso prometía un documento
            «guardado en el servidor» que aún no correspondía a ningún estado del
-           trámite. El PDF nace con «Generar Anexo 3», que es la transición que
+           trámite. El PDF nace con «Derivar Anexo 3», que es la transición que
            lo declara hecho.
 
            La subsanación es el caso contrario: ahí el documento ya existe, se
@@ -699,7 +738,7 @@ export class ModalRegistroComponent {
         this.modoEdicion
           ? (registro.mensaje || `Se actualizó la solicitud ${registro.Codigo}.`)
           : `Se registró la solicitud ${registro.Codigo}. Queda en borrador: puede editarla `
-            + 'y, cuando esté conforme, use «Generar Anexo 3» para emitir el documento.');
+            + 'y, cuando esté conforme, use «Derivar Anexo 3» para emitir el documento.');
       return;
     }
 

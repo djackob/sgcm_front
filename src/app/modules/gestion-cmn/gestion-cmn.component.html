@@ -149,104 +149,183 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of solicitudes" [class.fila-marcada]="estaSeleccionada(item)">
-            <td class="td-check" *ngIf="haySeleccionables" data-column-name="Anexo 4">
-              <input
-                type="checkbox"
-                class="form-check-input"
-                *ngIf="puedeSeleccionar(item)"
-                [checked]="estaSeleccionada(item)"
-                [attr.aria-label]="'Incluir ' + item.Codigo + ' en el Anexo 4'"
-                (change)="alternarSeleccion(item)"
-              />
-            </td>
+          <ng-container *ngFor="let item of solicitudes; let i = index">
+            <tr *ngIf="esCabeceraPaquete(item, i)" class="fila-paquete">
+              <td *ngIf="haySeleccionables" class="td-check"></td>
 
-            <td data-column-name="Expediente">
-              <a href="javascript:void(0)" class="cell-link" (click)="verDetalle(item)">
-                {{ item.Codigo }}
-              </a>
-              <span class="cell-subtitle">v{{ item.Version }} · {{ item.FechaSolicitud }}</span>
-            </td>
-
-            <td data-column-name="Solicitud CMN">
-              <span class="cell-title">
-                {{ item.TipoOperacion | titlecase }} del CMN · {{ item.Items }} ítem(s)
-              </span>
-              <span class="cell-subtitle">
-                <!-- El área usuaria es dato clave en Abastecimiento, donde en la
-                     misma bandeja conviven expedientes de varias oficinas. -->
-                <ng-container *ngIf="item.AreaUsuaria">{{ item.SiglaArea || item.AreaUsuaria }} · </ng-container>
-                Centro de costo {{ item.CentroCosto }}
-                <ng-container *ngIf="item.TipoInclusion">· {{ item.TipoInclusion | titlecase }}</ng-container>
-                <ng-container *ngIf="item.CodigoAnexo4"> · Anexo 4 {{ item.CodigoAnexo4 }}</ng-container>
-              </span>
-            </td>
-
-            <td data-column-name="Estado actual">
-              <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">
-                {{ item.Estado }}
-              </span>
-            </td>
-
-            <td data-column-name="Responsable actual" class="cell-muted">
-              {{ item.RolResponsable || '—' }}
-            </td>
-
-            <td data-column-name="Monto S/" class="cell-muted text-end">
-              {{ item.MontoTotal | number: '1.2-2' }}
-            </td>
-
-            <td data-column-name="Acción del perfil" class="td-acciones">
-              <div class="action-cell">
-                <span class="action-cell__label" *ngIf="!esMiTurno(item)">
-                  Sin acción pendiente
+              <td data-column-name="Expediente">
+                <a href="javascript:void(0)" class="cell-link" (click)="verAnexo4Pdf(item)">
+                  Anexo 4 {{ item.CodigoAnexo4 }}
+                </a>
+                <span class="cell-subtitle">
+                  {{ miembrosDelPaquete(item).length }} Anexos 3
+                  <ng-container *ngIf="item.TipoInclusion"> · {{ item.TipoInclusion | titlecase }}</ng-container>
                 </span>
+              </td>
 
-                <button
-                  type="button"
-                  class="btn btn-app-primary btn-sm"
-                  *ngFor="let transicion of accionesDe(item)"
-                  [title]="'Pasa a: ' + transicion.EstadoDestino"
-                  (click)="pedirConfirmacion(item, transicion)"
-                >
-                  {{ transicion.NombreAccion }}
-                </button>
+              <td data-column-name="Solicitud CMN">
+                <span class="cell-title">
+                  Aprobación del CMN · {{ itemsDelPaquete(item) }} ítem(s)
+                </span>
+                <span class="cell-subtitle">
+                  {{ miembrosDelPaquete(item).length }} solicitudes agrupadas
+                </span>
+              </td>
 
-                <button
-                  type="button"
-                  class="btn-icon-outline btn-anexo btn-anexo--3"
-                  *ngIf="puedeVerAnexo3Pdf(item)"
-                  title="Ver Anexo 3 (PDF)"
-                  [disabled]="cargandoPdf"
-                  (click)="verAnexo3Pdf(item)"
-                >
-                  <i class="mdi" [ngClass]="iconoPdfFila(item, 3)" aria-hidden="true"></i>
-                  <span class="btn-anexo__badge">A3</span>
-                </button>
+              <td data-column-name="Estado actual">
+                <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">
+                  {{ item.Estado }}
+                </span>
+              </td>
 
-                <button
-                  type="button"
-                  class="btn-icon-outline btn-anexo btn-anexo--4"
-                  *ngIf="puedeVerAnexo4Pdf(item)"
-                  title="Ver Anexo 4 (PDF)"
-                  [disabled]="cargandoPdf"
-                  (click)="verAnexo4Pdf(item)"
-                >
-                  <i class="mdi" [ngClass]="iconoPdfFila(item, 4)" aria-hidden="true"></i>
-                  <span class="btn-anexo__badge">A4</span>
-                </button>
+              <td data-column-name="Responsable actual" class="cell-muted">
+                {{ item.RolResponsable || '—' }}
+              </td>
 
-                <button
-                  type="button"
-                  class="btn-icon-outline"
-                  title="Ver expediente"
-                  (click)="verDetalle(item)"
-                >
-                  <i class="mdi mdi-magnify" aria-hidden="true"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
+              <td data-column-name="Monto S/" class="cell-muted text-end">
+                {{ montoDelPaquete(item) | number: '1.2-2' }}
+              </td>
+
+              <td data-column-name="Acción del perfil" class="td-acciones">
+                <div class="action-cell">
+                  <span class="action-cell__label" *ngIf="accionesDelPaquete(item).length === 0">
+                    Sin acción pendiente
+                  </span>
+
+                  <button
+                    type="button"
+                    class="btn btn-app-primary btn-sm"
+                    *ngFor="let transicion of accionesDelPaquete(item)"
+                    [title]="'Pasa a: ' + transicion.EstadoDestino"
+                    (click)="pedirConfirmacion(item, transicion)"
+                  >
+                    {{ transicion.NombreAccion }}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn-icon-outline btn-anexo btn-anexo--4"
+                    *ngIf="puedeVerAnexo4Pdf(item)"
+                    title="Ver Anexo 4 (PDF)"
+                    [disabled]="cargandoPdf"
+                    (click)="verAnexo4Pdf(item)"
+                  >
+                    <i class="mdi" [ngClass]="iconoPdfFila(item, 4)" aria-hidden="true"></i>
+                    <span class="btn-anexo__badge">A4</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr
+              [class.fila-marcada]="estaSeleccionada(item)"
+              [class.fila-miembro]="agrupaPaquete(item)"
+            >
+              <td class="td-check" *ngIf="haySeleccionables" data-column-name="Anexo 4">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  *ngIf="puedeSeleccionar(item)"
+                  [checked]="estaSeleccionada(item)"
+                  [attr.aria-label]="'Incluir ' + item.Codigo + ' en el Anexo 4'"
+                  (change)="alternarSeleccion(item)"
+                />
+              </td>
+
+              <td data-column-name="Expediente">
+                <a href="javascript:void(0)" class="cell-link" (click)="verDetalle(item)">
+                  {{ item.Codigo }}
+                </a>
+                <span class="cell-subtitle">v{{ item.Version }} · {{ item.FechaSolicitud }}</span>
+              </td>
+
+              <td data-column-name="Solicitud CMN">
+                <span class="cell-title">
+                  {{ item.TipoOperacion | titlecase }} del CMN · {{ item.Items }} ítem(s)
+                </span>
+                <span class="cell-subtitle">
+                  <ng-container *ngIf="item.AreaUsuaria">{{ item.SiglaArea || item.AreaUsuaria }} · </ng-container>
+                  Centro de costo {{ item.CentroCosto }}
+                  <ng-container *ngIf="item.TipoInclusion">· {{ item.TipoInclusion | titlecase }}</ng-container>
+                  <ng-container *ngIf="item.CodigoAnexo4 && !agrupaPaquete(item)"> · Anexo 4 {{ item.CodigoAnexo4 }}</ng-container>
+                </span>
+              </td>
+
+              <td data-column-name="Estado actual">
+                <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">
+                  {{ item.Estado }}
+                </span>
+              </td>
+
+              <td data-column-name="Responsable actual" class="cell-muted">
+                {{ item.RolResponsable || '—' }}
+              </td>
+
+              <td data-column-name="Monto S/" class="cell-muted text-end">
+                {{ item.MontoTotal | number: '1.2-2' }}
+              </td>
+
+              <td data-column-name="Acción del perfil" class="td-acciones">
+                <div class="action-cell">
+                  <span class="action-cell__label" *ngIf="accionesVisiblesDe(item).length === 0 && !agrupaPaquete(item) && !puedeEditarObservacion(item)">
+                    Sin acción pendiente
+                  </span>
+
+                  <button
+                    type="button"
+                    class="btn btn-app-primary btn-sm"
+                    *ngIf="puedeEditarObservacion(item)"
+                    (click)="editarObservacion(item)"
+                  >
+                    Modificar Anexo 3
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-app-primary btn-sm"
+                    *ngFor="let transicion of accionesVisiblesDe(item)"
+                    [title]="'Pasa a: ' + transicion.EstadoDestino"
+                    (click)="pedirConfirmacion(item, transicion)"
+                  >
+                    {{ transicion.NombreAccion }}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn-icon-outline btn-anexo btn-anexo--3"
+                    *ngIf="puedeVerAnexo3Pdf(item)"
+                    title="Ver Anexo 3 (PDF)"
+                    [disabled]="cargandoPdf"
+                    (click)="verAnexo3Pdf(item)"
+                  >
+                    <i class="mdi" [ngClass]="iconoPdfFila(item, 3)" aria-hidden="true"></i>
+                    <span class="btn-anexo__badge">A3</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn-icon-outline btn-anexo btn-anexo--4"
+                    *ngIf="puedeVerAnexo4Pdf(item) && !agrupaPaquete(item)"
+                    title="Ver Anexo 4 (PDF)"
+                    [disabled]="cargandoPdf"
+                    (click)="verAnexo4Pdf(item)"
+                  >
+                    <i class="mdi" [ngClass]="iconoPdfFila(item, 4)" aria-hidden="true"></i>
+                    <span class="btn-anexo__badge">A4</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn-icon-outline"
+                    title="Ver expediente"
+                    (click)="verDetalle(item)"
+                  >
+                    <i class="mdi mdi-magnify" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </ng-container>
 
           <tr *ngIf="solicitudes.length === 0">
             <td [attr.colspan]="haySeleccionables ? 7 : 6">
@@ -340,6 +419,14 @@
             Esta acción registra una firma sobre
             {{ accionEnCurso.transicion.DocumentoRequerido }}.
           </li>
+          <li *ngIf="debeInvocarFirmaDigital && !nombreDocumentoFirmado">
+            <i class="mdi mdi-certificate-outline" aria-hidden="true"></i>
+            Al abrir el documento se ofrece la firma digital. Por ahora puede confirmar sin ella para seguir el flujo.
+          </li>
+          <li *ngIf="nombreDocumentoFirmado" class="cmn-aviso-ok">
+            <i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
+            Firma digital completada. Ya puede confirmar la acción.
+          </li>
           <li *ngIf="accionEnCurso.transicion.EncolaIntegracion">
             <i class="mdi mdi-database-export-outline" aria-hidden="true"></i>
             Encola operaciones hacia SIGA<ng-container *ngIf="expedientesDeLaAccion > 1">,
@@ -354,6 +441,12 @@
             Mueve los <b>{{ expedientesDeLaAccion }} expedientes</b> del Anexo 4 a la vez:
             o avanzan todos o no avanza ninguno.
           </li>
+          <li *ngIf="muestraPdfAnexo4">
+            <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
+            El PDF del Anexo 4 tiene dos espacios de Firma: a la izquierda el Jefe
+            de la Unidad de Abastecimiento y a la derecha el Encargado de la Unidad
+            de Abastecimiento.
+          </li>
         </ul>
 
         <div class="cmn-pdf-acciones" *ngIf="muestraPdfAnexo3">
@@ -366,6 +459,16 @@
             <i class="mdi" [ngClass]="cargandoPdf ? 'mdi-loading mdi-spin' : 'mdi-file-pdf-box'" aria-hidden="true"></i>
             Ver Anexo 3 (PDF)
           </button>
+          <a
+            *ngIf="nombreDocumentoFirmado"
+            class="btn btn-app-secundario"
+            [href]="urlDocumentoFirmado()"
+            target="_blank"
+            rel="noopener"
+          >
+            <i class="mdi mdi-file-check-outline" aria-hidden="true"></i>
+            Ver archivo firmado
+          </a>
         </div>
 
         <div class="cmn-pdf-acciones" *ngIf="muestraPdfAnexo4">
@@ -378,6 +481,16 @@
             <i class="mdi" [ngClass]="cargandoPdf ? 'mdi-loading mdi-spin' : 'mdi-file-pdf-box'" aria-hidden="true"></i>
             Ver Anexo 4 (PDF)
           </button>
+          <a
+            *ngIf="nombreDocumentoFirmado"
+            class="btn btn-app-secundario"
+            [href]="urlDocumentoFirmado()"
+            target="_blank"
+            rel="noopener"
+          >
+            <i class="mdi mdi-file-check-outline" aria-hidden="true"></i>
+            Ver archivo firmado
+          </a>
         </div>
 
         <div class="campo" *ngIf="muestraTipoInclusion">
@@ -481,6 +594,19 @@
           <i class="mdi mdi-printer-outline" aria-hidden="true"></i>
           Imprimir / guardar PDF
         </button>
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          *ngIf="debeInvocarFirmaDigital && !nombreDocumentoFirmado"
+          (click)="firmarDigitalDesdeVisor()"
+        >
+          <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
+          Firmar digitalmente
+        </button>
+        <span class="cmn-firma-ok" *ngIf="nombreDocumentoFirmado">
+          <i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
+          Firmado digitalmente
+        </span>
         <button type="button" class="btn btn-app-primary" (click)="cerrarVisorPdf()">Cerrar</button>
       </div>
     </div>

@@ -47,9 +47,10 @@ export interface SolicitudCmn {
 /**
  * Una firma de la cadena, tal como la devuelve sigcm.paListarDocumento.
  *
- * Los anexos llevan varias firmas: el Anexo 3 cuatro y el Anexo 4 tres. La
- * lista viene completa —firmadas y pendientes— para que la pantalla pueda
- * mostrar en qué punto de la cadena está el documento sin deducirlo del estado.
+ * Los anexos llevan firmas en cadena: el Anexo 3 la del jefe del área usuaria
+ * y el Anexo 4 la del jefe de Abastecimiento. La lista viene completa —firmadas
+ * y pendientes— para que la pantalla pueda mostrar en qué punto está el
+ * documento sin deducirlo del estado.
  */
 export interface FirmaDocumentoCmn {
   OrdenFirma: number;

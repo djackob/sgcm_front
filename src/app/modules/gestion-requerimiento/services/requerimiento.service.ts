@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { forkJoin, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { MetodoService } from '../../../core/services/metodo.service';
 
 /**
@@ -126,18 +127,32 @@ export class RequerimientoService {
 
   /**
    * Solicitudes CMN para el caso NO_INCLUIDO (REQ-04): hay que apoyarse en una
-   * modificación del CMN finalizada. Se piden con SoloMiBandeja en falso porque
-   * la modificación pudo tramitarla otro perfil de la misma área.
+   * modificación cuyo Anexo 4 ya está en el área usuaria. Se piden con
+   * SoloMiBandeja en falso porque la modificación pudo tramitarla otro perfil
+   * de la misma área.
    */
   listarSolicitudCmnFinalizada(anoEje: number): Observable<any> {
-    return this.apiService.GET('api/cmn/listarSolicitud', {
+    const filtro = (CodigoEstado: string) => this.apiService.GET('api/cmn/listarSolicitud', {
       Filtro: {
         SoloMiBandeja: false,
-        CodigoEstado: 'CMN_FINALIZADO',
+        CodigoEstado,
         AnoEje: anoEje,
         Limite: 100,
         Desplazamiento: 0
       }
     });
+
+    return forkJoin({
+      enviados: filtro('CMN_A4_ENVIADO'),
+      finalizados: filtro('CMN_FINALIZADO')
+    }).pipe(
+      map(({ enviados, finalizados }) => ({
+        estado: 1,
+        Solicitudes: [
+          ...(enviados?.Solicitudes || []),
+          ...(finalizados?.Solicitudes || [])
+        ]
+      }))
+    );
   }
 }

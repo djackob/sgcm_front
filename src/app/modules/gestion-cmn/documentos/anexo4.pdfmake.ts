@@ -135,20 +135,13 @@ export function construirAnexo4(paquete: PaqueteAnexo4Cmn): any {
         ]
       },
 
-      /* Tres firmas y no dos.
-         El formato de la Directiva prevé dos líneas —el responsable de
-         Abastecimiento y la máxima autoridad administrativa—, pero el circuito
-         que aprobó la ANIN hace firmar a los tres escalones de la Unidad de
-         Abastecimiento antes de remitir. Se imprime lo que efectivamente ocurre:
-         un pie con dos líneas dejaría sin constancia dos firmas que sí se
-         registraron en sigcm.Firma, y el documento no coincidiría con su propia
-         trazabilidad. */
+      /* Dos espacios de firma: a la izquierda el jefe y a la derecha el
+         encargado de la Unidad de Abastecimiento. */
       {
         margin: [0, 34, 0, 0],
         columns: [
-          bloqueFirma('Especialista de la Unidad de Abastecimiento'),
-          bloqueFirma('Coordinador de la Unidad de Abastecimiento'),
-          bloqueFirma('Responsable de la Unidad de Abastecimiento')
+          bloqueFirma('Firma', 'Jefe de la Unidad de Abastecimiento'),
+          bloqueFirma('Firma', 'Encargado de la Unidad de Abastecimiento')
         ]
       },
       {
@@ -168,6 +161,7 @@ export function construirAnexo4(paquete: PaqueteAnexo4Cmn): any {
       grupo: { fontSize: 7.5, bold: true, color: OSCURO, margin: [3, 3, 3, 3] },
       subtotal: { fontSize: 7.5, bold: true, color: OSCURO, margin: [2, 3, 2, 3] },
       nota: { fontSize: 7.5, color: OSCURO, margin: [0, 2, 0, 0] },
+      firmaEtiqueta: { fontSize: 8, bold: true, color: OSCURO, alignment: 'center', margin: [8, 0, 8, 4] },
       firmaCargo: { fontSize: 7.5, color: GRIS, alignment: 'center', margin: [8, 6, 8, 0] }
     },
 
@@ -251,10 +245,11 @@ function filaSubtotal(items: ItemSolicitudCmn[], solicitud: SolicitudDelPaqueteC
   ];
 }
 
-function bloqueFirma(cargo: string): any {
+function bloqueFirma(etiqueta: string, cargo: string): any {
   return {
     width: '*',
     stack: [
+      { text: etiqueta, style: 'firmaEtiqueta' },
       { canvas: [{ type: 'line', x1: 12, y1: 0, x2: 200, y2: 0, lineWidth: 0.7, lineColor: OSCURO }] },
       { text: cargo, style: 'firmaCargo' }
     ]

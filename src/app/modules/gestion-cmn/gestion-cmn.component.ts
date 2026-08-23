@@ -22,6 +22,7 @@ import {
 import { construirAnexo3, nombreArchivoAnexo3 } from './documentos/anexo3.pdfmake';
 import { construirAnexo4, nombreArchivoAnexo4 } from './documentos/anexo4.pdfmake';
 import { MaestraService } from '../../shared/services/maestra.service';
+import { ConfigService } from '../../core/services/config.service';
 import { idDocumentoSistema } from '../../shared/funciones/archivo';
 
 /** Los dos tipos de documento del módulo, tal como los nombra la semilla. */
@@ -34,7 +35,7 @@ const TIPO_ANEXO_4 = 'CMN_ANEXO_4_APROBACION_MODIFICACION';
  * La semilla declara qué transición EXIGE un documento (`DocumentoRequerido`),
  * pero no cuál lo PRODUCE: son dos cosas distintas y sólo la primera es una
  * regla del motor. Este mapa cubre la segunda, que es una decisión de pantalla:
- * al pulsar «Generar Anexo 3» el navegador arma el PDF, lo sube y lo registra
+ * al pulsar «Derivar Anexo 3» el navegador arma el PDF, lo sube y lo registra
  * antes de mover el estado.
  *
  * `CMN_GENERAR_A4` NO está aquí, aunque también genere un documento: el Anexo 4
@@ -60,14 +61,12 @@ const ESTADOS_CON_ANEXO4 = new Set([
 /**
  * Acciones que operan sobre el Anexo 4 completo y no sobre una fila.
  *
- * El coordinador y el jefe ven en su bandeja un expediente por cada Anexo 3 del
- * paquete, pero firman UN documento. Si cada fila se moviera por separado, la
- * primera firma cerraría el Anexo 4 y las demás filas quedarían atrás pidiendo
- * una firma sobre un documento ya firmado. Por eso estas acciones arrastran a
- * todas las filas del mismo paquete y se ejecutan en lote.
+ * En la bandeja del jefe, un Anexo 4 múltiple se muestra como un solo registro
+ * con sus Anexos 3 dentro. La firma mueve todo el paquete en lote: si cada
+ * Anexo 3 se moviera por separado, el primero cerraría el documento y los
+ * demás quedarían atrás.
  */
 const ACCIONES_DEL_PAQUETE = new Set([
-  'CMN_ABAST_COORD_FIRMAR_A4',
   'CMN_ABAST_JEFE_FIRMAR_A4'
 ]);
 
@@ -156,6 +155,14 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   cargandoPdfId = '';
   cargandoPdfAnexo: 3 | 4 | null = null;
 
+  /** Id del PDF que se envió al firmador (documento_sistema original). */
+  documentoSistemaParaFirmar = '';
+  /** Id que devuelve el firmador cuando la firma digital terminó. */
+  nombreDocumentoFirmado = '';
+  private popupFirma: Window | null = null;
+  private popupMonitorId: number | null = null;
+  private messageListener: ((event: MessageEvent) => void) | null = null;
+
   constructor(
     private cmnService: CmnService,
     private sesion: SessionService,
@@ -176,6 +183,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.centroCosto = detalle?.centro_costo || '';
     this.breadcrumb = ['Gestión CMN', this.unidad, this.rol].filter(x => !!x);
 
+    this.registrarListenerFirma();
     this.cargarBandeja();
   }
 
@@ -253,8 +261,55 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   }
 
   accionesDe(solicitud: SolicitudCmn): TransicionCmn[] {
-    return (this.acciones[solicitud.IdExpediente] || [])
-      .filter(t => t.CodigoTransicion !== 'CMN_SUBSANAR');
+    return this.acciones[solicitud.IdExpediente] || [];
+  }
+
+  /**
+   * En la bandeja del jefe, varios Anexos 3 del mismo paquete se agrupan bajo
+   * un solo registro de Anexo 4. El resto de perfiles sigue viendo una fila
+   * por expediente.
+   */
+  agrupaPaquete(solicitud: SolicitudCmn): boolean {
+    return this.codigoRol === 'ABAST_JEFE'
+      && !!solicitud.IdPaquete
+      && this.miembrosDelPaquete(solicitud).length > 1;
+  }
+
+  esCabeceraPaquete(solicitud: SolicitudCmn, indice: number): boolean {
+    if (!this.agrupaPaquete(solicitud)) {
+      return false;
+    }
+    return this.solicitudes.findIndex(s => s.IdPaquete === solicitud.IdPaquete) === indice;
+  }
+
+  miembrosDelPaquete(solicitud: SolicitudCmn): SolicitudCmn[] {
+    if (!solicitud.IdPaquete) {
+      return [solicitud];
+    }
+    return this.solicitudes.filter(s => s.IdPaquete === solicitud.IdPaquete);
+  }
+
+  montoDelPaquete(solicitud: SolicitudCmn): number {
+    return this.miembrosDelPaquete(solicitud).reduce((acc, s) => acc + (Number(s.MontoTotal) || 0), 0);
+  }
+
+  itemsDelPaquete(solicitud: SolicitudCmn): number {
+    return this.miembrosDelPaquete(solicitud).reduce((acc, s) => acc + (Number(s.Items) || 0), 0);
+  }
+
+  /** En la cabecera del Anexo 4: firmar / remitir el paquete entero. */
+  accionesDelPaquete(solicitud: SolicitudCmn): TransicionCmn[] {
+    return this.accionesDe(solicitud)
+      .filter(t => ACCIONES_DEL_PAQUETE.has(t.CodigoTransicion));
+  }
+
+  /** En cada Anexo 3 agrupado no se repite la acción del paquete. */
+  accionesVisiblesDe(solicitud: SolicitudCmn): TransicionCmn[] {
+    const acciones = this.accionesDe(solicitud);
+    if (!this.agrupaPaquete(solicitud)) {
+      return acciones;
+    }
+    return acciones.filter(t => !ACCIONES_DEL_PAQUETE.has(t.CodigoTransicion));
   }
 
   puedeEditarObservacion(solicitud: SolicitudCmn): boolean {
@@ -427,11 +482,6 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
    * unidad, encolado hacia SIGA— y no deben depender de un clic accidental.
    */
   pedirConfirmacion(solicitud: SolicitudCmn, transicion: TransicionCmn): void {
-    if (transicion.CodigoTransicion === 'CMN_ENVIAR_OA') {
-      this.confirmarEnvioOa(solicitud, transicion);
-      return;
-    }
-
     /* Generar el Anexo 4 desde una fila es el mismo camino que generarlo desde
        la selección múltiple, con un solo Anexo 3. Que sea uno o cinco no cambia
        nada del procedimiento: cambia el contenido del documento. */
@@ -487,7 +537,14 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.tipoInclusion = solicitud.TipoInclusion === 'URGENTE' ? 'URGENTE'
       : solicitud.TipoInclusion === 'ORDINARIA' ? 'ORDINARIA'
       : '';
+    this.limpiarEstadoFirma();
     this.cerrarVisorPdf();
+
+    if (this.muestraPdfAnexo3) {
+      this.verAnexo3Pdf(solicitud);
+    } else if (this.muestraPdfAnexo4) {
+      this.verAnexo4Pdf(solicitud);
+    }
   }
 
   /** Cuántos expedientes moverá la acción en curso, para avisarlo en el panel. */
@@ -515,21 +572,9 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   }
 
   firmarDesdeDetalle(evento: { solicitud: SolicitudCmn; transicion: TransicionCmn }): void {
-    this.funciones.alertaRetorno(
-      'question',
-      'Firmar Anexo 3',
-      `¿Desea firmar el Anexo 3 <b>${evento.solicitud.Codigo}</b>? La firma anterior queda invalidada.`,
-      true,
-      (resultado: any) => {
-        if (resultado?.isConfirmed) {
-          this.modalDetalle.cerrar();
-          this.comentarioPendiente = null;
-          this.tipoInclusionPendiente = null;
-          this.loteEnCurso = [];
-          this.iniciarEjecucion(evento.solicitud, evento.transicion);
-        }
-      }
-    );
+    this.modalDetalle.cerrar();
+    this.abrirPanelAccion(evento.solicitud, evento.transicion,
+      [{ IdExpediente: evento.solicitud.IdExpediente, Version: evento.solicitud.Version }]);
   }
 
   /* ---------------------------------------------------------------------- */
@@ -557,8 +602,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.funciones.alertaRetorno(
       'question',
       'Generar Anexo 4',
-      resumen + '<br><br>Al confirmar se firmará como especialista y quedará a la espera '
-        + 'de la firma del Coordinador de Abastecimiento.',
+      resumen + '<br><br>Al confirmar se genera el documento y se envía al Jefe '
+        + 'de Abastecimiento para su firma y registro en SIGA.',
       true,
       (resultado: any) => {
         if (resultado?.isConfirmed) {
@@ -577,7 +622,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
    *   2. armar el PDF con lo que devolvió la reserva;
    *   3. subirlo al file server;
    *   4. registrarlo UNA vez contra los N expedientes, con el código del paquete;
-   *   5. firmarlo como especialista y mover los N expedientes en un solo lote.
+   *   5. mover los N expedientes en un solo lote. En Abastecimiento solo
+   *      firma el jefe; el especialista genera y deriva, no firma.
    *
    * Si el paso 1 fallara después del 2, habría un PDF subido de un Anexo 4 que
    * no existe. Por eso reservar va primero, aunque obligue a una llamada extra.
@@ -650,59 +696,44 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Pasos 5 y 6: la firma del especialista y el movimiento del lote. */
+  /** Paso 5: el movimiento del lote. El especialista no firma el Anexo 4. */
   private firmarYMoverAnexo4(expedientes: ExpedienteLoteCmn[], paquete: PaqueteAnexo4Cmn): void {
-    this.paso = 'Registrando la firma del especialista…';
+    this.paso = 'Enviando al Jefe de Abastecimiento…';
 
-    /* Basta con firmar por un expediente: el documento es uno y la rutina lo
-       encuentra por cualquiera de sus enlaces. Firmar por todos registraría la
-       misma firma varias veces sobre la misma versión. */
-    this.cmnService.firmarDocumento(expedientes[0].IdExpediente, TIPO_ANEXO_4).subscribe({
-      next: (firma: any) => {
-        if (firma?.estado !== 1) {
-          this.fallarAnexo4(firma?.mensaje || 'No fue posible registrar la firma del Anexo 4.');
+    this.cmnService.ejecutarTransicionLote(expedientes, 'CMN_GENERAR_A4').subscribe({
+      next: (respuesta: any) => {
+        this.ejecutando = false;
+        this.generandoAnexo4 = false;
+        this.paso = '';
+
+        if (respuesta?.estado !== 1) {
+          /* El paquete quedó creado pero los expedientes no se movieron.
+             Se dice cuál es, porque es lo que hay que anular o reintentar:
+             sin el código, esas solicitudes quedarían reservadas sin que el
+             usuario sepa a nombre de qué. */
+          this.funciones.mensaje(
+            'error',
+            (respuesta?.mensaje || 'No fue posible derivar el Anexo 4.')
+            + `<br><br>El Anexo 4 <b>${paquete.Codigo}</b> quedó generado. `
+            + 'Vuelva a intentar la derivación o anúlelo para liberar sus Anexos 3.'
+          );
+          this.cargarBandeja();
           return;
         }
 
-        this.paso = 'Derivando al Coordinador de Abastecimiento…';
+        this.documentoGenerado = '';
+        this.paqueteEnCurso = null;
+        this.limpiarSeleccion();
 
-        this.cmnService.ejecutarTransicionLote(expedientes, 'CMN_GENERAR_A4').subscribe({
-          next: (respuesta: any) => {
-            this.ejecutando = false;
-            this.generandoAnexo4 = false;
-            this.paso = '';
-
-            if (respuesta?.estado !== 1) {
-              /* El paquete quedó creado pero los expedientes no se movieron.
-                 Se dice cuál es, porque es lo que hay que anular o reintentar:
-                 sin el código, esas solicitudes quedarían reservadas sin que el
-                 usuario sepa a nombre de qué. */
-              this.funciones.mensaje(
-                'error',
-                (respuesta?.mensaje || 'No fue posible derivar el Anexo 4.')
-                + `<br><br>El Anexo 4 <b>${paquete.Codigo}</b> quedó generado. `
-                + 'Vuelva a intentar la derivación o anúlelo para liberar sus Anexos 3.'
-              );
-              this.cargarBandeja();
-              return;
-            }
-
-            this.documentoGenerado = '';
-            this.paqueteEnCurso = null;
-            this.limpiarSeleccion();
-
-            this.funciones.mensaje(
-              'success',
-              `Se generó y firmó el Anexo 4 <b>${paquete.Codigo}</b> con `
-              + `${paquete.TotalSolicitudes} Anexo(s) 3 y ${paquete.TotalItems} ítem(s). `
-              + 'Está a la espera de la firma del Coordinador de Abastecimiento.'
-            );
-            this.cargarBandeja();
-          },
-          error: () => this.fallarAnexo4('No fue posible derivar el Anexo 4.')
-        });
+        this.funciones.mensaje(
+          'success',
+          `Se generó el Anexo 4 <b>${paquete.Codigo}</b> con `
+          + `${paquete.TotalSolicitudes} Anexo(s) 3 y ${paquete.TotalItems} ítem(s). `
+          + 'Está a la espera de la firma del Jefe de Abastecimiento.'
+        );
+        this.cargarBandeja();
       },
-      error: () => this.fallarAnexo4('No fue posible registrar la firma del Anexo 4.')
+      error: () => this.fallarAnexo4('No fue posible derivar el Anexo 4.')
     });
   }
 
@@ -715,41 +746,26 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.cargarBandeja();
   }
 
-  private confirmarEnvioOa(solicitud: SolicitudCmn, transicion: TransicionCmn): void {
-    this.funciones.alertaRetorno(
-      'question',
-      'Confirmar envío',
-      `¿Desea enviar el Anexo 3 <b>${solicitud.Codigo}</b> a la Oficina de Administración?`,
-      true,
-      (resultado: any) => {
-        if (resultado?.isConfirmed) {
-          this.comentarioPendiente = null;
-          this.tipoInclusionPendiente = null;
-          this.loteEnCurso = [];
-          this.iniciarEjecucion(solicitud, transicion);
-        }
-      }
-    );
-  }
-
-  /** Las cuatro firmas del Anexo 3: la del área usuaria y las tres de Abastecimiento. */
+  /** Firmas del Anexo 3: solo el jefe del área usuaria. */
   get muestraPdfAnexo3(): boolean {
     const codigo = this.accionEnCurso?.transicion.CodigoTransicion;
     return codigo === 'CMN_FIRMAR_A3'
-      || codigo === 'CMN_SUBS_JEFE_ENVIAR'
-      || codigo === 'CMN_ABAST_ESP_FIRMAR_A3'
-      || codigo === 'CMN_ABAST_COORD_FIRMAR_A3'
-      || codigo === 'CMN_ABAST_JEFE_FIRMAR_A3';
+      || codigo === 'CMN_SUBS_JEFE_ENVIAR';
   }
 
-  /** Las dos firmas del Anexo 4 posteriores a la del especialista. */
+  /** En Abastecimiento solo firma el jefe el Anexo 4. */
   get muestraPdfAnexo4(): boolean {
     const codigo = this.accionEnCurso?.transicion.CodigoTransicion;
-    return !!codigo && ACCIONES_DEL_PAQUETE.has(codigo);
+    return codigo === 'CMN_ABAST_JEFE_FIRMAR_A4';
+  }
+
+  get debeInvocarFirmaDigital(): boolean {
+    return !!this.accionEnCurso?.transicion.RequiereFirma
+      && (this.muestraPdfAnexo3 || this.muestraPdfAnexo4);
   }
 
   /**
-   * Ordinario o urgente se declara al conformar el Anexo 3, que es el paso 6 del
+   * Ordinario o urgente se declara al confirmar el Anexo 3, que es el paso 6 del
    * flujo, y de esa marca depende después si el Anexo 4 puede generarse hoy o
    * hay que esperar al viernes.
    */
@@ -767,7 +783,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
    *
    * La condición es el archivo en el file server, no el estado: mientras la
    * solicitud está en borrador el documento no existe todavía —lo emite
-   * «Generar Anexo 3»— y un botón que promete un PDF inexistente sólo puede
+   * «Derivar Anexo 3»— y un botón que promete un PDF inexistente sólo puede
    * terminar en un mensaje de error.
    */
   puedeVerAnexo3Pdf(solicitud: SolicitudCmn): boolean {
@@ -837,7 +853,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
             'info',
             anexo === 4
               ? 'El Anexo 4 aún no fue generado. Use la acción «Generar Anexo 4» para guardarlo en el servidor.'
-              : 'El Anexo 3 aún no fue generado. Use la acción «Generar Anexo 3» para guardarlo en el servidor.'
+              : 'El Anexo 3 aún no fue generado. Use la acción «Derivar Anexo 3» para guardarlo en el servidor.'
           );
           return;
         }
@@ -869,6 +885,10 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
           this.blobParaVisor(blob, id),
           anexo === 4 ? 'Aprobación de modificaciones del CMN' : 'Solicitud de modificación del CMN'
         );
+
+        if (this.debeInvocarFirmaDigital && !this.nombreDocumentoFirmado) {
+          this.abrirFirmaPopup(id, solicitud.Codigo);
+        }
       },
       error: () => {
         this.cargandoPdf = false;
@@ -924,6 +944,33 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     marco?.contentWindow?.print();
   }
 
+  firmarDigitalDesdeVisor(): void {
+    const solicitud = this.accionEnCurso?.solicitud;
+    if (!solicitud) {
+      return;
+    }
+
+    const archivo = idDocumentoSistema(
+      this.documentoSistemaParaFirmar
+      || (this.muestraPdfAnexo4
+        ? solicitud.DocumentoSistemaAnexo4
+        : solicitud.DocumentoSistemaAnexo3)
+    );
+    if (!archivo) {
+      this.funciones.mensaje('info', 'No hay archivo para firmar digitalmente.');
+      return;
+    }
+
+    this.abrirFirmaPopup(archivo, solicitud.Codigo);
+  }
+
+  urlDocumentoFirmado(): string {
+    if (!this.nombreDocumentoFirmado) {
+      return '';
+    }
+    return this.maestraService.urlDescarga(this.nombreDocumentoFirmado, 'cmn');
+  }
+
   cerrarVisorPdf(): void {
     if (this.visorPdfObjectUrl) {
       URL.revokeObjectURL(this.visorPdfObjectUrl);
@@ -936,6 +983,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   }
 
   cancelarAccion(): void {
+    this.cerrarPopupFirma();
+    this.limpiarEstadoFirma();
     this.cerrarVisorPdf();
     this.accionEnCurso = null;
     this.loteEnCurso = [];
@@ -945,6 +994,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cerrarPopupFirma();
+    this.quitarListenerFirma();
     this.cerrarVisorPdf();
   }
 
@@ -1074,7 +1125,40 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   /** Firma y, sólo si la firma quedó registrada, mueve el expediente. */
   private firmarYEjecutar(codigoTipoDocumento: string): void {
     const solicitud = this.accionEnCurso!.solicitud;
+    const firmado = idDocumentoSistema(this.nombreDocumentoFirmado);
+    const original = idDocumentoSistema(this.documentoSistemaParaFirmar);
 
+    if (firmado && firmado !== original) {
+      this.paso = 'Registrando el documento firmado…';
+      this.cmnService.registrarDocumento(
+        solicitud.IdExpediente,
+        codigoTipoDocumento,
+        firmado,
+        firmado,
+        { Codigo: solicitud.Codigo, FirmadoDigital: true }
+      ).subscribe({
+        next: (registro: any) => {
+          if (registro?.estado !== 1) {
+            this.fallar(registro?.mensaje || 'No fue posible registrar el documento firmado.');
+            return;
+          }
+          if (codigoTipoDocumento === TIPO_ANEXO_4) {
+            solicitud.DocumentoSistemaAnexo4 = firmado;
+          } else {
+            solicitud.DocumentoSistemaAnexo3 = firmado;
+          }
+          this.registrarFirmaEnExpediente(solicitud, codigoTipoDocumento);
+        },
+        error: () => this.fallar('No fue posible registrar el documento firmado.')
+      });
+      return;
+    }
+
+    this.registrarFirmaEnExpediente(solicitud, codigoTipoDocumento);
+  }
+
+  private registrarFirmaEnExpediente(solicitud: SolicitudCmn, codigoTipoDocumento: string): void {
+    this.paso = 'Registrando la firma…';
     this.cmnService.firmarDocumento(solicitud.IdExpediente, codigoTipoDocumento).subscribe({
       next: (respuesta: any) => {
         // Que ya estuviera firmada no es un error: puede ser un reintento
@@ -1120,6 +1204,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
           return;
         }
 
+        this.cerrarPopupFirma();
+        this.limpiarEstadoFirma();
         this.cerrarVisorPdf();
         this.accionEnCurso = null;
         this.loteEnCurso = [];
@@ -1146,6 +1232,198 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.paso = '';
     this.documentoGenerado = '';
     this.funciones.mensaje('error', mensaje);
+  }
+
+  private registrarListenerFirma(): void {
+    this.quitarListenerFirma();
+    this.messageListener = (event: MessageEvent) => this.recibirMensajeFirma(event);
+    window.addEventListener('message', this.messageListener);
+  }
+
+  private quitarListenerFirma(): void {
+    if (this.messageListener) {
+      window.removeEventListener('message', this.messageListener);
+      this.messageListener = null;
+    }
+  }
+
+  private recibirMensajeFirma(event: MessageEvent): void {
+    const origenFirma = this.origenNormalizado(ConfigService.settings?.firma?.ruta_iframe);
+    const origenApp = this.origenNormalizado(window.location.origin);
+    const origenEvento = this.origenNormalizado(event.origin);
+
+    // El firmador (sfirma) o doc_firmado.html (mismo origin del front) pueden responder.
+    if (origenEvento !== origenFirma && origenEvento !== origenApp) {
+      return;
+    }
+
+    const rpta = this.leerRespuestaFirma(event.data);
+    if (!rpta) {
+      return;
+    }
+
+    if (rpta.estado == 1) {
+      this.nombreDocumentoFirmado = rpta.documento_sistema;
+      this.funciones.mensaje(
+        'success',
+        'La firma digital se completó. Confirme la acción para registrar el documento firmado.'
+      );
+      this.mostrarPdfFirmado(rpta.documento_sistema);
+      return;
+    }
+
+    this.funciones.mensaje('info', 'Proceso de firma digital cancelado.');
+  }
+
+  private origenNormalizado(valor: string | undefined | null): string {
+    return (valor || '').replace(/\/+$/, '');
+  }
+
+  private leerRespuestaFirma(data: any): any | null {
+    try {
+      if (data?.archivo) {
+        const interior = typeof data.archivo === 'string' ? JSON.parse(data.archivo) : data.archivo;
+        const rptaSg = interior?.rpta_sg ?? interior;
+        return typeof rptaSg === 'string' ? JSON.parse(rptaSg) : rptaSg;
+      }
+
+      if (typeof data === 'string' && data) {
+        const parsed = JSON.parse(data);
+        const rptaSg = parsed?.rpta_sg ?? parsed;
+        return typeof rptaSg === 'string' ? JSON.parse(rptaSg) : rptaSg;
+      }
+
+      if (data?.rpta_sg) {
+        return typeof data.rpta_sg === 'string' ? JSON.parse(data.rpta_sg) : data.rpta_sg;
+      }
+
+      if (data?.documento_sistema) {
+        return data;
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
+
+  private mostrarPdfFirmado(documentoSistema: string): void {
+    const solicitud = this.accionEnCurso?.solicitud;
+    if (!solicitud) {
+      return;
+    }
+
+    const anexo: 3 | 4 = this.muestraPdfAnexo4 ? 4 : 3;
+    this.maestraService.descargarArchivo(documentoSistema).pipe(
+      catchError(() => this.maestraService.descargarArchivo(documentoSistema, 'cmn'))
+    ).subscribe({
+      next: (blob: Blob) => {
+        this.abrirVisorPdfBlob(
+          solicitud,
+          anexo,
+          this.blobParaVisor(blob, documentoSistema),
+          'Documento firmado digitalmente'
+        );
+      }
+    });
+  }
+
+  private abrirFirmaPopup(
+    documentoSistema: string,
+    descripcionDocumentoFirma = '',
+    nombreSistema = 'SCM'
+  ): void {
+    const firma = ConfigService.settings?.firma;
+    if (!firma?.ruta_iframe || !firma.ruta_archivo) {
+      this.funciones.mensaje(
+        'error',
+        'Falta la configuración de firma digital en config.json (firma.ruta_iframe / ruta_archivo).'
+      );
+      return;
+    }
+
+    if (this.popupFirma && !this.popupFirma.closed) {
+      this.popupFirma.focus();
+      return;
+    }
+
+    this.documentoSistemaParaFirmar = documentoSistema;
+    this.nombreDocumentoFirmado = '';
+
+    const origenApp = window.location.origin.replace(/\/+$/, '');
+    const rutaRespuesta =
+      (firma.ruta_respuesta || `${origenApp}/assets/formats/doc_firmado.html?firmado=&strdoc=`)
+      + documentoSistema;
+    const rutaArchivo = firma.ruta_archivo + firma.ruta_carpeta + '/' + documentoSistema;
+
+    const urlFirma =
+      firma.ruta_iframe +
+      '?v=1.' +
+      String(new Date().getTime()) +
+      '&strcarpeta=' +
+      encodeURIComponent(firma.ruta_carpeta) +
+      '&rutarespuesta=' +
+      encodeURIComponent(rutaRespuesta) +
+      '&ruta_archivo=' +
+      encodeURIComponent(rutaArchivo) +
+      '&descripcion=' +
+      encodeURIComponent(descripcionDocumentoFirma) +
+      '&sistema=' +
+      encodeURIComponent(nombreSistema);
+
+    const width = 400;
+    const height = 250;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+
+    this.popupFirma = window.open(
+      urlFirma,
+      'firma_onpe',
+      `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=no,location=no,toolbar=no,menubar=no`
+    );
+
+    if (!this.popupFirma) {
+      this.funciones.mensaje(
+        'info',
+        'El navegador bloqueó la ventana de firma digital. Permita ventanas emergentes para este sitio e inténtelo de nuevo.'
+      );
+      return;
+    }
+
+    this.iniciarMonitoreoPopup();
+  }
+
+  private iniciarMonitoreoPopup(): void {
+    this.detenerMonitoreoPopup();
+    this.popupMonitorId = window.setInterval(() => {
+      if (!this.popupFirma) {
+        this.detenerMonitoreoPopup();
+        return;
+      }
+
+      if (this.popupFirma.closed) {
+        this.popupFirma = null;
+        this.detenerMonitoreoPopup();
+      }
+    }, 500);
+  }
+
+  private detenerMonitoreoPopup(): void {
+    if (this.popupMonitorId !== null) {
+      window.clearInterval(this.popupMonitorId);
+      this.popupMonitorId = null;
+    }
+  }
+
+  private cerrarPopupFirma(): void {
+    this.detenerMonitoreoPopup();
+    this.popupFirma?.close();
+    this.popupFirma = null;
+  }
+
+  private limpiarEstadoFirma(): void {
+    this.documentoSistemaParaFirmar = '';
+    this.nombreDocumentoFirmado = '';
   }
 
   /** El registro y las acciones cambian la bandeja: se recarga entera. */

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Anexo 01</title>
+        <meta http-equiv="Cache-Control"
+            content="no-cache, no-store, must-revalidate">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Expires" content="0">
+        <style>
+            body{
+                font-size: 8px;
+                margin: 0;
+                padding: 0;
+                color: #fff;
+            }
+            table{
+                font-size: 1.3mm;
+                width: 100%;
+                border-collapse: collapse;
+            }
+            th{
+                font-weight: 500;
+                background-color: #dee3ea;
+                text-transform: uppercase;
+                text-align: center;
+            }
+            th,td{
+                border: solid 0.1mm #000000;
+            }
+            .title{
+                text-align: center;
+                margin-bottom: 3px;
+            }
+            .label{
+                margin: 3px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="parametro"></div>
+        <script>
+        const url = window.location.href;
+        const sda = new URL(url);
+        const params = new URLSearchParams(sda.search);
+        const param1 = params.get('firmado');
+        console.log("paraammm",param1)
+        document.getElementById("parametro").innerHTML="<pre>"+JSON.stringify(param1)+"</pre>";
+            setTimeout(()=>{
+            const destino = window.opener || window.parent;
+            if (destino && destino !== window) {
+                destino.postMessage(param1, location.origin);
+            }
+        },1000);
+    </script>
+    </body>
+</html>

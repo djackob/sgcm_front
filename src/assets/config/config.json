@@ -11,5 +11,15 @@
   "secEjec": 1750,
 
   "profile": [],
+  "firma": {
+    "ruta_logo": "https://resources.bit4id.com/assets/img/head.png",
+    "ruta_js": "https://www.4identity.eu/smartengine/bit4id-sign.min.js",
+    "ruta_metodo": "",
+    "ruta_iframe": "https://sfirma.anin.gob.pe/",
+    "ruta_carpeta": "DESARROLLO/cmn",
+    "ruta_respuesta": "",
+    "ruta_archivo": "https://vasg.anin.gob.pe/"
+  },
+
   "MAX_SIZE_UPLOAD": 1073741824
 }
