@@ -1,0 +1,178 @@
+<section class="req-instancia">
+  <header class="req-instancia__cabecera" *ngIf="total > 1 || puedeQuitar">
+    <h5 class="req-instancia__titulo">Proveedor {{ indice + 1 }}</h5>
+    <button
+      type="button"
+      class="btn-icon-outline"
+      *ngIf="puedeQuitar"
+      title="Quitar este proveedor"
+      (click)="quitar.emit()"
+    >
+      <i class="mdi mdi-close" aria-hidden="true"></i>
+    </button>
+  </header>
+
+  <div class="req-grid req-grid--proveedor">
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-tipoDoc'">Tipo Documento</label>
+      <select
+        [id]="prefijo + '-tipoDoc'"
+        class="campo-control"
+        [name]="prefijo + '-tipoDoc'"
+        [(ngModel)]="proveedor.TipoDocumento"
+      >
+        <option *ngFor="let t of tiposDocumento" [value]="t.valor">{{ t.nombre }}</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-dni'">DNI</label>
+      <div class="campo-con-boton">
+        <input
+          [id]="prefijo + '-dni'"
+          type="text"
+          class="campo-control"
+          [name]="prefijo + '-dni'"
+          maxlength="8"
+          inputmode="numeric"
+          [(ngModel)]="proveedor.Dni"
+          (blur)="onDniChange()"
+          (keyup.enter)="buscarPersonaReniec()"
+        />
+        <button
+          type="button"
+          class="btn btn-app-secundario btn-sm"
+          title="Consultar RENIEC"
+          [disabled]="buscandoPersona"
+          (click)="buscarPersonaReniec()"
+        >
+          <i
+            class="mdi"
+            [ngClass]="buscandoPersona ? 'mdi-loading mdi-spin' : 'mdi-magnify'"
+            aria-hidden="true"
+          ></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-ruc'">RUC</label>
+      <input
+        [id]="prefijo + '-ruc'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-ruc'"
+        maxlength="11"
+        inputmode="numeric"
+        [(ngModel)]="proveedor.Ruc"
+      />
+    </div>
+
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-tipoReg'">Tipo Registro</label>
+      <select
+        [id]="prefijo + '-tipoReg'"
+        class="campo-control"
+        [name]="prefijo + '-tipoReg'"
+        [(ngModel)]="proveedor.TipoRegistro"
+      >
+        <option *ngFor="let t of tiposRegistro" [value]="t.valor">{{ t.nombre }}</option>
+      </select>
+    </div>
+
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-nombres'">Nombres</label>
+      <input
+        [id]="prefijo + '-nombres'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-nombres'"
+        [(ngModel)]="proveedor.Nombres"
+      />
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-apePat'">Apellido Paterno</label>
+      <input
+        [id]="prefijo + '-apePat'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-apePat'"
+        [(ngModel)]="proveedor.ApellidoPaterno"
+      />
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-apeMat'">Apellido Materno</label>
+      <input
+        [id]="prefijo + '-apeMat'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-apeMat'"
+        [(ngModel)]="proveedor.ApellidoMaterno"
+      />
+    </div>
+
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-celular'">Celular</label>
+      <input
+        [id]="prefijo + '-celular'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-celular'"
+        maxlength="9"
+        inputmode="numeric"
+        [(ngModel)]="proveedor.Celular"
+      />
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-entregables'">Cantidad Entregables</label>
+      <input
+        [id]="prefijo + '-entregables'"
+        type="number"
+        min="0"
+        class="campo-control"
+        [name]="prefijo + '-entregables'"
+        [(ngModel)]="proveedor.CantidadEntregables"
+      />
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-mensual'">Monto Mensual</label>
+      <div class="campo-moneda">
+        <span>S/</span>
+        <input
+          [id]="prefijo + '-mensual'"
+          type="number"
+          min="0"
+          step="0.01"
+          class="campo-control"
+          [name]="prefijo + '-mensual'"
+          [(ngModel)]="proveedor.MontoMensual"
+        />
+      </div>
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-total'">Monto Total</label>
+      <div class="campo-moneda">
+        <span>S/</span>
+        <input
+          [id]="prefijo + '-total'"
+          type="text"
+          class="campo-control"
+          [name]="prefijo + '-total'"
+          [value]="montoTotal | number: '1.2-2'"
+          readonly
+        />
+      </div>
+    </div>
+
+    <div class="campo req-grid__ancho">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-email'">Email</label>
+      <input
+        [id]="prefijo + '-email'"
+        type="email"
+        class="campo-control"
+        [name]="prefijo + '-email'"
+        [(ngModel)]="proveedor.Email"
+      />
+    </div>
+  </div>
+</section>

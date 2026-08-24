@@ -58,6 +58,10 @@ export interface RequerimientoBandeja {
   Items: number;
   Pedidos: number;
   ActualizadoEn: string;
+  /** Acciones de este actor sobre este expediente. Las calcula
+   *  requerimiento.paListarRequerimiento con la misma regla que
+   *  sigcm.paListarTransicionDisponible. */
+  Transiciones?: TransicionRequerimiento[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -209,6 +213,14 @@ export interface PedidoFormularioRequerimiento {
   Origen: string;
   FuenteFinanc: string;
   Clasificador: string;
+  /** Año del pedido, si difiere del año del requerimiento. */
+  AnoPedido: number | null;
+  ActividadOperativa: string;
+  MetaPresupuestaria: string;
+  Programa: string;
+  ProdPy: string;
+  CodigoItemPedido: string;
+  NombreItemPedido: string;
 }
 
 export function crearPedidoFormularioRequerimiento(): PedidoFormularioRequerimiento {
@@ -218,8 +230,60 @@ export function crearPedidoFormularioRequerimiento(): PedidoFormularioRequerimie
     SecFunc: null,
     Origen: '',
     FuenteFinanc: '',
-    Clasificador: ''
+    Clasificador: '',
+    AnoPedido: null,
+    ActividadOperativa: '',
+    MetaPresupuestaria: '',
+    Programa: '',
+    ProdPy: '',
+    CodigoItemPedido: '',
+    NombreItemPedido: ''
   };
+}
+
+/** Centro de costo de SIGA (unidad organizativa). */
+export interface CentroCostoSiga {
+  CentroCosto: string;
+  NombreDepend: string;
+  Abreviado?: string;
+  TipoDepend?: string;
+  Activo?: boolean;
+}
+
+/** Datos del proveedor capturados en el registro (van en DatosAdicionales). */
+export interface ProveedorFormularioRequerimiento {
+  TipoDocumento: 'DNI' | 'CE' | 'RUC';
+  Dni: string;
+  Ruc: string;
+  TipoRegistro: 'NUEVO' | 'EXISTENTE';
+  Nombres: string;
+  ApellidoPaterno: string;
+  ApellidoMaterno: string;
+  Celular: string;
+  CantidadEntregables: number | null;
+  MontoMensual: number | null;
+  Email: string;
+}
+
+export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequerimiento {
+  return {
+    TipoDocumento: 'DNI',
+    Dni: '',
+    Ruc: '',
+    TipoRegistro: 'NUEVO',
+    Nombres: '',
+    ApellidoPaterno: '',
+    ApellidoMaterno: '',
+    Celular: '',
+    CantidadEntregables: null,
+    MontoMensual: null,
+    Email: ''
+  };
+}
+
+export function montoTotalProveedor(proveedor: ProveedorFormularioRequerimiento): number {
+  return (Number(proveedor.CantidadEntregables) || 0)
+    * (Number(proveedor.MontoMensual) || 0);
 }
 
 /* -------------------------------------------------------------------------- */

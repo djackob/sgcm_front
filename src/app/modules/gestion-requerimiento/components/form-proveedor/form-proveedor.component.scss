@@ -1,0 +1,82 @@
+:host {
+  display: block;
+}
+
+.req-instancia {
+  & + & {
+    margin-top: 1.1rem;
+    padding-top: 1.1rem;
+    border-top: 1px dashed #e2e8f0;
+  }
+
+  &__cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  &__titulo {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #475569;
+  }
+}
+
+.req-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+
+  &__ancho {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.campo-con-boton {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+
+  .campo-control {
+    flex: 1;
+  }
+
+  button {
+    flex: 0 0 auto;
+    min-height: 42px;
+  }
+}
+
+.campo-moneda {
+  display: flex;
+  align-items: stretch;
+
+  span {
+    display: flex;
+    align-items: center;
+    padding: 0 0.7rem;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-right: 0;
+    border-radius: 8px 0 0 8px;
+    color: #64748b;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .campo-control {
+    border-radius: 0 8px 8px 0 !important;
+  }
+}

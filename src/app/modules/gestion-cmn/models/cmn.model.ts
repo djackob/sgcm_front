@@ -42,6 +42,10 @@ export interface SolicitudCmn {
   DocumentoSistemaAnexo3?: string | null;
   /** Id de archivo (documento_sistema) del Anexo 4 vigente. */
   DocumentoSistemaAnexo4?: string | null;
+  /** Acciones de este actor sobre este expediente. Las calcula
+   *  cmn.paListarSolicitud con la misma regla que
+   *  sigcm.paListarTransicionDisponible. */
+  Transiciones?: TransicionCmn[];
 }
 
 /**
@@ -141,10 +145,10 @@ export interface ExpedienteLoteCmn {
 
 /**
  * Acción disponible para ESTE actor sobre ESTE expediente.
- * sigcm.paListarTransicionDisponible
  *
- * La bandeja no deduce acciones a partir del estado: las pide. La máquina de
- * estados vive en la base y no se replica aquí.
+ * En la bandeja llega dentro de cada fila de cmn.paListarSolicitud
+ * (`Transiciones`). sigcm.paListarTransicionDisponible sigue existiendo para
+ * consultar un expediente suelto. La máquina de estados vive en la base.
  */
 export interface TransicionCmn {
   CodigoTransicion: string;

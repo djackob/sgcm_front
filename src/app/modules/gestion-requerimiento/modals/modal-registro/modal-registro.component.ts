@@ -2,19 +2,24 @@ import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
+import { AccordionModule } from 'ngx-bootstrap/accordion';
 import { BreadcrumbComponent } from '../../../../shared/components/breadcrumb/breadcrumb.component';
+import { FormPedidoComponent } from '../../components/form-pedido/form-pedido.component';
+import { FormProveedorComponent } from '../../components/form-proveedor/form-proveedor.component';
 import { RequerimientoService } from '../../services/requerimiento.service';
 import { SessionService } from '../../../../core/services/session.service';
 import { ConfigService } from '../../../../core/services/config.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import {
   CatalogoSiga,
-  DOCUMENTO_TECNICO,
   ItemFormularioRequerimiento,
   PedidoFormularioRequerimiento,
+  ProveedorFormularioRequerimiento,
   TipoContratacionRequerimiento,
   crearItemFormularioRequerimiento,
-  crearPedidoFormularioRequerimiento
+  crearPedidoFormularioRequerimiento,
+  crearProveedorFormularioRequerimiento,
+  montoTotalProveedor
 } from '../../models/requerimiento.model';
 
 /**
@@ -48,7 +53,14 @@ import {
 @Component({
   selector: 'app-modal-registro-requerimiento',
   standalone: true,
-  imports: [CommonModule, FormsModule, BreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    AccordionModule,
+    BreadcrumbComponent,
+    FormPedidoComponent,
+    FormProveedorComponent
+  ],
   templateUrl: './modal-registro.component.html',
   styleUrl: './modal-registro.component.scss',
 })
@@ -81,7 +93,7 @@ export class ModalRegistroRequerimientoComponent {
   cargo = '';
 
   denominacion = '';
-  codigoTipoContratacion: TipoContratacionRequerimiento = 'BIEN';
+  codigoTipoContratacion: TipoContratacionRequerimiento = 'LOCACION';
   codigoDec: 'ABASTECIMIENTO' | 'DAI' = 'ABASTECIMIENTO';
   condicionCmn: 'INCLUIDO' | 'NO_INCLUIDO' = 'INCLUIDO';
   idSolicitudCmn: string | null = null;
@@ -104,6 +116,9 @@ export class ModalRegistroRequerimientoComponent {
 
   pedidos: PedidoFormularioRequerimiento[] = [];
   items: ItemFormularioRequerimiento[] = [];
+  proveedores: ProveedorFormularioRequerimiento[] = [];
+  acordeonDocumento = true;
+  acordeonProveedor = false;
 
   constructor(
     private requerimientoService: RequerimientoService,
@@ -193,6 +208,7 @@ export class ModalRegistroRequerimientoComponent {
         this.sustento = respuesta.Sustento || '';
         this.pedidos = this.pedidosDesdeDetalle(respuesta.Pedidos || []);
         this.items = this.itemsDesdeDetalle(respuesta.Items || []);
+        this.aplicarDatosAdicionales(respuesta.DatosAdicionales);
 
         this.cargarTope();
         if (this.condicionCmn === 'NO_INCLUIDO') {
@@ -209,7 +225,7 @@ export class ModalRegistroRequerimientoComponent {
 
   private limpiarFormulario(): void {
     this.denominacion = '';
-    this.codigoTipoContratacion = 'BIEN';
+    this.codigoTipoContratacion = 'LOCACION';
     this.codigoDec = 'ABASTECIMIENTO';
     this.condicionCmn = 'INCLUIDO';
     this.idSolicitudCmn = null;
@@ -225,7 +241,11 @@ export class ModalRegistroRequerimientoComponent {
     this.sustento = '';
     this.solicitudesCmn = [];
     this.pedidos = [crearPedidoFormularioRequerimiento()];
+    this.pedidos[0].AnoPedido = this.anoEje;
     this.items = [crearItemFormularioRequerimiento()];
+    this.proveedores = [crearProveedorFormularioRequerimiento()];
+    this.acordeonDocumento = true;
+    this.acordeonProveedor = false;
   }
 
   private pedidosDesdeDetalle(filas: any[]): PedidoFormularioRequerimiento[] {
@@ -239,7 +259,14 @@ export class ModalRegistroRequerimientoComponent {
       SecFunc: fila.SecFunc ?? null,
       Origen: fila.Origen || '',
       FuenteFinanc: fila.FuenteFinanc || '',
-      Clasificador: fila.Clasificador || ''
+      Clasificador: fila.Clasificador || '',
+      AnoPedido: fila.AnoEje ?? this.anoEje,
+      ActividadOperativa: '',
+      MetaPresupuestaria: fila.SecFunc != null ? String(fila.SecFunc) : '',
+      Programa: '',
+      ProdPy: '',
+      CodigoItemPedido: '',
+      NombreItemPedido: ''
     }));
   }
 
@@ -321,16 +348,82 @@ export class ModalRegistroRequerimientoComponent {
     });
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Documento técnico según el objeto (REQ-07, REQ-08)                     */
-  /* ---------------------------------------------------------------------- */
+  private aplicarDatosAdicionales(valor: any): void {
+    const extra = this.leerJson(valor);
+    const listaProv = extra.Proveedores || extra.proveedores;
+    const filasProv = Array.isArray(listaProv) && listaProv.length
+      ? listaProv
+      : (extra.Proveedor || extra.proveedor ? [extra.Proveedor || extra.proveedor] : []);
+    this.proveedores = (filasProv.length ? filasProv : [{}]).map((prov: any) => this.proveedorDesdeExtra(prov));
 
-  get documentosDelObjeto(): { codigo: string; etiqueta: string; anexo: string }[] {
-    return DOCUMENTO_TECNICO[this.codigoTipoContratacion] || [];
+    const listaPed = extra.PedidosExtra || extra.pedidosExtra;
+    const extrasPedido = Array.isArray(listaPed) && listaPed.length
+      ? listaPed
+      : (extra.Pedido || extra.pedido ? [extra.Pedido || extra.pedido] : []);
+    extrasPedido.forEach((pedidoExtra: any, i: number) => {
+      if (!this.pedidos[i]) {
+        const nuevo = crearPedidoFormularioRequerimiento();
+        nuevo.AnoPedido = this.anoEje;
+        this.pedidos.push(nuevo);
+      }
+      this.aplicarExtraPedido(this.pedidos[i], pedidoExtra);
+    });
+    if (this.pedidos[0] && !extrasPedido.length) {
+      this.aplicarExtraPedido(this.pedidos[0], extra.Pedido || extra.pedido || {});
+    }
   }
 
-  get esLocacion(): boolean {
-    return this.codigoTipoContratacion === 'LOCACION';
+  private proveedorDesdeExtra(prov: any): ProveedorFormularioRequerimiento {
+    return {
+      ...crearProveedorFormularioRequerimiento(),
+      TipoDocumento: prov?.TipoDocumento || 'DNI',
+      Dni: prov?.Dni || '',
+      Ruc: prov?.Ruc || this.rucSugerido || '',
+      TipoRegistro: prov?.TipoRegistro || 'NUEVO',
+      Nombres: prov?.Nombres || '',
+      ApellidoPaterno: prov?.ApellidoPaterno || '',
+      ApellidoMaterno: prov?.ApellidoMaterno || '',
+      Celular: prov?.Celular || '',
+      CantidadEntregables: prov?.CantidadEntregables ?? null,
+      MontoMensual: prov?.MontoMensual ?? null,
+      Email: prov?.Email || ''
+    };
+  }
+
+  private aplicarExtraPedido(pedido: PedidoFormularioRequerimiento, extra: any): void {
+    pedido.AnoPedido = extra?.AnoPedido ?? pedido.AnoPedido ?? this.anoEje;
+    pedido.ActividadOperativa = extra?.ActividadOperativa || pedido.ActividadOperativa || '';
+    pedido.Programa = extra?.Programa || pedido.Programa || '';
+    pedido.ProdPy = extra?.ProdPy || pedido.ProdPy || '';
+    pedido.CodigoItemPedido = extra?.CodigoItemPedido || pedido.CodigoItemPedido || '';
+    pedido.NombreItemPedido = extra?.NombreItemPedido
+      || pedido.NombreItemPedido
+      || this.items.map(i => i.Descripcion || i.DescripcionServicio).filter(Boolean).join(', ');
+    if (!pedido.MetaPresupuestaria && pedido.SecFunc != null) {
+      pedido.MetaPresupuestaria = String(pedido.SecFunc);
+    }
+  }
+
+  private leerJson(valor: any): any {
+    if (!valor) {
+      return {};
+    }
+    if (typeof valor === 'string') {
+      try {
+        return JSON.parse(valor) || {};
+      } catch {
+        return {};
+      }
+    }
+    return valor;
+  }
+
+  get montoProveedorTotal(): number {
+    return this.proveedores.reduce((total, p) => total + montoTotalProveedor(p), 0);
+  }
+
+  get textoUnidadSesion(): string {
+    return [this.centroCosto, this.centroCostoNombre].filter(x => !!x).join(' — ');
   }
 
   /* ---------------------------------------------------------------------- */
@@ -338,7 +431,9 @@ export class ModalRegistroRequerimientoComponent {
   /* ---------------------------------------------------------------------- */
 
   agregarPedido(): void {
-    this.pedidos = [...this.pedidos, crearPedidoFormularioRequerimiento()];
+    const nuevo = crearPedidoFormularioRequerimiento();
+    nuevo.AnoPedido = this.anoEje;
+    this.pedidos = [...this.pedidos, nuevo];
   }
 
   quitarPedido(indice: number): void {
@@ -359,6 +454,19 @@ export class ModalRegistroRequerimientoComponent {
         }
       });
     }
+  }
+
+  agregarProveedor(): void {
+    this.proveedores = [...this.proveedores, crearProveedorFormularioRequerimiento()];
+    this.acordeonProveedor = true;
+  }
+
+  quitarProveedor(indice: number): void {
+    if (this.proveedores.length === 1) {
+      this.funciones.mensaje('info', 'Debe conservar al menos un proveedor.');
+      return;
+    }
+    this.proveedores = this.proveedores.filter((_, i) => i !== indice);
   }
 
   get numerosDePedido(): string[] {
@@ -443,7 +551,8 @@ export class ModalRegistroRequerimientoComponent {
 
   /** El monto del requerimiento es la suma de sus ítems, no un campo escribible. */
   get montoTotal(): number {
-    return this.items.reduce((suma, item) => suma + this.totalItem(item), 0);
+    const suma = this.items.reduce((total, item) => total + this.totalItem(item), 0);
+    return suma > 0 ? suma : this.montoProveedorTotal;
   }
 
   get excedeTope(): boolean {
@@ -454,58 +563,93 @@ export class ModalRegistroRequerimientoComponent {
   /* Guardar                                                                */
   /* ---------------------------------------------------------------------- */
 
+  /**
+   * Si no hay ítems armados a mano, se toman del pedido (nombre/código) y de
+   * cantidad de entregables × monto mensual del proveedor.
+   */
+  private asegurarItemsDesdeFormulario(): void {
+    const hayItemUtil = this.items.some(item =>
+      item.ItemBien || item.DescripcionServicio.trim()
+    );
+    if (hayItemUtil) {
+      return;
+    }
+
+    const sintetizados: ItemFormularioRequerimiento[] = [];
+    this.proveedores.forEach((proveedor, i) => {
+      const pedido = this.pedidos[i] || this.pedidos[0];
+      const descripcion = (pedido?.NombreItemPedido || this.denominacion).trim();
+      const cantidad = Number(proveedor.CantidadEntregables);
+      const precio = Number(proveedor.MontoMensual);
+      if (!descripcion || !(cantidad > 0) || !(precio > 0)) {
+        return;
+      }
+      const item = crearItemFormularioRequerimiento();
+      item.DescripcionServicio = descripcion.slice(0, 350);
+      item.Descripcion = descripcion;
+      item.Cantidad = cantidad;
+      item.PrecioUnitario = precio;
+      item.NumeroPedido = (pedido?.NumeroPedido || '').trim();
+      sintetizados.push(item);
+    });
+
+    if (sintetizados.length) {
+      this.items = sintetizados;
+    }
+  }
+
+  private armarDatosAdicionales(): any {
+    const proveedores = this.proveedores.map(p => ({
+      ...p,
+      MontoTotal: montoTotalProveedor(p)
+    }));
+    const pedidosExtra = this.pedidos.map(p => ({
+      AnoPedido: p.AnoPedido,
+      ActividadOperativa: p.ActividadOperativa,
+      Programa: p.Programa,
+      ProdPy: p.ProdPy,
+      CodigoItemPedido: p.CodigoItemPedido,
+      NombreItemPedido: p.NombreItemPedido
+    }));
+    return {
+      Proveedores: proveedores,
+      Proveedor: proveedores[0] || null,
+      PedidosExtra: pedidosExtra,
+      Pedido: pedidosExtra[0] || null
+    };
+  }
+
   private primerError(): string | null {
     if (!this.centroCosto) {
       return 'Este perfil no tiene centro de costo asociado y no puede registrar requerimientos.';
     }
     if (!this.denominacion.trim()) {
-      return 'La denominación del requerimiento es obligatoria.';
+      return 'La denominación de la contratación es obligatoria.';
     }
-    if (!this.sustento.trim()) {
+    if (!this.sustento.trim() && !this.denominacion.trim()) {
       return 'El sustento del requerimiento es obligatorio.';
     }
     if (!this.plazoDias || this.plazoDias <= 0) {
       return 'El plazo de ejecución debe ser mayor que cero.';
     }
-
-    /* REQ-03: incluido en el CMN exige el Anexo 1 firmado. */
-    if (this.condicionCmn === 'INCLUIDO' && !this.generadoDocumentoCmn.trim()) {
-      return 'La necesidad está incluida en el CMN: adjunte el Anexo 1 firmado.';
-    }
-
-    /* REQ-04: no incluido exige un Anexo 4 finalizado o el Anexo 4 firmado. */
-    if (this.condicionCmn === 'NO_INCLUIDO'
-        && !this.idSolicitudCmn
-        && !this.generadoDocumentoCmn.trim()) {
-      return 'La necesidad no está incluida en el CMN: seleccione una modificación del CMN finalizada o adjunte el Anexo 4 firmado.';
-    }
-
-    /* REQ-05: la evidencia del saldo o de la habilitación aprobada. */
-    if (this.tieneDisponibilidad && !this.generadoDocumentoDisponibilidad.trim()) {
-      return 'Declaró disponibilidad presupuestal: registre la evidencia del saldo disponible.';
+    const dniInvalido = this.proveedores.find(p =>
+      p.TipoDocumento === 'DNI' && p.Dni && p.Dni.length !== 8
+    );
+    if (dniInvalido) {
+      return 'El DNI del proveedor debe tener 8 dígitos.';
     }
 
     if (this.numerosDePedido.length === 0) {
       return 'El requerimiento debe vincular al menos un pedido SIGA.';
     }
 
-    for (let i = 0; i < this.items.length; i++) {
-      const item = this.items[i];
-      const n = i + 1;
+    this.asegurarItemsDesdeFormulario();
 
-      if (!item.ItemBien && !item.DescripcionServicio.trim()) {
-        return `El ítem ${n} necesita un bien del catálogo o una descripción del servicio.`;
-      }
-      if (!item.Cantidad || item.Cantidad <= 0) {
-        return `El ítem ${n} necesita una cantidad mayor que cero.`;
-      }
-      if (!item.PrecioUnitario || item.PrecioUnitario <= 0) {
-        return `El ítem ${n} necesita un precio unitario mayor que cero.`;
-      }
+    if (!this.items.some(item => item.ItemBien || item.DescripcionServicio.trim())) {
+      return 'Indique el nombre del ítem del pedido y, en el proveedor, la cantidad de entregables y el monto mensual.';
     }
-
     if (this.montoTotal <= 0) {
-      return 'El monto del requerimiento debe ser mayor que cero.';
+      return 'El monto del requerimiento debe ser mayor que cero. Complete entregables y monto mensual.';
     }
 
     return null;
@@ -539,12 +683,12 @@ export class ModalRegistroRequerimientoComponent {
       PlazoDias: Number(this.plazoDias),
       FechaInicioPrevisto: this.fechaInicioPrevisto || null,
       Ate: this.ate.trim() || null,
-      RucSugerido: this.rucSugerido.trim() || null,
+      RucSugerido: (this.proveedores[0]?.Ruc || this.rucSugerido).trim() || null,
       TieneDisponibilidad: this.tieneDisponibilidad,
       GeneradoDocumentoDisponibilidad: this.generadoDocumentoDisponibilidad.trim() || null,
       NombreDocumentoDisponibilidad: this.nombreDocumentoDisponibilidad.trim() || null,
-      Sustento: this.sustento.trim(),
-      DatosAdicionales: {}
+      Sustento: this.sustento.trim() || this.denominacion.trim(),
+      DatosAdicionales: this.armarDatosAdicionales()
     };
 
     if (this.modoEdicion && this.idRequerimientoEdicion) {
@@ -553,17 +697,20 @@ export class ModalRegistroRequerimientoComponent {
 
     const pedidos = this.pedidos
       .filter(p => p.NumeroPedido.trim())
-      .map(p => ({
-        AnoEje: this.anoEje,
-        SecEjec: this.secEjec,
-        NumeroPedido: p.NumeroPedido.trim(),
-        FechaPedido: p.FechaPedido || null,
-        CentroCosto: this.centroCosto,
-        SecFunc: p.SecFunc || null,
-        Origen: p.Origen.trim() || null,
-        FuenteFinanc: p.FuenteFinanc.trim() || null,
-        Clasificador: p.Clasificador.trim() || null
-      }));
+      .map(p => {
+        const meta = Number(p.MetaPresupuestaria);
+        return {
+          AnoEje: p.AnoPedido || this.anoEje,
+          SecEjec: this.secEjec,
+          NumeroPedido: p.NumeroPedido.trim(),
+          FechaPedido: p.FechaPedido || null,
+          CentroCosto: this.centroCosto,
+          SecFunc: Number.isFinite(meta) && meta > 0 ? meta : (p.SecFunc || null),
+          Origen: p.Origen.trim() || null,
+          FuenteFinanc: (p.FuenteFinanc || '').trim() || null,
+          Clasificador: p.Clasificador.trim() || null
+        };
+      });
 
     const items = this.items.map(item => ({
       TipoBien: item.TipoBien || null,

@@ -141,6 +141,28 @@ export class ModalDetalleRequerimientoComponent {
       : 'No incluida en el CMN';
   }
 
+  get proveedores(): any[] {
+    const extra = this.detalle?.DatosAdicionales;
+    if (!extra) {
+      return [];
+    }
+    const dato = typeof extra === 'string' ? this.parsearJson(extra) : extra;
+    const lista = dato?.Proveedores || dato?.proveedores;
+    if (Array.isArray(lista) && lista.length) {
+      return lista;
+    }
+    const uno = dato?.Proveedor || dato?.proveedor;
+    return uno ? [uno] : [];
+  }
+
+  private parsearJson(valor: string): any {
+    try {
+      return JSON.parse(valor);
+    } catch {
+      return {};
+    }
+  }
+
   /**
    * Los documentos que el objeto exige, cruzados con los que el expediente ya
    * tiene. Se muestran los dos juntos para que se vea qué falta: en Locación son

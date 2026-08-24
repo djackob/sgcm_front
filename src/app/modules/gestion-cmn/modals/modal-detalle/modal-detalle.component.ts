@@ -2,6 +2,8 @@ import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CmnService } from '../../services/cmn.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
+import { idDocumentoSistema } from '../../../../shared/funciones/archivo';
+import { MaestraService } from '../../../../shared/services/maestra.service';
 import {
   HistorialCmn,
   ObservacionCmn,
@@ -62,6 +64,7 @@ export class ModalDetalleComponent {
 
   constructor(
     private cmnService: CmnService,
+    private maestraService: MaestraService,
     private funciones: Funciones
   ) { }
 
@@ -133,6 +136,12 @@ export class ModalDetalleComponent {
     if (this.resumen) {
       this.verPdf.emit(this.resumen);
     }
+  }
+
+  /** URL de descarga por id de documento_sistema (carpeta cmn). */
+  urlDocumento(doc: { GeneradoDocumento?: string | null }): string {
+    const id = idDocumentoSistema(doc?.GeneradoDocumento);
+    return id ? this.maestraService.urlDescarga(id, 'cmn') : '';
   }
 
   cantidadAnio(item: any, indice: number): number {

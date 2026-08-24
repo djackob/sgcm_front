@@ -9,12 +9,13 @@ import { Funciones } from './shared/funciones/funciones';
 import { LoaderInterceptor } from './core/interceptor/loader.interceptor';
 import { provideEnvironmentNgxMask } from 'ngx-mask';
 import { provideZoneChangeDetection } from '@angular/core';
+import { AccordionModule } from 'ngx-bootstrap/accordion';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideAnimations(),
-    importProvidersFrom(BrowserAnimationsModule),
+    importProvidersFrom(BrowserAnimationsModule, AccordionModule.forRoot()),
     {
       provide: HTTP_INTERCEPTORS,
       useClass: AuthInterceptor,

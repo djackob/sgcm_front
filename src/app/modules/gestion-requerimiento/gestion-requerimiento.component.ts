@@ -1,8 +1,6 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ModalRegistroRequerimientoComponent } from './modals/modal-registro/modal-registro.component';
@@ -26,11 +24,11 @@ import {
  * jefe, y por eso la misma pantalla se comporta distinto según con qué perfil se
  * entró.
  *
- * Los botones de acción los da sigcm.paListarTransicionDisponible, expediente
- * por expediente. La pantalla NO decide qué se puede hacer: lo pregunta. Deducir
- * la acción a partir del estado —como hace el mockup, que no tiene backend—
- * significaría reimplementar la máquina de estados en TypeScript y confiar en
- * que las dos copias no se separen nunca. Se separan.
+ * Los botones de acción salen del arreglo Transiciones de cada fila
+ * (requerimiento.paListarRequerimiento). La pantalla NO decide qué se puede
+ * hacer: lo pinta. Deducir la acción a partir del estado significaría
+ * reimplementar la máquina de estados en TypeScript y confiar en que las dos
+ * copias no se separen.
  *
  * LA BIFURCACIÓN DE LA DEC (REQ-14) NO SE PROGRAMA AQUÍ
  * Que un requerimiento con DEC = Abastecimiento pase por OA y uno con DEC = DAI
@@ -138,7 +136,11 @@ export class GestionRequerimientoComponent implements OnInit {
 
         this.requerimientos = respuesta.Requerimientos || [];
         this.total = respuesta.total || 0;
-        this.cargarAcciones();
+        this.acciones = {};
+        for (const r of this.requerimientos) {
+          this.acciones[r.IdExpediente] = this.transicionesDeFila(r);
+        }
+        this.cargando = false;
       },
       error: () => {
         this.cargando = false;
@@ -148,49 +150,34 @@ export class GestionRequerimientoComponent implements OnInit {
   }
 
   /**
-   * Una consulta de transiciones por expediente de la página.
-   *
-   * Es una llamada por fila, y se sabe: la alternativa sería una rutina que
-   * resuelva las transiciones de un lote, que hoy no existe. Con la página
-   * limitada a 20 filas el costo es acotado y la bandeja queda correcta desde el
-   * primer día; el lote es una optimización que puede llegar después sin cambiar
-   * esta pantalla.
-   */
-  private cargarAcciones(): void {
-    this.acciones = {};
-
-    if (this.requerimientos.length === 0) {
-      this.cargando = false;
-      return;
-    }
-
-    const consultas = this.requerimientos.map(r =>
-      this.requerimientoService.listarTransicionDisponible(r.IdExpediente).pipe(
-        catchError(() => of({ estado: 0, Transiciones: [] }))
-      )
-    );
-
-    forkJoin(consultas).subscribe({
-      next: (respuestas: any[]) => {
-        respuestas.forEach((respuesta, indice) => {
-          const requerimiento = this.requerimientos[indice];
-          this.acciones[requerimiento.IdExpediente] = respuesta?.Transiciones || [];
-        });
-        this.cargando = false;
-      },
-      error: () => {
-        this.cargando = false;
-      }
-    });
-  }
-
-  /**
    * Subsanar no se ofrece como botón de la grilla: es "abrir el formulario para
    * corregir", y se entra por «Editar» dentro del visor, igual que en el CMN.
    */
   accionesDe(requerimiento: RequerimientoBandeja): TransicionRequerimiento[] {
-    return (this.acciones[requerimiento.IdExpediente] || [])
+    return this.transicionesCompletasDe(requerimiento)
       .filter(t => t.CodigoTransicion !== 'REQ_SUBSANAR');
+  }
+
+  /** Transiciones que vienen en la fila. Si el motor las serializó como
+   *  texto, se parsean para que la bandeja siempre reciba un arreglo. */
+  private transicionesDeFila(requerimiento: RequerimientoBandeja): TransicionRequerimiento[] {
+    const raw: any = requerimiento.Transiciones;
+    if (Array.isArray(raw)) {
+      return raw;
+    }
+    if (typeof raw === 'string' && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  private transicionesCompletasDe(requerimiento: RequerimientoBandeja): TransicionRequerimiento[] {
+    return this.acciones[requerimiento.IdExpediente] || this.transicionesDeFila(requerimiento);
   }
 
   /**
@@ -203,7 +190,7 @@ export class GestionRequerimientoComponent implements OnInit {
    * que hace el resto de la pantalla.
    */
   puedeEditar(requerimiento: RequerimientoBandeja): boolean {
-    const disponibles = this.acciones[requerimiento.IdExpediente] || [];
+    const disponibles = this.transicionesCompletasDe(requerimiento);
     return disponibles.some(t =>
       t.CodigoTransicion === 'REQ_SUBSANAR' || t.CodigoTransicion === 'REQ_ELABORAR_DOC');
   }

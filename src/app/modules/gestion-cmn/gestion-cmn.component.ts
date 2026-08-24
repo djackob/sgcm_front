@@ -2,7 +2,6 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -79,11 +78,10 @@ const ACCIONES_DEL_PAQUETE = new Set([
  * rol. Por eso el especialista no ve lo que le toca firmar al jefe, y por eso la
  * misma pantalla se comporta distinto según con qué perfil se entró.
  *
- * Los botones de acción los da sigcm.paListarTransicionDisponible, expediente
- * por expediente. La pantalla NO decide qué se puede hacer: lo pregunta. Deducir
- * la acción a partir del estado —como hace el mockup, que no tiene backend—
- * significaría reimplementar la máquina de estados en TypeScript y confiar en
- * que las dos copias no se separen nunca. Se separan.
+ * Los botones de acción salen del arreglo Transiciones de cada fila
+ * (cmn.paListarSolicitud). La pantalla NO decide qué se puede hacer: lo pinta.
+ * Deducir la acción a partir del estado significaría reimplementar la máquina
+ * de estados en TypeScript y confiar en que las dos copias no se separen.
  */
 @Component({
   selector: 'app-gestion-cmn',
@@ -213,7 +211,12 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
 
         this.solicitudes = respuesta.Solicitudes || [];
         this.total = respuesta.total || 0;
-        this.cargarAcciones();
+        this.acciones = {};
+        for (const s of this.solicitudes) {
+          this.acciones[s.IdExpediente] = this.transicionesDeFila(s);
+        }
+        this.cargando = false;
+        this.depurarSeleccion();
       },
       error: () => {
         this.cargando = false;
@@ -222,46 +225,26 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Una consulta de transiciones por expediente de la página.
-   *
-   * Es una llamada por fila, y se sabe: la alternativa sería una rutina que
-   * resuelva las transiciones de un lote, que hoy no existe. Con la página
-   * limitada a 20 filas el costo es acotado y la bandeja queda correcta desde el
-   * primer día; el lote es una optimización que puede llegar después sin cambiar
-   * esta pantalla.
-   */
-  private cargarAcciones(): void {
-    this.acciones = {};
-
-    if (this.solicitudes.length === 0) {
-      this.cargando = false;
-      return;
-    }
-
-    const consultas = this.solicitudes.map(s =>
-      this.cmnService.listarTransicionDisponible(s.IdExpediente).pipe(
-        catchError(() => of({ estado: 0, Transiciones: [] }))
-      )
-    );
-
-    forkJoin(consultas).subscribe({
-      next: (respuestas: any[]) => {
-        respuestas.forEach((respuesta, indice) => {
-          const solicitud = this.solicitudes[indice];
-          this.acciones[solicitud.IdExpediente] = respuesta?.Transiciones || [];
-        });
-        this.cargando = false;
-        this.depurarSeleccion();
-      },
-      error: () => {
-        this.cargando = false;
-      }
-    });
+  accionesDe(solicitud: SolicitudCmn): TransicionCmn[] {
+    return this.acciones[solicitud.IdExpediente] || this.transicionesDeFila(solicitud);
   }
 
-  accionesDe(solicitud: SolicitudCmn): TransicionCmn[] {
-    return this.acciones[solicitud.IdExpediente] || [];
+  /** Transiciones que vienen en la fila. Si el motor las serializó como
+   *  texto, se parsean para que la bandeja siempre reciba un arreglo. */
+  private transicionesDeFila(solicitud: SolicitudCmn): TransicionCmn[] {
+    const raw: any = solicitud.Transiciones;
+    if (Array.isArray(raw)) {
+      return raw;
+    }
+    if (typeof raw === 'string' && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
   }
 
   /**
@@ -1122,44 +1105,25 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Firma y, sólo si la firma quedó registrada, mueve el expediente. */
+  /**
+   * Firma y, sólo si la firma quedó registrada, mueve el expediente.
+   *
+   * Si sfirma devolvió un PDF nuevo, se envía como GeneradoDocumento para que
+   * reemplace al archivo sin firma en DocumentoVersion (bandeja, visor, etc.).
+   */
   private firmarYEjecutar(codigoTipoDocumento: string): void {
     const solicitud = this.accionEnCurso!.solicitud;
     const firmado = idDocumentoSistema(this.nombreDocumentoFirmado);
-    const original = idDocumentoSistema(this.documentoSistemaParaFirmar);
 
-    if (firmado && firmado !== original) {
-      this.paso = 'Registrando el documento firmado…';
-      this.cmnService.registrarDocumento(
-        solicitud.IdExpediente,
-        codigoTipoDocumento,
-        firmado,
-        firmado,
-        { Codigo: solicitud.Codigo, FirmadoDigital: true }
-      ).subscribe({
-        next: (registro: any) => {
-          if (registro?.estado !== 1) {
-            this.fallar(registro?.mensaje || 'No fue posible registrar el documento firmado.');
-            return;
-          }
-          if (codigoTipoDocumento === TIPO_ANEXO_4) {
-            solicitud.DocumentoSistemaAnexo4 = firmado;
-          } else {
-            solicitud.DocumentoSistemaAnexo3 = firmado;
-          }
-          this.registrarFirmaEnExpediente(solicitud, codigoTipoDocumento);
-        },
-        error: () => this.fallar('No fue posible registrar el documento firmado.')
-      });
-      return;
-    }
+    this.paso = firmado
+      ? 'Registrando la firma y el documento firmado…'
+      : 'Registrando la firma…';
 
-    this.registrarFirmaEnExpediente(solicitud, codigoTipoDocumento);
-  }
-
-  private registrarFirmaEnExpediente(solicitud: SolicitudCmn, codigoTipoDocumento: string): void {
-    this.paso = 'Registrando la firma…';
-    this.cmnService.firmarDocumento(solicitud.IdExpediente, codigoTipoDocumento).subscribe({
+    this.cmnService.firmarDocumento(
+      solicitud.IdExpediente,
+      codigoTipoDocumento,
+      firmado ? { GeneradoDocumento: firmado } : {}
+    ).subscribe({
       next: (respuesta: any) => {
         // Que ya estuviera firmada no es un error: puede ser un reintento
         // después de que fallara la transición. Se sigue adelante.
@@ -1170,10 +1134,36 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
           return;
         }
 
+        if (firmado) {
+          this.actualizarDocumentoSistemaEnMemoria(solicitud, codigoTipoDocumento, firmado);
+        }
+
         this.enviarTransicion();
       },
       error: () => this.fallar('No fue posible registrar la firma.')
     });
+  }
+
+  /** Deja en bandeja el id del PDF firmado sin esperar al recargo. */
+  private actualizarDocumentoSistemaEnMemoria(
+    solicitud: SolicitudCmn,
+    codigoTipoDocumento: string,
+    firmado: string
+  ): void {
+    if (codigoTipoDocumento === TIPO_ANEXO_4) {
+      solicitud.DocumentoSistemaAnexo4 = firmado;
+      const idPaquete = solicitud.IdPaquete;
+      if (idPaquete) {
+        for (const fila of this.solicitudes) {
+          if (fila.IdPaquete === idPaquete) {
+            fila.DocumentoSistemaAnexo4 = firmado;
+          }
+        }
+      }
+      return;
+    }
+
+    solicitud.DocumentoSistemaAnexo3 = firmado;
   }
 
   /**

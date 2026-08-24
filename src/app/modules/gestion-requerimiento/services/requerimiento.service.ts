@@ -28,6 +28,7 @@ export class RequerimientoService {
   /* Requerimiento                                                          */
   /* ---------------------------------------------------------------------- */
 
+  /** Filas de la bandeja. Cada una trae Transiciones para pintar botones. */
   listarRequerimiento(filtro: any): Observable<any> {
     return this.apiService.GET('api/requerimiento/listarRequerimiento', { Filtro: filtro });
   }
@@ -105,12 +106,26 @@ export class RequerimientoService {
   /**
    * Firma la versión vigente. No mueve el expediente: la acción del flujo se
    * ejecuta después con `ejecutarTransicion`, que comprueba que esté firmado.
+   *
+   * Si el firmador devolvió otro archivo, `GeneradoDocumento` reemplaza el PDF
+   * sin firma en DocumentoVersion.
    */
-  firmarDocumento(idExpediente: string, codigoTipoDocumento: string): Observable<any> {
-    return this.apiService.POST('api/sigcm/firmarDocumento', {
+  firmarDocumento(
+    idExpediente: string,
+    codigoTipoDocumento: string,
+    opciones: { GeneradoDocumento?: string; ArchivoHash?: string } = {}
+  ): Observable<any> {
+    const body: any = {
       IdExpediente: idExpediente,
       CodigoTipoDocumento: codigoTipoDocumento
-    });
+    };
+    if (opciones.GeneradoDocumento) {
+      body.GeneradoDocumento = opciones.GeneradoDocumento;
+    }
+    if (opciones.ArchivoHash) {
+      body.ArchivoHash = opciones.ArchivoHash;
+    }
+    return this.apiService.POST('api/sigcm/firmarDocumento', body);
   }
 
   /* ---------------------------------------------------------------------- */

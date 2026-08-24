@@ -73,8 +73,30 @@ export class MaestraService {
     );
   }
 
+  /**
+   * Consulta persona en RENIEC. El backend espera el DNI en `ipInput` (texto,
+   * no JSON) y lo reenvía al servicio institucional.
+   */
   consultarInformacionReniec(strDni: string) {
-    console.log("strDni", strDni);
-    return this.metodo.GET(`api/general/ConsultaDNI?strdni=${strDni}`, null);
+    return this.metodo.GET_PALOTES('api/General/ConsultaPersonaReniec', strDni.trim()).pipe(
+      map((rpta: any) => deserializarRespuestaReniec(rpta))
+    );
+  }
+}
+
+/** El endpoint a veces devuelve el JSON ya parseado y a veces como texto
+ *  (o JSON dentro de JSON). Siempre se deja un objeto para el mapeo. */
+export function deserializarRespuestaReniec(rpta: any): any {
+  if (rpta == null || rpta === '') {
+    return rpta;
+  }
+  if (typeof rpta !== 'string') {
+    return rpta;
+  }
+  const texto = rpta.trim();
+  try {
+    return JSON.parse(texto);
+  } catch {
+    return rpta;
   }
 }

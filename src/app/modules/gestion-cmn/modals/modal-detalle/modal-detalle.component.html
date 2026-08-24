@@ -113,8 +113,8 @@
                   {{ doc.Estado | titlecase }}
                 </span>
                 <a
-                  *ngIf="doc.GeneradoDocumento"
-                  [href]="doc.GeneradoDocumento"
+                  *ngIf="urlDocumento(doc)"
+                  [href]="urlDocumento(doc)"
                   target="_blank"
                   class="btn-icon-outline"
                   title="Abrir el documento"

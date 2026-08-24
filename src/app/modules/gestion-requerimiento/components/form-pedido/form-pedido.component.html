@@ -1,0 +1,125 @@
+<section class="req-instancia">
+  <header class="req-instancia__cabecera" *ngIf="total > 1 || puedeQuitar">
+    <h5 class="req-instancia__titulo">Pedido {{ indice + 1 }}</h5>
+    <button
+      type="button"
+      class="btn-icon-outline"
+      *ngIf="puedeQuitar"
+      title="Quitar este pedido"
+      (click)="quitar.emit()"
+    >
+      <i class="mdi mdi-close" aria-hidden="true"></i>
+    </button>
+  </header>
+
+  <div class="req-grid req-grid--documento">
+    <div class="campo req-grid__ancho">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-numero'">N° Pedido SIGA</label>
+      <input
+        [id]="prefijo + '-numero'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-numero'"
+        maxlength="20"
+        [(ngModel)]="pedido.NumeroPedido"
+        placeholder="Seleccione o ingrese el N° de pedido"
+      />
+    </div>
+
+    <div class="campo campo--corto">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-ano'">Año</label>
+      <input
+        [id]="prefijo + '-ano'"
+        type="number"
+        class="campo-control"
+        [name]="prefijo + '-ano'"
+        [(ngModel)]="pedido.AnoPedido"
+      />
+    </div>
+
+    <div class="campo req-grid__resto">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-actividad'">Actividad Operativa</label>
+      <input
+        [id]="prefijo + '-actividad'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-actividad'"
+        [(ngModel)]="pedido.ActividadOperativa"
+      />
+    </div>
+
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-meta'">Meta Presupuestaria</label>
+      <input
+        [id]="prefijo + '-meta'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-meta'"
+        [(ngModel)]="pedido.MetaPresupuestaria"
+      />
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-ffrr'">FF/RR</label>
+      <input
+        [id]="prefijo + '-ffrr'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-ffrr'"
+        maxlength="2"
+        [(ngModel)]="pedido.FuenteFinanc"
+      />
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-programa'">Programa</label>
+      <input
+        [id]="prefijo + '-programa'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-programa'"
+        [(ngModel)]="pedido.Programa"
+      />
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-prod'">Prod/Py</label>
+      <input
+        [id]="prefijo + '-prod'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-prod'"
+        [(ngModel)]="pedido.ProdPy"
+      />
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-clasificador'">Clasificador</label>
+      <input
+        [id]="prefijo + '-clasificador'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-clasificador'"
+        maxlength="20"
+        [(ngModel)]="pedido.Clasificador"
+      />
+    </div>
+
+    <div class="campo req-grid__codigo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-codigo'">Código Item Pedido</label>
+      <input
+        [id]="prefijo + '-codigo'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-codigo'"
+        [(ngModel)]="pedido.CodigoItemPedido"
+      />
+    </div>
+    <div class="campo req-grid__nombre">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-nombre'">Nombre Item Pedido</label>
+      <input
+        [id]="prefijo + '-nombre'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-nombre'"
+        [(ngModel)]="pedido.NombreItemPedido"
+      />
+    </div>
+  </div>
+</section>

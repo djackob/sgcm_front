@@ -82,6 +82,47 @@
             </div>
           </dl>
 
+          <ng-container *ngIf="proveedores.length">
+            <h3 class="det-seccion">Datos del proveedor</h3>
+            <dl class="det-datos" *ngFor="let proveedor of proveedores; let i = index">
+              <div *ngIf="proveedores.length > 1" class="det-datos__titulo">
+                <dt>Proveedor {{ i + 1 }}</dt>
+                <dd></dd>
+              </div>
+              <div>
+                <dt>Documento</dt>
+                <dd>{{ proveedor.TipoDocumento }} {{ proveedor.Dni || proveedor.Ruc }}</dd>
+              </div>
+              <div>
+                <dt>Nombre</dt>
+                <dd>
+                  {{ proveedor.Nombres }}
+                  {{ proveedor.ApellidoPaterno }}
+                  {{ proveedor.ApellidoMaterno }}
+                </dd>
+              </div>
+              <div *ngIf="proveedor.Celular">
+                <dt>Celular</dt>
+                <dd>{{ proveedor.Celular }}</dd>
+              </div>
+              <div *ngIf="proveedor.Email">
+                <dt>Email</dt>
+                <dd>{{ proveedor.Email }}</dd>
+              </div>
+              <div *ngIf="proveedor.CantidadEntregables">
+                <dt>Entregables</dt>
+                <dd>{{ proveedor.CantidadEntregables }}</dd>
+              </div>
+              <div *ngIf="proveedor.MontoMensual">
+                <dt>Monto mensual / total</dt>
+                <dd>
+                  S/ {{ proveedor.MontoMensual | number: '1.2-2' }}
+                  · S/ {{ proveedor.MontoTotal | number: '1.2-2' }}
+                </dd>
+              </div>
+            </dl>
+          </ng-container>
+
           <div class="det-sustento">
             <h4>Sustento</h4>
             <p>{{ detalle.Sustento }}</p>
