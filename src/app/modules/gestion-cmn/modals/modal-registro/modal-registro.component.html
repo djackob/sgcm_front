@@ -17,9 +17,8 @@
             Registre el sustento y los ítems. Al guardar, el expediente queda
             pendiente de la firma del Jefe del área usuaria.
           </p>
-          <p class="modal-subtitulo" *ngIf="modoEdicion">
-            Subsanación{{ codigoEdicion ? ' · ' + codigoEdicion : '' }}.
-            Corrija lo observado y guarde: se regenera el PDF del Anexo 3.
+          <p class="modal-subtitulo" *ngIf="modoEdicion && codigoEdicion">
+            {{ codigoEdicion }}
           </p>
         </div>
         <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
@@ -52,12 +51,6 @@
           </div>
         </div>
 
-        <p class="registro-nota">
-          <i class="mdi mdi-information-outline" aria-hidden="true"></i>
-          Área usuaria, responsable y centro de costo salen de la sesión: la
-          solicitud solo puede registrarse sobre el centro de costo del perfil.
-        </p>
-
         <div class="campo">
           <label class="campo-etiqueta" for="sustento">Sustento de la solicitud</label>
           <textarea
@@ -70,16 +63,74 @@
           ></textarea>
         </div>
 
+        <!-- Tipificación de la solicitud.
+             La declara el área usuaria aquí, al registrar, porque de ella
+             depende el plazo: lo ordinario se aprueba en el Anexo 4 de los
+             viernes y lo extraordinario cualquier día. Antes la marcaba
+             Abastecimiento al evaluar, que es después de que el área ya sabía
+             si podía esperar. -->
+        <div class="formulario-grilla">
+          <div class="campo">
+            <label class="campo-etiqueta" for="tipoInclusion">
+              Tipo de solicitud <span>(obligatorio)</span>
+            </label>
+            <select
+              id="tipoInclusion"
+              class="campo-control"
+              name="tipoInclusion"
+              [(ngModel)]="tipoInclusion"
+            >
+              <option value="">Seleccione…</option>
+              <option value="ORDINARIA">Ordinaria</option>
+              <option value="EXTRAORDINARIA">Extraordinaria</option>
+            </select>
+          </div>
+        </div>
+
+        <ng-container *ngIf="esExtraordinaria">
+          <div class="campo">
+            <label class="campo-etiqueta" for="justificacionUrgencia">
+              Justificación de la urgencia <span>(obligatorio)</span>
+            </label>
+            <textarea
+              id="justificacionUrgencia"
+              class="campo-control"
+              rows="3"
+              name="justificacionUrgencia"
+              [(ngModel)]="justificacionUrgencia"
+              placeholder="Explique por qué la necesidad no puede esperar al Anexo 4 ordinario, con base en las directivas del MEF"
+            ></textarea>
+          </div>
+
+          <!-- El archivo es la evidencia de lo que el texto afirma: es lo que
+               Abastecimiento abre para validar la urgencia. Se sube al file
+               server y queda como documento del expediente, con su versionado,
+               no como un adjunto suelto. -->
+          <div class="campo">
+            <label class="campo-etiqueta" for="archivoSustento">
+              Adjuntar sustento <span>(opcional)</span>
+            </label>
+            <input
+              id="archivoSustento"
+              type="file"
+              class="campo-control"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+              (change)="elegirArchivoSustento($event)"
+            />
+            <p class="campo-ayuda" *ngIf="archivoSustento">
+              <b>{{ archivoSustento.name }}</b>
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="quitarArchivoSustento()">
+                Quitar
+              </button>
+            </p>
+          </div>
+        </ng-container>
+
         <!-- Ítems -->
         <section class="seccion">
           <div class="contenido-cabecera">
             <div>
               <h3 class="contenido-titulo">Ítems de la modificación</h3>
-              <p class="contenido-subtitulo">
-                Por cada ítem un solo movimiento: inclusión, exclusión o
-                modificación. Las inclusiones se buscan en el catálogo de SIGA;
-                las exclusiones y modificaciones se eligen del cuadro vigente.
-              </p>
             </div>
             <div class="cabecera-opciones">
               <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarItem()">
@@ -100,7 +151,6 @@
               >
                 <option value="INCLUSION">Inclusión</option>
                 <option value="EXCLUSION">Exclusión</option>
-                <option value="MODIFICACION">Modificación</option>
               </select>
 
               <span class="registro-item__total">
@@ -182,7 +232,11 @@
                   [disabled]="item.TipoMovimiento !== 'INCLUSION'"
                   (ngModelChange)="elegirTarea(item, $event)"
                 >
-                  <option value="null|null|null">Seleccione…</option>
+                  <!-- El valor vacío es el mismo que devuelve claveTareaItem
+                       cuando el ítem todavía no tiene tarea. Antes decía
+                       "null|null|null", que no coincidía con nada, y el combo
+                       arrancaba en blanco en vez de en «Seleccione…». -->
+                  <option value="">Seleccione…</option>
                   <option *ngFor="let tarea of tareas" [value]="claveTarea(tarea)">
                     {{ tarea.CodigoTarea }} · {{ tarea.NombreTarea }}
                   </option>

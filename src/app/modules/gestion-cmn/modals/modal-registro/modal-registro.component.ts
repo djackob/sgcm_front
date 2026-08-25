@@ -88,6 +88,21 @@ export class ModalRegistroComponent {
   cargo = '';
   sustento = '';
 
+  /**
+   * Tipificación de la solicitud, y lo que la respalda.
+   *
+   * La declara el área usuaria al registrar y no Abastecimiento al evaluar: de
+   * ella depende el plazo —el Anexo 4 ordinario sale los viernes— y quien
+   * conoce la urgencia es quien tiene la necesidad. Una extraordinaria exige el
+   * «por qué» escrito; el archivo es la evidencia de ese texto y es opcional
+   * porque no siempre existe un informe previo, pero es lo que Abastecimiento
+   * abre para validar la urgencia.
+   */
+  tipoInclusion: '' | 'ORDINARIA' | 'EXTRAORDINARIA' = '';
+  justificacionUrgencia = '';
+  archivoSustento: File | null = null;
+  private inputSustento: HTMLInputElement | null = null;
+
   /* Maestros de SIGA */
   tareas: TareaSiga[] = [];
   metas: MetaSiga[] = [];
@@ -117,6 +132,23 @@ export class ModalRegistroComponent {
     return [this.anoEje, this.anoEje + 1, this.anoEje + 2, this.anoEje + 3];
   }
 
+  get esExtraordinaria(): boolean {
+    return this.tipoInclusion === 'EXTRAORDINARIA';
+  }
+
+  elegirArchivoSustento(evento: Event): void {
+    const input = evento.target as HTMLInputElement;
+    this.inputSustento = input;
+    this.archivoSustento = input.files?.[0] || null;
+  }
+
+  quitarArchivoSustento(): void {
+    this.archivoSustento = null;
+    if (this.inputSustento) {
+      this.inputSustento.value = '';
+    }
+  }
+
   /* ---------------------------------------------------------------------- */
   /* Apertura y cierre                                                      */
   /* ---------------------------------------------------------------------- */
@@ -138,6 +170,9 @@ export class ModalRegistroComponent {
     this.anoEje = anoEje || new Date().getFullYear();
 
     this.sustento = '';
+    this.tipoInclusion = '';
+    this.justificacionUrgencia = '';
+    this.quitarArchivoSustento();
     this.items = [crearItemFormularioCmn()];
     this.eligiendoCuadro = null;
     this.abierto = true;
@@ -146,9 +181,12 @@ export class ModalRegistroComponent {
   }
 
   /**
-   * Abre el mismo formulario del Anexo 3 con los datos ya registrados, para
-   * subsanar una observación. El estado del expediente no cambia hasta que el
-   * jefe firma de nuevo.
+   * Abre el mismo formulario con los datos ya registrados, para corregirlos.
+   *
+   * Sirve a los dos casos: el borrador que todavía no salió del área usuaria y
+   * el expediente que volvió observado. Quién puede hacerlo y desde qué estado
+   * lo decide la base (`cmn.fnPuedeEditar`); aquí solo se abre el formulario.
+   * Corregir no mueve el expediente: sigue donde estaba.
    */
   abrirEdicion(idSolicitud: string): void {
     const info = this.sesion.getInfoUsuario();
@@ -165,6 +203,9 @@ export class ModalRegistroComponent {
     this.responsable = [info?.nombre, info?.apellido_paterno].filter(Boolean).join(' ');
     this.cargo = info?.cargo || detalle?.perfil?.[0]?.perfil || '';
     this.sustento = '';
+    this.tipoInclusion = '';
+    this.justificacionUrgencia = '';
+    this.quitarArchivoSustento();
     this.items = [crearItemFormularioCmn()];
     this.eligiendoCuadro = null;
     this.abierto = true;
@@ -184,6 +225,10 @@ export class ModalRegistroComponent {
         this.centroCosto = respuesta.CentroCosto || this.centroCosto;
         this.centroCostoNombre = respuesta.CentroCostoNombre || this.centroCostoNombre;
         this.sustento = respuesta.Sustento || '';
+        this.tipoInclusion = respuesta.TipoInclusion === 'EXTRAORDINARIA' ? 'EXTRAORDINARIA'
+          : respuesta.TipoInclusion === 'ORDINARIA' ? 'ORDINARIA'
+          : '';
+        this.justificacionUrgencia = respuesta.JustificacionUrgencia || '';
 
         /* Los combos se pintan después de los maestros: si se asignan los ítems
            antes, el select no encuentra la opción y queda en "Seleccione…". */
@@ -251,16 +296,25 @@ export class ModalRegistroComponent {
    * Tarea, meta y fuente se traen enteras al abrir: son listas cortas y de
    * elección obligatoria en cada ítem. El catálogo NO se trae: son miles de
    * filas y se busca por descripción, que es como el área usuaria lo conoce.
+   *
+   * LOS CUATRO VAN CON CentroCosto. La tarea siempre lo llevó —en SIGA vive por
+   * centro—; meta y fuente no, y por eso el desplegable ofrecía las 487 metas de
+   * la entidad y las fuentes de toda la ejecutora cuando el área usuaria tiene
+   * techo en una sola. El usuario elegía combinaciones sin techo, el clasificador
+   * quedaba vacío y la pantalla no explicaba por qué. La delimitación la resuelve
+   * la rutina contra SIG_METAS_X_CENTRO, que es la misma tabla con la que SIGA
+   * arma esos combos; aquí sólo se le dice de qué centro se trata.
    */
   private cargarMaestros(alTerminar?: () => void): void {
     this.cargandoMaestros = true;
 
     const base = { AnoEje: this.anoEje, SecEjec: this.secEjec, Limite: 500 };
+    const delArea = { ...base, CentroCosto: this.centroCosto };
 
     forkJoin({
-      tareas: this.cmnService.listarMaestroSiga('TAREA', { ...base, CentroCosto: this.centroCosto }),
-      metas: this.cmnService.listarMaestroSiga('META', base),
-      fuentes: this.cmnService.listarMaestroSiga('FUENTE_FINANC', base),
+      tareas: this.cmnService.listarMaestroSiga('TAREA', delArea),
+      metas: this.cmnService.listarMaestroSiga('META', delArea),
+      fuentes: this.cmnService.listarMaestroSiga('FUENTE_FINANC', delArea),
       techos: this.cmnService.listarMaestroSiga('TECHO', { ...base, CentroCosto: this.centroCosto }),
       cuadro: this.cmnService.listarMaestroSiga('CUADRO_VIGENTE', {
         ...base, CentroCosto: this.centroCosto, TipoMovimiento: 'EXCLUSION'
@@ -460,7 +514,13 @@ export class ModalRegistroComponent {
     return `${String(tarea.TipoTarea || '').trim()}|${String(tarea.NivelTarea || '').trim()}|${Number(tarea.CodigoTarea)}`;
   }
 
+  /** Sin tarea elegida devuelve cadena vacía, que es el valor de la opción
+      «Seleccione…»: así el combo arranca en ella. Antes devolvía "||null", que
+      no coincidía con ninguna opción y dejaba el desplegable en blanco. */
   claveTareaItem(item: ItemFormularioCmn): string {
+    if (!item.CodigoTarea) {
+      return '';
+    }
     return `${item.TipoTarea}|${item.NivelTarea}|${item.CodigoTarea}`;
   }
 
@@ -542,6 +602,12 @@ export class ModalRegistroComponent {
     if (!this.sustento.trim()) {
       return 'El sustento de la solicitud es obligatorio.';
     }
+    if (!this.tipoInclusion) {
+      return 'Indique si la solicitud es Ordinaria o Extraordinaria. De eso depende cuándo podrá aprobarse.';
+    }
+    if (this.esExtraordinaria && !this.justificacionUrgencia.trim()) {
+      return 'Una solicitud extraordinaria debe justificar por escrito la urgencia de la necesidad.';
+    }
     if (this.items.length === 0) {
       return 'La solicitud debe tener al menos un ítem.';
     }
@@ -595,7 +661,11 @@ export class ModalRegistroComponent {
       SecEjec: this.secEjec,
       CentroCosto: this.centroCosto,
       TipoOperacion: 'MODIFICACION',
-      Sustento: this.sustento.trim()
+      Sustento: this.sustento.trim(),
+      TipoInclusion: this.tipoInclusion,
+      // La rutina descarta la justificación de una ordinaria; no se manda para
+      // que el payload diga lo mismo que la pantalla.
+      JustificacionUrgencia: this.esExtraordinaria ? this.justificacionUrgencia.trim() : null
     };
 
     if (this.modoEdicion && this.idSolicitudEdicion) {
@@ -654,12 +724,14 @@ export class ModalRegistroComponent {
 
            La subsanación es el caso contrario: ahí el documento ya existe, se
            corrigió lo observado y ninguna transición posterior lo rehace. */
-        if (this.modoEdicion && this.teniaAnexo3) {
-          this.subirArchivoAnexo3(respuesta);
-          return;
-        }
+        this.subirSustentoUrgencia(respuesta, () => {
+          if (this.modoEdicion && this.teniaAnexo3) {
+            this.subirArchivoAnexo3(respuesta);
+            return;
+          }
 
-        this.terminarGuardado(respuesta, true);
+          this.terminarGuardado(respuesta, true);
+        });
       },
       error: () => {
         this.guardando = false;
@@ -667,6 +739,63 @@ export class ModalRegistroComponent {
         this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
       }
     });
+  }
+
+  /**
+   * El archivo con que se sustenta una solicitud extraordinaria.
+   *
+   * Va por la misma vía que los anexos —subir al file server y registrar el id
+   * como documento del expediente— y no como un adjunto aparte: así hereda
+   * versionado, trazabilidad y el visor que Abastecimiento ya usa. No puede
+   * subirse antes de guardar porque hasta entonces no hay expediente al que
+   * colgarlo.
+   *
+   * Si el archivo falla, la solicitud NO se deshace: ya está registrada y el
+   * texto de la justificación —que es lo obligatorio— está con ella. Se avisa y
+   * se sigue; el sustento puede volver a adjuntarse editando el borrador.
+   */
+  private subirSustentoUrgencia(registro: any, continuar: () => void): void {
+    if (!this.esExtraordinaria || !this.archivoSustento) {
+      continuar();
+      return;
+    }
+
+    const archivo = this.archivoSustento;
+    this.pasoGuardar = 'Subiendo el sustento de la urgencia…';
+
+    this.documentoService.subirArchivo(archivo, 'cmn').subscribe({
+      next: (subido: any) => {
+        const documentoSistema = idDocumentoSistema(subido?.documento_sistema);
+        if (subido?.estado !== 1 || !documentoSistema) {
+          this.avisarSustento(subido?.mensaje);
+          continuar();
+          return;
+        }
+
+        this.cmnService.registrarDocumento(
+          registro.IdExpediente,
+          'CMN_SUSTENTO_URGENCIA',
+          documentoSistema,
+          subido.documento_original || archivo.name,
+          { Codigo: registro.Codigo, Motivo: 'Sustento de la urgencia' }
+        ).subscribe({
+          next: (doc: any) => {
+            if (doc?.estado !== 1) {
+              this.avisarSustento(doc?.mensaje);
+            }
+            continuar();
+          },
+          error: () => { this.avisarSustento(null); continuar(); }
+        });
+      },
+      error: () => { this.avisarSustento(null); continuar(); }
+    });
+  }
+
+  private avisarSustento(mensaje: string | null | undefined): void {
+    this.funciones.mensaje('warning',
+      mensaje || 'La solicitud se guardó, pero el archivo de sustento no quedó en el servidor. '
+        + 'Puede volver a adjuntarlo editando el borrador.');
   }
 
   /**

@@ -53,14 +53,12 @@ export class CmnService {
    * entretanto, la rutina responde CONFLICTO en vez de pisar ese cambio.
    */
   ejecutarTransicion(idExpediente: string, codigoTransicion: string,
-                     version: number, comentario: string | null = null,
-                     tipoInclusion: string | null = null): Observable<any> {
+                     version: number, comentario: string | null = null): Observable<any> {
     return this.apiService.POST('api/sigcm/ejecutarTransicion', {
       IdExpediente: idExpediente,
       CodigoTransicion: codigoTransicion,
       Version: version,
-      Comentario: comentario,
-      TipoInclusion: tipoInclusion
+      Comentario: comentario
     });
   }
 
@@ -72,13 +70,11 @@ export class CmnService {
    * Version, porque el control de concurrencia es por expediente y no por lote.
    */
   ejecutarTransicionLote(expedientes: ExpedienteLoteCmn[], codigoTransicion: string,
-                         comentario: string | null = null,
-                         tipoInclusion: string | null = null): Observable<any> {
+                         comentario: string | null = null): Observable<any> {
     return this.apiService.POST('api/sigcm/ejecutarTransicion', {
       IdExpedientes: expedientes,
       CodigoTransicion: codigoTransicion,
-      Comentario: comentario,
-      TipoInclusion: tipoInclusion
+      Comentario: comentario
     });
   }
 

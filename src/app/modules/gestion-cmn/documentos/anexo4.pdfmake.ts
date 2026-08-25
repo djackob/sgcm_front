@@ -73,7 +73,7 @@ export function construirAnexo4(paquete: PaqueteAnexo4Cmn): any {
               { text: String(paquete.AnoEje || ''), style: 'valor' },
               { text: 'Tipo de modificación', style: 'etiqueta' },
               {
-                text: paquete.TipoInclusion === 'URGENTE' ? 'Urgente' : 'Ordinaria',
+                text: paquete.TipoInclusion === 'EXTRAORDINARIA' ? 'Extraordinaria' : 'Ordinaria',
                 style: 'valor'
               }
             ],

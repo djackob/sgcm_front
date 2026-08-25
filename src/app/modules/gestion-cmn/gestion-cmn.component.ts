@@ -129,7 +129,6 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   /* Confirmación de una acción del flujo */
   accionEnCurso: { solicitud: SolicitudCmn; transicion: TransicionCmn } | null = null;
   comentario = '';
-  tipoInclusion = '';
   ejecutando = false;
   /** Expedientes que mueve la acción en curso. Es uno salvo en el Anexo 4. */
   private loteEnCurso: ExpedienteLoteCmn[] = [];
@@ -142,7 +141,6 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   /** URL del PDF recién generado, para ofrecerlo al terminar. */
   documentoGenerado = '';
   private comentarioPendiente: string | null = null;
-  private tipoInclusionPendiente: string | null = null;
 
   visorPdfUrl: SafeResourceUrl | null = null;
   visorPdfObjectUrl = '';
@@ -295,9 +293,18 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     return acciones.filter(t => !ACCIONES_DEL_PAQUETE.has(t.CodigoTransicion));
   }
 
-  puedeEditarObservacion(solicitud: SolicitudCmn): boolean {
-    return solicitud.CodigoEstado === 'CMN_OBSERVADO'
-      && this.codigoRol === 'AREA_ESPECIALISTA';
+  /**
+   * Si esta fila se puede corregir con este perfil.
+   *
+   * Lo dice la base (`PuedeEditar`), no la pantalla. Antes aquí vivía la regla
+   * —estado `CMN_OBSERVADO` y rol especialista—, y era más estrecha que el
+   * flujo: el jefe que encontraba un error en un borrador no podía tocarlo, y
+   * un expediente devuelto que todavía estaba con el jefe o el coordinador solo
+   * se podía corregir después de derivarlo. Ahora la condición es una sola,
+   * `cmn.fnPuedeEditar`, y es la misma que la rutina comprueba al guardar.
+   */
+  puedeEditar(solicitud: SolicitudCmn): boolean {
+    return solicitud.PuedeEditar === true;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -517,9 +524,6 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.accionEnCurso = { solicitud, transicion };
     this.loteEnCurso = lote;
     this.comentario = '';
-    this.tipoInclusion = solicitud.TipoInclusion === 'URGENTE' ? 'URGENTE'
-      : solicitud.TipoInclusion === 'ORDINARIA' ? 'ORDINARIA'
-      : '';
     this.limpiarEstadoFirma();
     this.cerrarVisorPdf();
 
@@ -543,13 +547,13 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
        actor. Antes buscaba CMN_FIRMAR_OBS, que no existe en la semilla: el botón
        no aparecía nunca. La transición real es CMN_FIRMAR_A3. */
     return {
-      puedeEditar: this.puedeEditarObservacion(solicitud),
+      puedeEditar: this.puedeEditar(solicitud),
       transicionFirmar: this.accionesDe(solicitud)
         .find(t => t.CodigoTransicion === 'CMN_FIRMAR_A3') || null
     };
   }
 
-  editarObservacion(solicitud: SolicitudCmn): void {
+  editarSolicitud(solicitud: SolicitudCmn): void {
     this.modalDetalle.cerrar();
     this.modalRegistro.abrirEdicion(solicitud.IdSolicitud);
   }
@@ -747,19 +751,11 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       && (this.muestraPdfAnexo3 || this.muestraPdfAnexo4);
   }
 
-  /**
-   * Ordinario o urgente se declara al confirmar el Anexo 3, que es el paso 6 del
-   * flujo, y de esa marca depende después si el Anexo 4 puede generarse hoy o
-   * hay que esperar al viernes.
-   */
-  get muestraTipoInclusion(): boolean {
-    return this.accionEnCurso?.transicion.CodigoTransicion === 'CMN_ABAST_ESP_FIRMAR_A3';
-  }
-
-  /** Aviso de la regla del viernes en el panel de conformidad. */
-  get hoyEsViernes(): boolean {
-    return new Date().getDay() === 5;
-  }
+  /* Ordinaria o extraordinaria YA NO SE ELIGE AQUÍ.
+     Este panel ofrecía el desplegable al especialista de Abastecimiento cuando
+     conformaba el Anexo 3. El negocio movió la decisión a su sitio: la declara
+     el área usuaria al registrar la solicitud, junto con la justificación de la
+     urgencia que la respalda. Aquí sólo se muestra lo que ya viene decidido. */
 
   /**
    * El icono del Anexo 3 sólo aparece si hay algo que abrir.
@@ -973,7 +969,6 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.loteEnCurso = [];
     this.paqueteEnCurso = null;
     this.comentario = '';
-    this.tipoInclusion = '';
   }
 
   ngOnDestroy(): void {
@@ -1004,13 +999,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.muestraTipoInclusion && !this.tipoInclusion) {
-      this.funciones.mensaje('info', 'Indique si la modificación es Ordinaria o Urgente. De eso depende cuándo podrá generarse el Anexo 4.');
-      return;
-    }
-
     this.comentarioPendiente = this.comentario.trim() || null;
-    this.tipoInclusionPendiente = this.muestraTipoInclusion ? this.tipoInclusion : null;
 
     this.iniciarEjecucion(solicitud, transicion);
   }
@@ -1182,8 +1171,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.cmnService.ejecutarTransicionLote(
       this.loteEnCurso,
       transicion.CodigoTransicion,
-      this.comentarioPendiente,
-      this.tipoInclusionPendiente
+      this.comentarioPendiente
     ).subscribe({
       next: (respuesta: any) => {
         this.ejecutando = false;
@@ -1201,9 +1189,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
         this.loteEnCurso = [];
         this.paqueteEnCurso = null;
         this.comentario = '';
-        this.tipoInclusion = '';
         this.comentarioPendiente = null;
-        this.tipoInclusionPendiente = null;
 
         const extra = this.documentoGenerado
           ? '<br><br>Ábralo con el icono del Anexo en la bandeja.'

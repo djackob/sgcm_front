@@ -31,6 +31,10 @@ export interface SolicitudCmn {
   Items: number;
   MontoTotal: number;
   ActualizadoEn: string;
+  /** Si este actor puede corregir el contenido del Anexo 3. Lo decide
+   *  `cmn.fnPuedeEditar` en la base, con la misma regla que aplica la rutina al
+   *  guardar; la pantalla no lo deduce del estado. */
+  PuedeEditar?: boolean;
   /** Área usuaria que originó el expediente. En la bandeja de Abastecimiento
    *  conviven varias y sin esto la fila no dice de quién es. */
   AreaUsuaria?: string;
@@ -42,6 +46,10 @@ export interface SolicitudCmn {
   DocumentoSistemaAnexo3?: string | null;
   /** Id de archivo (documento_sistema) del Anexo 4 vigente. */
   DocumentoSistemaAnexo4?: string | null;
+  /** Informe o nota técnica con que el área usuaria sustenta una solicitud
+   *  extraordinaria. Viaja en la bandeja porque es ahí donde Abastecimiento
+   *  decide si la urgencia está justificada. */
+  DocumentoSustentoUrgencia?: string | null;
   /** Acciones de este actor sobre este expediente. Las calcula
    *  cmn.paListarSolicitud con la misma regla que
    *  sigcm.paListarTransicionDisponible. */
@@ -101,6 +109,7 @@ export interface SolicitudDelPaqueteCmn {
   Sustento: string;
   TipoOperacion: string;
   TipoInclusion: string | null;
+  JustificacionUrgencia?: string | null;
   FechaSolicitud: string;
   IdExpediente: string;
   CodigoExpediente: string;
@@ -124,7 +133,7 @@ export interface PaqueteAnexo4Cmn extends RespuestaSigcm {
   Codigo: string;
   AnoEje: number;
   SecEjec: number;
-  TipoInclusion: 'ORDINARIA' | 'URGENTE';
+  TipoInclusion: 'ORDINARIA' | 'EXTRAORDINARIA';
   Sustento: string | null;
   Anulado: boolean;
   FechaGeneracion: string;
@@ -218,6 +227,9 @@ export interface SolicitudDetalleCmn extends RespuestaSigcm {
   CentroCostoNombre: string;
   TipoOperacion: string;
   TipoInclusion: string | null;
+  /** El «por qué» de una solicitud extraordinaria, con base en las directivas
+   *  del MEF. Obligatorio cuando TipoInclusion es EXTRAORDINARIA. */
+  JustificacionUrgencia?: string | null;
   Sustento: string;
   FechaSolicitud: string;
   IdExpediente: string;
@@ -225,10 +237,13 @@ export interface SolicitudDetalleCmn extends RespuestaSigcm {
   Version: number;
   Anulado: boolean;
   Estado: string;
+  PuedeEditar?: boolean;
   Responsable: string;
   Items: ItemSolicitudCmn[];
   DocumentoSistemaAnexo3?: string | null;
   DocumentoSistemaAnexo4?: string | null;
+  DocumentoSustentoUrgencia?: string | null;
+  NombreSustentoUrgencia?: string | null;
 }
 
 /** Un paso del historial. sigcm.paObtenerTrazabilidad */
@@ -376,7 +391,18 @@ export interface TechoSiga {
  * necesita y la rutina no recibe (descripción, unidad, el mes de referencia).
  */
 export interface ItemFormularioCmn {
-  TipoMovimiento: 'INCLUSION' | 'EXCLUSION' | 'MODIFICACION';
+  /**
+   * Solo inclusión o exclusión.
+   *
+   * MODIFICACION se retiró: el Anexo 3 oficial tiene dos pares de columnas
+   * —exclusión e inclusión— y no una tercera para modificar. Cambiar la cantidad
+   * de un ítem programado se expresa excluyendo la línea vigente e incluyéndola
+   * con la cantidad nueva, que es lo que el área usuaria firma tal como se
+   * imprime. `cmn.paRegistrarSolicitud` rechaza el valor con un mensaje que dice
+   * eso mismo, así que quitar la opción del combo y dejarla viva en la rutina
+   * serían dos criterios distintos.
+   */
+  TipoMovimiento: 'INCLUSION' | 'EXCLUSION';
 
   /* Identificación del bien o servicio en el catálogo de SIGA */
   TipoBien: string;

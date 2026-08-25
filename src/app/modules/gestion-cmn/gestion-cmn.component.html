@@ -267,15 +267,15 @@
 
               <td data-column-name="Acción del perfil" class="td-acciones">
                 <div class="action-cell">
-                  <span class="action-cell__label" *ngIf="accionesVisiblesDe(item).length === 0 && !agrupaPaquete(item) && !puedeEditarObservacion(item)">
+                  <span class="action-cell__label" *ngIf="accionesVisiblesDe(item).length === 0 && !agrupaPaquete(item) && !puedeEditar(item)">
                     Sin acción pendiente
                   </span>
 
                   <button
                     type="button"
                     class="btn btn-app-primary btn-sm"
-                    *ngIf="puedeEditarObservacion(item)"
-                    (click)="editarObservacion(item)"
+                    *ngIf="puedeEditar(item)"
+                    (click)="editarSolicitud(item)"
                   >
                     Modificar Anexo 3
                   </button>
@@ -493,30 +493,22 @@
           </a>
         </div>
 
-        <div class="campo" *ngIf="muestraTipoInclusion">
-          <label class="campo-etiqueta" for="tipoInclusion">
-            Tipo de modificación
-            <span>(obligatorio)</span>
-          </label>
-          <select
-            id="tipoInclusion"
+        <!-- La tipificación viene decidida del área usuaria: aquí se lee, no se
+             elige. Se muestra porque es lo que gobierna cuándo podrá generarse
+             el Anexo 4 que aprueba este expediente. -->
+        <div class="campo" *ngIf="accionEnCurso.solicitud.TipoInclusion">
+          <label class="campo-etiqueta">Tipo de solicitud</label>
+          <input
+            type="text"
             class="campo-control"
-            name="tipoInclusion"
-            [(ngModel)]="tipoInclusion"
-          >
-            <option value="">Seleccione</option>
-            <option value="ORDINARIA">Ordinario</option>
-            <option value="URGENTE">Urgente</option>
-          </select>
-          <!-- La consecuencia se dice aquí y no después: es lo que decide si el
-               Anexo 4 podrá generarse hoy o habrá que esperar al viernes, y una
-               vez firmado el Anexo 3 ya no se puede cambiar. -->
+            [value]="accionEnCurso.solicitud.TipoInclusion | titlecase"
+            readonly
+          />
           <p class="campo-ayuda">
-            Lo <b>ordinario</b> se agrupa en un Anexo 4 que sólo puede generarse los viernes.
-            Lo <b>urgente</b> puede generarse cualquier día.
-            <ng-container *ngIf="tipoInclusion === 'ORDINARIA' && !hoyEsViernes">
-              <br>Hoy no es viernes: este expediente quedará esperando.
-            </ng-container>
+            Lo declaró el área usuaria al registrar el Anexo 3. Lo
+            <b>ordinario</b> se agrupa en un Anexo 4 que sólo puede generarse los
+            viernes; lo <b>extraordinario</b>, cualquier día, y trae su
+            justificación de urgencia en el detalle del expediente.
           </p>
         </div>
 
@@ -557,7 +549,7 @@
 
 <app-modal-registro (registrado)="alRegistrar()" />
 <app-modal-detalle
-  (editar)="editarObservacion($event)"
+  (editar)="editarSolicitud($event)"
   (firmar)="firmarDesdeDetalle($event)"
   (verPdf)="verAnexo3Pdf($event)"
 />

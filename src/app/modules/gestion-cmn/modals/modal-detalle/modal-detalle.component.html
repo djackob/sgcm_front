@@ -82,14 +82,23 @@
               <span class="detalle-ficha__valor">{{ detalle.Version }}</span>
             </div>
             <div>
-              <span class="detalle-ficha__etiqueta">Tipo de inclusión</span>
-              <span class="detalle-ficha__valor">{{ detalle.TipoInclusion || '—' }}</span>
+              <span class="detalle-ficha__etiqueta">Tipo de solicitud</span>
+              <span class="detalle-ficha__valor">{{ (detalle.TipoInclusion | titlecase) || '—' }}</span>
             </div>
           </div>
 
           <section class="seccion">
             <h3 class="contenido-titulo">Sustento</h3>
             <p class="detalle-sustento">{{ detalle.Sustento }}</p>
+          </section>
+
+          <!-- El «por qué» de una solicitud extraordinaria. Es lo que
+               Abastecimiento tiene que leer para validar la urgencia contra las
+               directivas del MEF, así que va junto al sustento y no escondido en
+               la lista de documentos. -->
+          <section class="seccion" *ngIf="detalle.JustificacionUrgencia">
+            <h3 class="contenido-titulo">Justificación de la urgencia</h3>
+            <p class="detalle-sustento">{{ detalle.JustificacionUrgencia }}</p>
           </section>
 
           <!-- Documentos del expediente -->

@@ -65,6 +65,19 @@ export class DocumentoService {
    * @param nombreArchivo nombre visible, el que verá el usuario al descargar
    * @param carpeta       subcarpeta del file server: 'cmn', 'requerimiento'
    */
+  /**
+   * Deposita en el file server un archivo que trae el usuario, sin generarlo.
+   *
+   * Es el caso del sustento de una solicitud extraordinaria: el informe o la
+   * nota técnica ya existen, no hay nada que armar. Comparte destino con
+   * `generarYSubir` a propósito —mismo file server, misma subcarpeta— para que
+   * `sigcm.paRegistrarDocumento` los trate igual: un documento del expediente,
+   * con versión y trazabilidad, y no un adjunto de otra naturaleza.
+   */
+  subirArchivo(archivo: File, carpeta: string): Observable<ArchivoSubido> {
+    return this.maestraService.subirArchivo(archivo, carpeta) as Observable<ArchivoSubido>;
+  }
+
   generarYSubir(definicion: any, nombreArchivo: string, carpeta: string): Observable<ArchivoSubido> {
     return from(this.generarPdf(definicion)).pipe(
       switchMap((blob: Blob) => {
