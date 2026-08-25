@@ -205,6 +205,42 @@ export function crearItemFormularioRequerimiento(): ItemFormularioRequerimiento 
   };
 }
 
+/** Pedido SIGA que devuelve el maestro PEDIDO de paListarMaestroSiga. */
+export interface PedidoSiga {
+  NumeroPedido: string;
+  MotivoPedido: string;
+  AnoEje: number;
+  TipoPedido: string;
+  ActProy: string;
+  FuenteFinanc: string;
+  CodigoTarea: number | string;
+  SecFunc: number | string;
+  FechaPedido?: string;
+  Origen?: string;
+  Programa?: string;
+}
+
+/**
+ * Cabecera de tarea + resumen de items del pedido elegido.
+ * Maestro PEDIDO_DETALLE: une listarCentroCostoTarea y listarItemsPedidoResumen.
+ */
+export interface PedidoSigaDetalle {
+  NumeroPedido: string;
+  AnoEje: number;
+  CodigoTarea: number | string;
+  TipoTarea?: string;
+  NivelTarea?: string;
+  NombreTarea: string;
+  ActProy?: string;
+  Origen?: string;
+  FuenteFinanc?: string;
+  Programa?: string;
+  SecFunc?: number | string;
+  CodigoItem: string;
+  NombreItem: string;
+  Clasificador: string;
+}
+
 /** Pedido SIGA en el formulario. */
 export interface PedidoFormularioRequerimiento {
   NumeroPedido: string;

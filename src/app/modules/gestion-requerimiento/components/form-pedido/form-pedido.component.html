@@ -15,15 +15,19 @@
   <div class="req-grid req-grid--documento">
     <div class="campo req-grid__ancho">
       <label class="campo-etiqueta" [attr.for]="prefijo + '-numero'">N° Pedido SIGA</label>
-      <input
+      <select
         [id]="prefijo + '-numero'"
-        type="text"
         class="campo-control"
         [name]="prefijo + '-numero'"
-        maxlength="20"
-        [(ngModel)]="pedido.NumeroPedido"
-        placeholder="Seleccione o ingrese el N° de pedido"
-      />
+        [ngModel]="pedido.NumeroPedido"
+        (ngModelChange)="onPedidoSeleccionado($event)"
+        [disabled]="cargandoPedidos || cargandoDetalle"
+      >
+        <option value="">{{ cargandoPedidos ? 'Cargando pedidos SIGA…' : 'Seleccione el N° de pedido' }}</option>
+        <option *ngFor="let o of opcionesVisibles" [value]="o.NumeroPedido">
+          {{ o.MotivoPedido || o.NumeroPedido }}
+        </option>
+      </select>
     </div>
 
     <div class="campo campo--corto">
@@ -96,7 +100,6 @@
         type="text"
         class="campo-control"
         [name]="prefijo + '-clasificador'"
-        maxlength="20"
         [(ngModel)]="pedido.Clasificador"
       />
     </div>

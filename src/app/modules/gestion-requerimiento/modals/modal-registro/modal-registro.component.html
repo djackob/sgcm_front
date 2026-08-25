@@ -53,6 +53,7 @@
                   class="campo-control"
                   name="anoEje"
                   [(ngModel)]="anoEje"
+                  (ngModelChange)="cargarPedidosSiga()"
                   [readonly]="modoEdicion"
                 />
               </div>
@@ -110,6 +111,11 @@
                 [indice]="i"
                 [total]="pedidos.length"
                 [puedeQuitar]="pedidos.length > 1"
+                [opcionesPedido]="pedidosSiga"
+                [cargandoPedidos]="cargandoPedidosSiga"
+                [anoEje]="anoEje"
+                [secEjec]="secEjec"
+                [centroCosto]="centroCosto"
                 (quitar)="quitarPedido(i)"
               />
             </div>

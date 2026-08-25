@@ -14,6 +14,7 @@ import {
   CatalogoSiga,
   ItemFormularioRequerimiento,
   PedidoFormularioRequerimiento,
+  PedidoSiga,
   ProveedorFormularioRequerimiento,
   TipoContratacionRequerimiento,
   crearItemFormularioRequerimiento,
@@ -44,11 +45,9 @@ import {
  * corresponde a lo que se va a contratar, y la rutina lo rechazaría igual: es un
  * campo calculado, y se muestra como tal.
  *
- * LOS PEDIDOS SIGA SE CAPTURAN, NO SE VERIFICAN
- * No existe todavía una vista de pedidos de SIGA contra la cual comprobarlos, y
- * por eso la base los guarda con Verificado = 0. El formulario los pide a mano.
- * Cuando exista siga.vwPedido, este bloque pasa a ser un buscador como el del
- * catálogo y la rutina empieza a validarlos.
+ * LOS PEDIDOS SIGA SE ELIGEN DEL MAESTRO PEDIDO
+ * El combo se llena con listarMaestroSiga('PEDIDO'). Al elegir un N°,
+ * PEDIDO_DETALLE trae la tarea del centro y el resumen de items.
  */
 @Component({
   selector: 'app-modal-registro-requerimiento',
@@ -115,6 +114,8 @@ export class ModalRegistroRequerimientoComponent {
   solicitudesCmn: { IdSolicitud: string; Codigo: string; CentroCosto: string }[] = [];
 
   pedidos: PedidoFormularioRequerimiento[] = [];
+  pedidosSiga: PedidoSiga[] = [];
+  cargandoPedidosSiga = false;
   items: ItemFormularioRequerimiento[] = [];
   proveedores: ProveedorFormularioRequerimiento[] = [];
   acordeonDocumento = true;
@@ -126,7 +127,7 @@ export class ModalRegistroRequerimientoComponent {
     private funciones: Funciones
   ) { }
 
-  private get secEjec(): number {
+  get secEjec(): number {
     return ConfigService.settings?.secEjec || 1750;
   }
 
@@ -153,6 +154,7 @@ export class ModalRegistroRequerimientoComponent {
     this.abierto = true;
 
     this.cargarTope();
+    this.cargarPedidosSiga();
   }
 
   /**
@@ -211,6 +213,7 @@ export class ModalRegistroRequerimientoComponent {
         this.aplicarDatosAdicionales(respuesta.DatosAdicionales);
 
         this.cargarTope();
+        this.cargarPedidosSiga();
         if (this.condicionCmn === 'NO_INCLUIDO') {
           this.cargarSolicitudesCmn();
         }
@@ -240,6 +243,7 @@ export class ModalRegistroRequerimientoComponent {
     this.nombreDocumentoDisponibilidad = '';
     this.sustento = '';
     this.solicitudesCmn = [];
+    this.pedidosSiga = [];
     this.pedidos = [crearPedidoFormularioRequerimiento()];
     this.pedidos[0].AnoPedido = this.anoEje;
     this.items = [crearItemFormularioRequerimiento()];
@@ -330,6 +334,26 @@ export class ModalRegistroRequerimientoComponent {
         }));
       },
       error: () => { this.cargandoCmn = false; }
+    });
+  }
+
+  cargarPedidosSiga(): void {
+    if (!this.centroCosto || !this.anoEje) {
+      this.pedidosSiga = [];
+      return;
+    }
+
+    this.cargandoPedidosSiga = true;
+    this.requerimientoService.listarPedidosSiga(this.anoEje, this.centroCosto, this.secEjec).subscribe({
+      next: (filas) => {
+        this.cargandoPedidosSiga = false;
+        this.pedidosSiga = filas || [];
+      },
+      error: () => {
+        this.cargandoPedidosSiga = false;
+        this.pedidosSiga = [];
+        this.funciones.mensaje('info', 'No fue posible listar los pedidos SIGA.');
+      }
     });
   }
 

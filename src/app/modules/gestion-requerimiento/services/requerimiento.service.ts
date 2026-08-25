@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { forkJoin, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { MetodoService } from '../../../core/services/metodo.service';
+import { PedidoSiga, PedidoSigaDetalle } from '../models/requerimiento.model';
 
 /**
  * Acceso al módulo Requerimiento a Notificación. Un método por endpoint, sin
@@ -138,6 +139,40 @@ export class RequerimientoService {
    */
   listarMaestroSiga(maestro: string, parametros: any = {}): Observable<any> {
     return this.apiService.GET('api/sigcm/listarMaestroSiga', { Maestro: maestro, ...parametros });
+  }
+
+  /**
+   * Pedidos SIGA del centro de costo y año. Es el maestro PEDIDO de
+   * sigcm.paListarMaestroSiga (siga.vwPedido), no un HTTP aparte.
+   */
+  listarPedidosSiga(anoEje: number, centroCosto: string, secEjec?: number): Observable<PedidoSiga[]> {
+    return this.listarMaestroSiga('PEDIDO', {
+      AnoEje: anoEje,
+      SecEjec: secEjec || 1750,
+      CentroCosto: centroCosto
+    }).pipe(
+      map((rpta: any) => rpta?.datos || [])
+    );
+  }
+
+  /**
+   * Tarea del centro + resumen de items del pedido (un solo viaje).
+   * Maestro PEDIDO_DETALLE de sigcm.paListarMaestroSiga.
+   */
+  listarPedidoDetalleSiga(
+    anoEje: number,
+    numeroPedido: string,
+    centroCosto: string,
+    secEjec?: number
+  ): Observable<PedidoSigaDetalle | null> {
+    return this.listarMaestroSiga('PEDIDO_DETALLE', {
+      AnoEje: anoEje,
+      SecEjec: secEjec || 1750,
+      CentroCosto: centroCosto,
+      NumeroPedido: numeroPedido
+    }).pipe(
+      map((rpta: any) => (rpta?.datos && rpta.datos[0]) || null)
+    );
   }
 
   /**
