@@ -25,6 +25,8 @@ export class FormPedidoComponent {
   @Input() anoEje = 0;
   @Input() secEjec = 1750;
   @Input() centroCosto = '';
+  /** Pedidos ya capturados en el requerimiento: el TDR solo los muestra (REQ-09). */
+  @Input() soloLectura = false;
 
   @Output() quitar = new EventEmitter<void>();
 

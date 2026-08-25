@@ -1,13 +1,29 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { catchError, switchMap } from 'rxjs/operators';
+import { throwError } from 'rxjs';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ModalRegistroRequerimientoComponent } from './modals/modal-registro/modal-registro.component';
 import { ModalDetalleRequerimientoComponent } from './modals/modal-detalle/modal-detalle.component';
+import { ModalAnexo3RequerimientoComponent } from './modals/modal-anexo3/modal-anexo3.component';
 import { RequerimientoService } from './services/requerimiento.service';
 import { SessionService } from '../../core/services/session.service';
+import { DocumentoService } from '../../core/services/documento.service';
+import { MaestraService } from '../../shared/services/maestra.service';
 import { Funciones } from '../../shared/funciones/funciones';
+import { esPdfDelFileServer, idDocumentoSistema } from '../../shared/funciones/archivo';
+import {
+  CARPETA_ANEXO_5,
+  TIPO_ANEXO_5,
+  construirAnexo5,
+  nombreArchivoAnexo5
+} from './documentos/anexo5.pdfmake';
+import {
+  CARPETA_ANEXO_3,
+  TIPO_ANEXO_3
+} from './documentos/anexo3.pdfmake';
 import {
   DOCUMENTO_TECNICO,
   RequerimientoBandeja,
@@ -50,7 +66,8 @@ import {
     FormsModule,
     BreadcrumbComponent,
     ModalRegistroRequerimientoComponent,
-    ModalDetalleRequerimientoComponent
+    ModalDetalleRequerimientoComponent,
+    ModalAnexo3RequerimientoComponent
   ],
   templateUrl: './gestion-requerimiento.component.html',
   styleUrl: './gestion-requerimiento.component.scss',
@@ -59,6 +76,7 @@ export class GestionRequerimientoComponent implements OnInit {
 
   @ViewChild(ModalRegistroRequerimientoComponent) modalRegistro!: ModalRegistroRequerimientoComponent;
   @ViewChild(ModalDetalleRequerimientoComponent) modalDetalle!: ModalDetalleRequerimientoComponent;
+  @ViewChild(ModalAnexo3RequerimientoComponent) modalAnexo3!: ModalAnexo3RequerimientoComponent;
 
   /* Identidad del actor, para el encabezado y para saber qué ofrecer. */
   breadcrumb: string[] = ['Requerimiento'];
@@ -88,10 +106,13 @@ export class GestionRequerimientoComponent implements OnInit {
   comentario = '';
   ejecutando = false;
   paso = '';
+  cargandoPdfId = '';
 
   constructor(
     private requerimientoService: RequerimientoService,
     private sesion: SessionService,
+    private documentoService: DocumentoService,
+    private maestraService: MaestraService,
     private funciones: Funciones
   ) { }
 
@@ -271,6 +292,152 @@ export class GestionRequerimientoComponent implements OnInit {
     this.modalRegistro.abrirEdicion(requerimiento.IdRequerimiento);
   }
 
+  puedeVerAnexo5(item: RequerimientoBandeja): boolean {
+    return item.CodigoTipoContratacion === 'LOCACION';
+  }
+
+  puedeVerAnexo3(item: RequerimientoBandeja): boolean {
+    return item.CodigoTipoContratacion === 'LOCACION';
+  }
+
+  iconoPdfFila(item: RequerimientoBandeja): string {
+    return this.cargandoPdfId === item.IdRequerimiento
+      ? 'mdi-loading mdi-spin'
+      : 'mdi-file-pdf-box';
+  }
+
+  abrirAnexo3(idRequerimiento: string): void {
+    if (!idRequerimiento) {
+      return;
+    }
+    this.modalAnexo3.abrir(idRequerimiento);
+  }
+
+  verAnexo3Pdf(item: RequerimientoBandeja): void {
+    if (!item || this.cargandoPdfId) {
+      return;
+    }
+
+    this.cargandoPdfId = item.IdRequerimiento;
+    this.requerimientoService.listarDocumento(item.IdExpediente).subscribe({
+      next: (respuesta: any) => {
+        const doc = (respuesta?.Documentos || [])
+          .find((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_3);
+        const id = esPdfDelFileServer(doc?.GeneradoDocumento)
+          ? idDocumentoSistema(doc.GeneradoDocumento)
+          : '';
+        if (id) {
+          this.abrirPdfRegistrado(item, id, 'No fue posible abrir el Anexo 3.');
+          return;
+        }
+        this.cargandoPdfId = '';
+        this.abrirAnexo3(item.IdRequerimiento);
+      },
+      error: () => {
+        this.cargandoPdfId = '';
+        this.funciones.mensaje('error', 'No fue posible consultar el documento del expediente.');
+      }
+    });
+  }
+
+  verAnexo5Pdf(item: RequerimientoBandeja): void {
+    if (!item || this.cargandoPdfId) {
+      return;
+    }
+
+    const idFila = this.idPdfAnexo5(item);
+    if (idFila) {
+      this.abrirPdfRegistrado(item, idFila);
+      return;
+    }
+
+    this.cargandoPdfId = item.IdRequerimiento;
+    this.requerimientoService.listarDocumento(item.IdExpediente).subscribe({
+      next: (respuesta: any) => {
+        const doc = (respuesta?.Documentos || [])
+          .find((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_5);
+        const id = esPdfDelFileServer(doc?.GeneradoDocumento)
+          ? idDocumentoSistema(doc.GeneradoDocumento)
+          : '';
+        if (id) {
+          this.abrirPdfRegistrado(item, id);
+          return;
+        }
+        this.cargandoPdfId = '';
+        this.funciones.mensaje('info',
+          'El Anexo 5 aún no fue generado. Vuelva a guardar el requerimiento o use «Firmar» para registrarlo.');
+      },
+      error: () => {
+        this.cargandoPdfId = '';
+        this.funciones.mensaje('error', 'No fue posible consultar el documento del expediente.');
+      }
+    });
+  }
+
+  private idPdfAnexo5(item: RequerimientoBandeja): string {
+    if (item.CodigoTipoDocumento && item.CodigoTipoDocumento !== TIPO_ANEXO_5) {
+      return esPdfDelFileServer(item.DocumentoSistema)
+        ? idDocumentoSistema(item.DocumentoSistema)
+        : '';
+    }
+    return esPdfDelFileServer(item.DocumentoSistema)
+      ? idDocumentoSistema(item.DocumentoSistema)
+      : '';
+  }
+
+  private abrirPdfRegistrado(
+    item: RequerimientoBandeja,
+    id: string,
+    mensajeError = 'No fue posible abrir el Anexo 5.'
+  ): void {
+    this.cargandoPdfId = item.IdRequerimiento;
+    this.maestraService.descargarArchivo(id, CARPETA_ANEXO_5).pipe(
+      catchError(() => this.maestraService.descargarArchivo(id, CARPETA_ANEXO_3)),
+      catchError(() => this.maestraService.descargarArchivo(id))
+    ).subscribe({
+      next: (blob: Blob) => {
+        this.cargandoPdfId = '';
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank', 'noopener');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: () => {
+        this.cargandoPdfId = '';
+        this.funciones.mensaje('error', mensajeError);
+      }
+    });
+  }
+
+  private generarYRegistrarAnexo5(requerimiento: RequerimientoBandeja) {
+    this.paso = 'Armando el Anexo 5…';
+    return this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento).pipe(
+      switchMap((detalle: any) => {
+        if (detalle?.estado !== 1) {
+          return throwError(() => new Error(detalle?.mensaje || 'No fue posible leer el requerimiento.'));
+        }
+        const definicion = construirAnexo5(detalle);
+        const nombre = nombreArchivoAnexo5(detalle);
+        this.paso = 'Subiendo el Anexo 5…';
+        return this.documentoService.generarYSubir(definicion, nombre, CARPETA_ANEXO_5).pipe(
+          switchMap((archivo: any) => {
+            const documentoSistema = idDocumentoSistema(archivo?.documento_sistema);
+            if (archivo?.estado !== 1 || !documentoSistema) {
+              return throwError(() => new Error(archivo?.mensaje || 'No se pudo subir el Anexo 5.'));
+            }
+            this.paso = 'Registrando el Anexo 5…';
+            return this.requerimientoService.registrarDocumento(
+              detalle.IdExpediente,
+              TIPO_ANEXO_5,
+              documentoSistema,
+              archivo.documento_original,
+              { Codigo: detalle.Codigo }
+            );
+          })
+        );
+      })
+    );
+  }
+
   /**
    * Toda acción pasa por confirmación, incluso las que no exigen comentario: son
    * cambios de estado con efectos fuera de la pantalla —firmas, remisiones a
@@ -367,8 +534,32 @@ export class GestionRequerimientoComponent implements OnInit {
           return;
         }
 
-        const existe = registrados.some(d => d.CodigoTipoDocumento === pendiente.codigo);
-        if (!existe) {
+        const docPendiente = registrados.find(d => d.CodigoTipoDocumento === pendiente.codigo);
+        const pdfListo = esPdfDelFileServer(docPendiente?.GeneradoDocumento);
+
+        if (pendiente.codigo === TIPO_ANEXO_5 && !pdfListo) {
+          this.generarYRegistrarAnexo5(requerimiento).subscribe({
+            next: (alta: any) => {
+              if (alta?.estado !== 1) {
+                this.fallar(alta?.mensaje || 'No fue posible registrar el Anexo 5.');
+                return;
+              }
+              this.paso = 'Firmando el Anexo 5…';
+              this.firmarYEjecutar(requerimiento, transicion, pendiente.codigo);
+            },
+            error: (err) => this.fallar(err?.message || 'No fue posible registrar el Anexo 5.')
+          });
+          return;
+        }
+
+        if (!docPendiente) {
+          if (pendiente.codigo === TIPO_ANEXO_3) {
+            this.fallar(
+              'Falta grabar el TDR (Anexo 3) antes de firmarlo. Complete el formulario y pulse Grabar.');
+            this.accionEnCurso = null;
+            this.abrirAnexo3(requerimiento.IdRequerimiento);
+            return;
+          }
           this.fallar(
             `Falta registrar el ${pendiente.etiqueta} (${pendiente.anexo}) antes de firmarlo.`);
           return;

@@ -45,6 +45,19 @@
             </span>
 
             <div class="req-grid req-grid--documento">
+              <div class="campo">
+                <label class="campo-etiqueta" for="objeto">Objeto</label>
+                <select
+                  id="objeto"
+                  class="campo-control campo-control--bloqueado"
+                  name="objeto"
+                  [(ngModel)]="codigoTipoContratacion"
+                  disabled
+                >
+                  <option *ngFor="let o of objetos" [ngValue]="o.valor">{{ o.nombre }}</option>
+                </select>
+              </div>
+
               <div class="campo campo--corto">
                 <label class="campo-etiqueta" for="anoEje">Año</label>
                 <input

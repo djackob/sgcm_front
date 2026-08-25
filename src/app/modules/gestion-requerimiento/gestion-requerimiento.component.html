@@ -167,6 +167,30 @@
 
                 <button
                   type="button"
+                  class="btn-icon-outline btn-anexo"
+                  *ngIf="puedeVerAnexo5(item)"
+                  title="Ver Anexo 5 (PDF)"
+                  [disabled]="!!cargandoPdfId"
+                  (click)="verAnexo5Pdf(item)"
+                >
+                  <i class="mdi" [ngClass]="iconoPdfFila(item)" aria-hidden="true"></i>
+                  <span class="btn-anexo__badge">A5</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-icon-outline btn-anexo btn-anexo--3"
+                  *ngIf="puedeVerAnexo3(item)"
+                  title="Anexo 3 (TDR). Si aún no está grabado, abre el formulario."
+                  [disabled]="!!cargandoPdfId"
+                  (click)="verAnexo3Pdf(item)"
+                >
+                  <i class="mdi" [ngClass]="iconoPdfFila(item)" aria-hidden="true"></i>
+                  <span class="btn-anexo__badge">A3</span>
+                </button>
+
+                <button
+                  type="button"
                   class="btn-icon-outline"
                   *ngIf="puedeEditar(item)"
                   title="Editar el requerimiento"
@@ -276,6 +300,27 @@
           </li>
         </ul>
 
+        <div class="req-pdf-acciones" *ngIf="puedeVerAnexo5(accionEnCurso.requerimiento)">
+          <button
+            type="button"
+            class="btn btn-app-secundario"
+            [disabled]="!!cargandoPdfId"
+            (click)="verAnexo5Pdf(accionEnCurso.requerimiento)"
+          >
+            <i class="mdi" [ngClass]="iconoPdfFila(accionEnCurso.requerimiento)" aria-hidden="true"></i>
+            Ver Anexo 5 (PDF)
+          </button>
+          <button
+            type="button"
+            class="btn btn-app-secundario"
+            [disabled]="!!cargandoPdfId"
+            (click)="verAnexo3Pdf(accionEnCurso.requerimiento)"
+          >
+            <i class="mdi" [ngClass]="iconoPdfFila(accionEnCurso.requerimiento)" aria-hidden="true"></i>
+            Anexo 3 (TDR)
+          </button>
+        </div>
+
         <div class="campo">
           <label class="campo-etiqueta" for="comentarioAccion">
             Comentario
@@ -311,5 +356,12 @@
   </div>
 </div>
 
-<app-modal-registro-requerimiento (registrado)="alRegistrar()" />
-<app-modal-detalle-requerimiento (editar)="editarRequerimiento($event)" />
+<app-modal-registro-requerimiento
+  (registrado)="alRegistrar()"
+  (anexo5Creado)="abrirAnexo3($event)"
+/>
+<app-modal-detalle-requerimiento
+  (editar)="editarRequerimiento($event)"
+  (elaborarAnexo3)="abrirAnexo3($event)"
+/>
+<app-modal-anexo3-requerimiento (registrado)="alRegistrar()" />

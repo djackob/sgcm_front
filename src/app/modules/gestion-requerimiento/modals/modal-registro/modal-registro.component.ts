@@ -9,7 +9,15 @@ import { FormProveedorComponent } from '../../components/form-proveedor/form-pro
 import { RequerimientoService } from '../../services/requerimiento.service';
 import { SessionService } from '../../../../core/services/session.service';
 import { ConfigService } from '../../../../core/services/config.service';
+import { DocumentoService } from '../../../../core/services/documento.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
+import { idDocumentoSistema } from '../../../../shared/funciones/archivo';
+import {
+  construirAnexo5,
+  nombreArchivoAnexo5,
+  TIPO_ANEXO_5,
+  CARPETA_ANEXO_5
+} from '../../documentos/anexo5.pdfmake';
 import {
   CatalogoSiga,
   ItemFormularioRequerimiento,
@@ -26,15 +34,11 @@ import {
 /**
  * Registro del requerimiento — REQ-01 a REQ-09.
  *
- * QUÉ SE VALIDA AQUÍ Y QUÉ NO
- * En el formulario se comprueba lo necesario para no gastar un viaje al servidor
- * con un formulario evidentemente incompleto: campos vacíos, cantidades en cero,
- * la exigencia documental de la condición CMN. Las cuatro validaciones que
- * definen el módulo —el tope de ocho UIT del año, la condición frente al CMN
- * comprobada contra cmn.Solicitud, los diez días hábiles de antelación y la
- * coherencia entre la suma de los ítems y el monto declarado— son de la rutina,
- * y no se replican: dos validaciones que dicen lo mismo terminan diciendo cosas
- * distintas.
+ * El Especialista registra la necesidad y los pedidos SIGA (REQ-12). El
+ * documento técnico (Anexo 1 / TDR) se elabora después (REQ-13).
+ * Las cuatro validaciones de tope, CMN con adjunto, plazo y coherencia de
+ * monto que viven en la rutina: el tope y el monto sí se aplican aquí; el
+ * Anexo 1 ya no se exige en este guardado.
  *
  * El tope de ocho UIT sí se muestra, pero como ayuda visual y no como regla: se
  * lee de requerimiento.ParametroAnio a través del maestro, cambia cada año y la
@@ -66,6 +70,8 @@ import {
 export class ModalRegistroRequerimientoComponent {
 
   @Output() registrado = new EventEmitter<void>();
+  /** Locación: el Anexo 5 ya está en el file server; toca abrir el TDR. */
+  @Output() anexo5Creado = new EventEmitter<string>();
 
   readonly breadcrumb = ['Requerimiento', 'Registro de la necesidad'];
 
@@ -124,6 +130,7 @@ export class ModalRegistroRequerimientoComponent {
   constructor(
     private requerimientoService: RequerimientoService,
     private sesion: SessionService,
+    private documentoService: DocumentoService,
     private funciones: Funciones
   ) { }
 
@@ -194,7 +201,7 @@ export class ModalRegistroRequerimientoComponent {
         this.centroCosto = respuesta.CentroCosto || this.centroCosto;
         this.centroCostoNombre = respuesta.CentroCostoNombre || this.centroCostoNombre;
         this.denominacion = respuesta.Denominacion || '';
-        this.codigoTipoContratacion = respuesta.CodigoTipoContratacion || 'BIEN';
+        this.codigoTipoContratacion = respuesta.CodigoTipoContratacion || 'LOCACION';
         this.codigoDec = respuesta.CodigoDec || 'ABASTECIMIENTO';
         this.condicionCmn = respuesta.CondicionCmn || 'INCLUIDO';
         this.idSolicitudCmn = respuesta.IdSolicitudCmn || null;
@@ -753,22 +760,97 @@ export class ModalRegistroRequerimientoComponent {
 
     this.requerimientoService.registrarRequerimiento(requerimiento, pedidos, items).subscribe({
       next: (respuesta: any) => {
-        this.guardando = false;
-
         if (respuesta?.estado !== 1) {
+          this.guardando = false;
           this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible guardar el requerimiento.');
           return;
         }
 
-        this.abierto = false;
-        this.registrado.emit();
-        this.funciones.mensaje('success',
-          respuesta.mensaje || `Se registró el requerimiento ${respuesta.Codigo}.`);
+        if (this.codigoTipoContratacion === 'LOCACION' && respuesta.IdRequerimiento) {
+          this.subirArchivoAnexo5(respuesta);
+          return;
+        }
+
+        this.terminarGuardado(respuesta, true);
       },
       error: () => {
         this.guardando = false;
         this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
       }
     });
+  }
+
+  /**
+   * El Anexo 5 es el PDF oficial de la propuesta. Se arma con lo ya guardado,
+   * se sube al file server y se registra documento_sistema. Sin ese id la
+   * bandeja no puede mostrar el archivo.
+   */
+  private subirArchivoAnexo5(registro: any): void {
+    this.requerimientoService.obtenerRequerimiento(registro.IdRequerimiento).subscribe({
+      next: (detalle: any) => {
+        if (detalle?.estado !== 1) {
+          this.terminarGuardado(registro, false,
+            detalle?.mensaje
+              ? `El requerimiento se guardó, pero no fue posible armar el Anexo 5: ${detalle.mensaje}`
+              : 'El requerimiento se guardó, pero no fue posible armar el Anexo 5.');
+          return;
+        }
+
+        const definicion = construirAnexo5(detalle);
+        const nombre = nombreArchivoAnexo5(detalle);
+
+        this.documentoService.generarYSubir(definicion, nombre, CARPETA_ANEXO_5).subscribe({
+          next: (archivo: any) => {
+            const documentoSistema = idDocumentoSistema(archivo?.documento_sistema);
+            if (archivo?.estado !== 1 || !documentoSistema) {
+              this.terminarGuardado(registro, false,
+                archivo?.mensaje || 'El requerimiento se guardó, pero no se pudo subir el Anexo 5.');
+              return;
+            }
+
+            this.requerimientoService.registrarDocumento(
+              detalle.IdExpediente,
+              TIPO_ANEXO_5,
+              documentoSistema,
+              archivo.documento_original,
+              { Codigo: detalle.Codigo }
+            ).subscribe({
+              next: (doc: any) => {
+                this.terminarGuardado(registro, doc?.estado === 1,
+                  doc?.estado === 1
+                    ? null
+                    : (doc?.mensaje || 'El requerimiento se guardó, pero no se registró el archivo del Anexo 5.'));
+              },
+              error: () => this.terminarGuardado(registro, false,
+                'El requerimiento se guardó, pero no se registró el archivo del Anexo 5.')
+            });
+          },
+          error: () => this.terminarGuardado(registro, false,
+            'El requerimiento se guardó, pero no se pudo subir el Anexo 5 al servidor.')
+        });
+      },
+      error: () => this.terminarGuardado(registro, false,
+        'El requerimiento se guardó, pero no fue posible armar el Anexo 5.')
+    });
+  }
+
+  private terminarGuardado(registro: any, archivoOk: boolean, aviso?: string | null): void {
+    this.guardando = false;
+    this.abierto = false;
+    this.registrado.emit();
+
+    if (archivoOk) {
+      this.funciones.mensaje('success',
+        this.modoEdicion
+          ? (registro.mensaje || `Se actualizó el requerimiento ${registro.Codigo}.`)
+          : (registro.mensaje || `Se registró el requerimiento ${registro.Codigo}.`));
+      if (this.codigoTipoContratacion === 'LOCACION' && registro?.IdRequerimiento) {
+        this.anexo5Creado.emit(registro.IdRequerimiento);
+      }
+      return;
+    }
+
+    this.funciones.mensaje('warning',
+      aviso || `Se guardó el requerimiento ${registro.Codigo}, pero el Anexo 5 no quedó en el servidor.`);
   }
 }

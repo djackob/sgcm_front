@@ -58,6 +58,11 @@ export interface RequerimientoBandeja {
   Items: number;
   Pedidos: number;
   ActualizadoEn: string;
+  /** Id de archivo (documento_sistema) del documento técnico vigente. */
+  DocumentoSistema?: string | null;
+  NombreDocumento?: string | null;
+  EstadoDocumento?: string | null;
+  CodigoTipoDocumento?: string | null;
   /** Acciones de este actor sobre este expediente. Las calcula
    *  requerimiento.paListarRequerimiento con la misma regla que
    *  sigcm.paListarTransicionDisponible. */
