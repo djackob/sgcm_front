@@ -12,6 +12,15 @@ export function idDocumentoSistema(valor: string | null | undefined): string {
   return partes[partes.length - 1] || '';
 }
 
+/** El id de file server, no un marcador interno del formulario. */
+export function esPdfDelFileServer(valor: string | null | undefined): boolean {
+  const limpio = String(valor || '').trim();
+  if (!limpio || limpio.startsWith('interno://')) {
+    return false;
+  }
+  return !!idDocumentoSistema(limpio);
+}
+
 export function esBlobJson(blob: Blob | null | undefined): boolean {
   return !!blob && (blob.type || '').toLowerCase().includes('json');
 }

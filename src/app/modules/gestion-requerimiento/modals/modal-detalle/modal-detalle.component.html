@@ -147,6 +147,24 @@
               <span class="cell-muted det-documento__firma" *ngIf="doc.registrado && !doc.registrado.FirmadoEn">
                 v{{ doc.registrado.Version }} · sin firma
               </span>
+              <a
+                *ngIf="urlDocumento(doc.registrado)"
+                class="btn-icon-outline"
+                [href]="urlDocumento(doc.registrado)"
+                target="_blank"
+                rel="noopener"
+                title="Abrir PDF"
+              >
+                <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+              </a>
+              <button
+                type="button"
+                class="btn btn-app-secundario btn-sm"
+                *ngIf="doc.codigo === 'REQ_TDR_LOCACION' && (!doc.registrado || doc.registrado.Estado !== 'FIRMADO')"
+                (click)="emitirElaborarAnexo3()"
+              >
+                {{ doc.registrado ? 'Editar TDR' : 'Elaborar TDR' }}
+              </button>
             </article>
           </div>
 
@@ -264,6 +282,15 @@
         >
           <i class="mdi mdi-pencil-outline" aria-hidden="true"></i>
           Editar requerimiento
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          *ngIf="puedeElaborarAnexo3"
+          (click)="emitirElaborarAnexo3()"
+        >
+          <i class="mdi mdi-file-document-edit-outline" aria-hidden="true"></i>
+          Elaborar Anexo 3
         </button>
         <button type="button" class="btn btn-app-primary" (click)="cerrar()">Cerrar</button>
       </div>

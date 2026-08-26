@@ -4,7 +4,11 @@ import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { RequerimientoService } from '../../services/requerimiento.service';
+import { MaestraService } from '../../../../shared/services/maestra.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
+import { esPdfDelFileServer, idDocumentoSistema } from '../../../../shared/funciones/archivo';
+import { CARPETA_ANEXO_5 } from '../../documentos/anexo5.pdfmake';
+import { TIPO_ANEXO_3 } from '../../documentos/anexo3.pdfmake';
 import {
   DOCUMENTO_TECNICO,
   HistorialRequerimiento,
@@ -55,6 +59,7 @@ interface DocumentoExpediente {
 export class ModalDetalleRequerimientoComponent {
 
   @Output() editar = new EventEmitter<RequerimientoBandeja>();
+  @Output() elaborarAnexo3 = new EventEmitter<string>();
 
   abierto = false;
   cargando = false;
@@ -69,6 +74,7 @@ export class ModalDetalleRequerimientoComponent {
 
   constructor(
     private requerimientoService: RequerimientoService,
+    private maestraService: MaestraService,
     private funciones: Funciones
   ) { }
 
@@ -188,5 +194,31 @@ export class ModalDetalleRequerimientoComponent {
     if (documento.Estado === 'FIRMADO') return 'success';
     if (documento.Estado === 'ANULADO') return 'warning';
     return 'info';
+  }
+
+  urlDocumento(documento: DocumentoExpediente | null): string {
+    if (!esPdfDelFileServer(documento?.GeneradoDocumento)) {
+      return '';
+    }
+    return this.maestraService.urlDescarga(
+      idDocumentoSistema(documento?.GeneradoDocumento),
+      CARPETA_ANEXO_5
+    );
+  }
+
+  get puedeElaborarAnexo3(): boolean {
+    if (this.detalle?.CodigoTipoContratacion !== 'LOCACION') {
+      return false;
+    }
+    const tdr = this.documentos.find(d => d.CodigoTipoDocumento === TIPO_ANEXO_3);
+    return !tdr || tdr.Estado !== 'FIRMADO';
+  }
+
+  emitirElaborarAnexo3(): void {
+    if (!this.detalle?.IdRequerimiento) {
+      return;
+    }
+    this.elaborarAnexo3.emit(this.detalle.IdRequerimiento);
+    this.cerrar();
   }
 }

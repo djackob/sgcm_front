@@ -4,7 +4,7 @@
     <button
       type="button"
       class="btn-icon-outline"
-      *ngIf="puedeQuitar"
+      *ngIf="puedeQuitar && !soloLectura"
       title="Quitar este pedido"
       (click)="quitar.emit()"
     >
@@ -15,15 +15,20 @@
   <div class="req-grid req-grid--documento">
     <div class="campo req-grid__ancho">
       <label class="campo-etiqueta" [attr.for]="prefijo + '-numero'">N° Pedido SIGA</label>
-      <input
+      <select
         [id]="prefijo + '-numero'"
-        type="text"
         class="campo-control"
+        [class.campo-control--bloqueado]="soloLectura"
         [name]="prefijo + '-numero'"
-        maxlength="20"
-        [(ngModel)]="pedido.NumeroPedido"
-        placeholder="Seleccione o ingrese el N° de pedido"
-      />
+        [ngModel]="pedido.NumeroPedido"
+        (ngModelChange)="onPedidoSeleccionado($event)"
+        [disabled]="soloLectura || cargandoPedidos || cargandoDetalle"
+      >
+        <option value="">{{ cargandoPedidos ? 'Cargando pedidos SIGA…' : 'Seleccione el N° de pedido' }}</option>
+        <option *ngFor="let o of opcionesVisibles" [value]="o.NumeroPedido">
+          {{ o.MotivoPedido || o.NumeroPedido }}
+        </option>
+      </select>
     </div>
 
     <div class="campo campo--corto">
@@ -34,6 +39,8 @@
         class="campo-control"
         [name]="prefijo + '-ano'"
         [(ngModel)]="pedido.AnoPedido"
+        [readonly]="soloLectura"
+        [class.campo-control--bloqueado]="soloLectura"
       />
     </div>
 
@@ -45,6 +52,8 @@
         class="campo-control"
         [name]="prefijo + '-actividad'"
         [(ngModel)]="pedido.ActividadOperativa"
+        [readonly]="soloLectura"
+        [class.campo-control--bloqueado]="soloLectura"
       />
     </div>
 
@@ -56,6 +65,8 @@
         class="campo-control"
         [name]="prefijo + '-meta'"
         [(ngModel)]="pedido.MetaPresupuestaria"
+        [readonly]="soloLectura"
+        [class.campo-control--bloqueado]="soloLectura"
       />
     </div>
     <div class="campo">
@@ -67,6 +78,8 @@
         [name]="prefijo + '-ffrr'"
         maxlength="2"
         [(ngModel)]="pedido.FuenteFinanc"
+        [readonly]="soloLectura"
+        [class.campo-control--bloqueado]="soloLectura"
       />
     </div>
     <div class="campo">
@@ -77,6 +90,8 @@
         class="campo-control"
         [name]="prefijo + '-programa'"
         [(ngModel)]="pedido.Programa"
+        [readonly]="soloLectura"
+        [class.campo-control--bloqueado]="soloLectura"
       />
     </div>
     <div class="campo">
@@ -87,6 +102,8 @@
         class="campo-control"
         [name]="prefijo + '-prod'"
         [(ngModel)]="pedido.ProdPy"
+        [readonly]="soloLectura"
+        [class.campo-control--bloqueado]="soloLectura"
       />
     </div>
     <div class="campo">
@@ -96,8 +113,9 @@
         type="text"
         class="campo-control"
         [name]="prefijo + '-clasificador'"
-        maxlength="20"
         [(ngModel)]="pedido.Clasificador"
+        [readonly]="soloLectura"
+        [class.campo-control--bloqueado]="soloLectura"
       />
     </div>
 
@@ -109,6 +127,8 @@
         class="campo-control"
         [name]="prefijo + '-codigo'"
         [(ngModel)]="pedido.CodigoItemPedido"
+        [readonly]="soloLectura"
+        [class.campo-control--bloqueado]="soloLectura"
       />
     </div>
     <div class="campo req-grid__nombre">
@@ -119,6 +139,8 @@
         class="campo-control"
         [name]="prefijo + '-nombre'"
         [(ngModel)]="pedido.NombreItemPedido"
+        [readonly]="soloLectura"
+        [class.campo-control--bloqueado]="soloLectura"
       />
     </div>
   </div>

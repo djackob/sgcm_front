@@ -58,6 +58,11 @@ export interface RequerimientoBandeja {
   Items: number;
   Pedidos: number;
   ActualizadoEn: string;
+  /** Id de archivo (documento_sistema) del documento técnico vigente. */
+  DocumentoSistema?: string | null;
+  NombreDocumento?: string | null;
+  EstadoDocumento?: string | null;
+  CodigoTipoDocumento?: string | null;
   /** Acciones de este actor sobre este expediente. Las calcula
    *  requerimiento.paListarRequerimiento con la misma regla que
    *  sigcm.paListarTransicionDisponible. */
@@ -203,6 +208,42 @@ export function crearItemFormularioRequerimiento(): ItemFormularioRequerimiento 
     textoBusqueda: '',
     resultados: []
   };
+}
+
+/** Pedido SIGA que devuelve el maestro PEDIDO de paListarMaestroSiga. */
+export interface PedidoSiga {
+  NumeroPedido: string;
+  MotivoPedido: string;
+  AnoEje: number;
+  TipoPedido: string;
+  ActProy: string;
+  FuenteFinanc: string;
+  CodigoTarea: number | string;
+  SecFunc: number | string;
+  FechaPedido?: string;
+  Origen?: string;
+  Programa?: string;
+}
+
+/**
+ * Cabecera de tarea + resumen de items del pedido elegido.
+ * Maestro PEDIDO_DETALLE: une listarCentroCostoTarea y listarItemsPedidoResumen.
+ */
+export interface PedidoSigaDetalle {
+  NumeroPedido: string;
+  AnoEje: number;
+  CodigoTarea: number | string;
+  TipoTarea?: string;
+  NivelTarea?: string;
+  NombreTarea: string;
+  ActProy?: string;
+  Origen?: string;
+  FuenteFinanc?: string;
+  Programa?: string;
+  SecFunc?: number | string;
+  CodigoItem: string;
+  NombreItem: string;
+  Clasificador: string;
 }
 
 /** Pedido SIGA en el formulario. */

@@ -68,3 +68,11 @@
     max-width: none;
   }
 }
+
+.campo-control--bloqueado,
+.campo-control[readonly],
+select.campo-control:disabled {
+  background: #f1f5f9 !important;
+  color: #475569;
+  cursor: not-allowed;
+}
