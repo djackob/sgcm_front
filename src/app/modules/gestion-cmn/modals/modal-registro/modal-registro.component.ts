@@ -565,6 +565,21 @@ export class ModalRegistroComponent {
     if (!disponibles.some(x => x.Clasificador === item.Clasificador)) {
       item.Clasificador = '';
     }
+    this.elegirClasificador(item);
+  }
+
+  /**
+   * Cambiar el clasificador puede quitar de pantalla la cantidad.
+   *
+   * Cuando eso pasa en una inclusión, lo que estuviera escrito se descarta:
+   * conservarlo dejaría el ítem valiendo una cantidad que el usuario ya no ve
+   * y no puede corregir. En una exclusión no se toca, porque ahí las
+   * cantidades no las escribió nadie, son las de la línea del cuadro vigente.
+   */
+  elegirClasificador(item: ItemFormularioCmn): void {
+    if (item.TipoMovimiento === 'INCLUSION' && !this.pideCantidad(item)) {
+      item.Cantidades = [null, null, null, null];
+    }
   }
 
   claveFuente(fuente: FuenteFinancSiga): string {
@@ -575,8 +590,47 @@ export class ModalRegistroComponent {
     return `${item.Origen}|${item.FuenteFinanc}`;
   }
 
+  /**
+   * Si este ítem pide cantidad, según su clasificador.
+   *
+   * Los clasificadores de **bienes** empiezan en `2.6` y ahí la cantidad es
+   * parte del pedido: tantas unidades a tal precio. Los de **servicios**
+   * empiezan en `2.3` y el gasto se expresa con el importe; pedir «cantidad»
+   * de un servicio no significa nada, y es lo que dice la nota 3/ del formato
+   * oficial: «el campo de cantidad total se completa solo en el caso de
+   * bienes». Cualquier otro clasificador se trata como el de servicios.
+   *
+   * El clasificador de SIGA viene con espacios («2.3. 1 5. 1 2»), así que se
+   * comparan sin ellos.
+   */
+  pideCantidad(item: ItemFormularioCmn): boolean {
+    return (item.Clasificador || '').replace(/\s+/g, '').startsWith('2.6.');
+  }
+
+  /**
+   * Las cuatro cantidades que se van a enviar.
+   *
+   * Cuando el clasificador no pide cantidad, el ítem vale su precio una vez:
+   * se manda 1 en el año base. No es un adorno de pantalla — la rutina rechaza
+   * un ítem sin ninguna cantidad mayor que cero (VALIDACION_PERIODOS), y el
+   * monto lo calcula como cantidad × precio.
+   *
+   * Una exclusión conserva lo que traiga el cuadro vigente, incluidos los años
+   * siguientes: que el formulario ya no capture 2027-2029 no significa que se
+   * deje de excluir lo que estaba programado en esos años.
+   */
+  private cantidadesDelItem(item: ItemFormularioCmn): number[] {
+    const cantidades = item.Cantidades.map(c => Number(c) || 0);
+
+    if (this.pideCantidad(item) || cantidades.some(c => c > 0)) {
+      return cantidades;
+    }
+
+    return [1, 0, 0, 0];
+  }
+
   totalItem(item: ItemFormularioCmn): number {
-    const cantidad = item.Cantidades.reduce((suma: number, c) => suma + (Number(c) || 0), 0);
+    const cantidad = this.cantidadesDelItem(item).reduce((suma, c) => suma + c, 0);
     return cantidad * (Number(item.PrecioUnitario) || 0);
   }
 
@@ -637,8 +691,11 @@ export class ModalRegistroComponent {
       if (!item.Clasificador) {
         return `El ítem ${n} necesita un clasificador válido de SIGA.`;
       }
-      if (item.Cantidades.every(c => !c || Number(c) <= 0)) {
-        return `El ítem ${n} no tiene ninguna cantidad mayor que cero.`;
+      // La cantidad solo se exige donde el formulario la pide. En un ítem de
+      // servicio el importe es el precio, y reclamar una cantidad que la
+      // pantalla no muestra dejaría el formulario sin forma de completarse.
+      if (this.pideCantidad(item) && !(Number(item.Cantidades[0]) > 0)) {
+        return `El ítem ${n} necesita una cantidad para ${this.anoEje}.`;
       }
     }
 
@@ -691,11 +748,11 @@ export class ModalRegistroComponent {
       RefSecCuadro: item.RefSecCuadro,
       RefSecItem: item.RefSecItem,
       // Solo los años con cantidad. Los 48 períodos los completa la rutina.
-      Periodos: item.Cantidades
+      Periodos: this.cantidadesDelItem(item)
         .map((cantidad, indice) => ({
           AnoOffset: indice,
           Mes: item.Mes,
-          Cantidad: Number(cantidad) || 0
+          Cantidad: cantidad
         }))
         .filter(periodo => periodo.Cantidad > 0)
     }));
