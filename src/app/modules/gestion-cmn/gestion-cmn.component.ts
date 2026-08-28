@@ -14,6 +14,7 @@ import { Funciones } from '../../shared/funciones/funciones';
 import {
   ExpedienteLoteCmn,
   PaqueteAnexo4Cmn,
+  PuestoDerivacionCmn,
   SolicitudCmn,
   SolicitudDetalleCmn,
   TransicionCmn
@@ -130,6 +131,22 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   accionEnCurso: { solicitud: SolicitudCmn; transicion: TransicionCmn } | null = null;
   comentario = '';
   ejecutando = false;
+
+  /**
+   * Derivación a una persona.
+   *
+   * Los puestos que puede recibir el expediente —y quién los ocupa hoy— salen
+   * de la base: del árbol de `sigcm.RolDerivacion` cruzado con el padrón que el
+   * SSO sincroniza. Aquí no se filtra ni se deduce nada; si la lista llega
+   * vacía, la acción no es una derivación y no se pregunta.
+   *
+   * Elegir persona es OPCIONAL incluso cuando hay lista: sin elección el
+   * expediente queda a nombre del puesto y lo toma quien corresponda, que es
+   * como se comportó el sistema hasta ahora.
+   */
+  puestosDerivacion: PuestoDerivacionCmn[] = [];
+  responsableDestino = '';
+  cargandoDestinatarios = false;
   /** Expedientes que mueve la acción en curso. Es uno salvo en el Anexo 4. */
   private loteEnCurso: ExpedienteLoteCmn[] = [];
   /** El Anexo 4 sobre el que se está actuando, ya leído de la base. */
@@ -526,12 +543,62 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.comentario = '';
     this.limpiarEstadoFirma();
     this.cerrarVisorPdf();
+    this.cargarDestinatarios(solicitud, transicion);
 
     if (this.muestraPdfAnexo3) {
       this.verAnexo3Pdf(solicitud);
     } else if (this.muestraPdfAnexo4) {
       this.verAnexo4Pdf(solicitud);
     }
+  }
+
+  /**
+   * Pregunta a la base a quién se le puede pasar el expediente con esta acción.
+   *
+   * Se consulta SIEMPRE, para toda acción, y no sólo para las que "parecen"
+   * derivaciones. Reconocerlas por el nombre de la transición sería una lista
+   * en TypeScript que hay que mantener al día cada vez que la semilla cambie;
+   * la base ya sabe la respuesta y devuelve vacío cuando no aplica.
+   *
+   * Un fallo aquí NO bloquea la acción: sin lista, la derivación se comporta
+   * como antes y el expediente queda a nombre del puesto. Impedir una acción
+   * del flujo porque no se pudo pintar un desplegable opcional sería cambiar una
+   * comodidad por una interrupción.
+   */
+  private cargarDestinatarios(solicitud: SolicitudCmn, transicion: TransicionCmn): void {
+    this.puestosDerivacion = [];
+    this.responsableDestino = '';
+    this.cargandoDestinatarios = true;
+
+    this.cmnService.listarDestinatarioDerivacion(
+      solicitud.IdExpediente, transicion.CodigoTransicion
+    ).subscribe({
+      next: (respuesta: any) => {
+        this.cargandoDestinatarios = false;
+
+        if (respuesta?.estado !== 1) {
+          return;
+        }
+
+        this.puestosDerivacion = respuesta.Puestos || [];
+
+        /* Un solo puesto con un solo ocupante no es una elección: es el único
+           camino. Se preselecciona para que el jefe no tenga que confirmar lo
+           que no puede cambiar, y el desplegable igual queda visible para que
+           sepa a quién le está pasando el expediente. */
+        if (this.puestosDerivacion.length === 1 && this.puestosDerivacion[0].Personas?.length === 1) {
+          this.responsableDestino = this.puestosDerivacion[0].Personas[0].IdUsuario;
+        }
+      },
+      error: () => {
+        this.cargandoDestinatarios = false;
+      }
+    });
+  }
+
+  /** El lote múltiple del Anexo 4 nunca es una derivación a persona. */
+  get ofreceDestinatarios(): boolean {
+    return this.puestosDerivacion.length > 0 && this.loteEnCurso.length === 1;
   }
 
   /** Cuántos expedientes moverá la acción en curso, para avisarlo en el panel. */
@@ -969,6 +1036,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.loteEnCurso = [];
     this.paqueteEnCurso = null;
     this.comentario = '';
+    this.puestosDerivacion = [];
+    this.responsableDestino = '';
   }
 
   ngOnDestroy(): void {
@@ -1171,7 +1240,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.cmnService.ejecutarTransicionLote(
       this.loteEnCurso,
       transicion.CodigoTransicion,
-      this.comentarioPendiente
+      this.comentarioPendiente,
+      this.ofreceDestinatarios && this.responsableDestino ? this.responsableDestino : null
     ).subscribe({
       next: (respuesta: any) => {
         this.ejecutando = false;
@@ -1190,6 +1260,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
         this.paqueteEnCurso = null;
         this.comentario = '';
         this.comentarioPendiente = null;
+        this.puestosDerivacion = [];
+        this.responsableDestino = '';
 
         const extra = this.documentoGenerado
           ? '<br><br>Ábralo con el icono del Anexo en la bandeja.'

@@ -1,0 +1,209 @@
+/* Panel de accesos y perfiles.
+
+   Usa los neutros y las variables institucionales de assets/css/base.css, igual
+   que el resto de las pantallas: no introduce paleta propia. Las tablas se
+   apoyan en .tabla-app y .status-pill, que ya existen en styles/components. */
+
+.panel-sso {
+  padding: 1.25rem 1.5rem 2rem;
+
+  &__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+
+  &__titulo {
+    margin: 0 0 0.25rem;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  &__bajada {
+    margin: 0;
+    max-width: 62ch;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: #64748b;
+  }
+
+  &__acciones {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.5rem;
+  }
+
+  &__error,
+  &__estado {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+
+  &__error {
+    background: var(--main-color-200);
+    color: var(--main-color-800);
+  }
+
+  &__estado {
+    color: #64748b;
+  }
+
+  /* ---- Resumen ---- */
+
+  &__tarjetas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  &__subtitulo {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0.6rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--main-color-800);
+  }
+
+  /* ---- Descartes: el diagnostico, arriba y visible ---- */
+
+  &__descartes {
+    padding: 0.9rem 1rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--main-color-300);
+    border-left: 4px solid var(--main-color-600);
+    border-radius: 10px;
+    background: var(--white);
+  }
+
+  /* ---- Pestañas ---- */
+
+  &__pestanas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.55rem 0.85rem;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      font-size: 0.85rem;
+      color: #64748b;
+      cursor: pointer;
+      transition: color 0.15s ease, border-color 0.15s ease;
+
+      &:hover { color: #1e293b; }
+
+      &.activa {
+        color: var(--main-color-800);
+        border-bottom-color: var(--main-color-600);
+        font-weight: 600;
+      }
+    }
+  }
+
+  &__nota {
+    max-width: 80ch;
+    margin: 0 0 0.8rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #64748b;
+
+    code { color: #475569; }
+  }
+
+  &__seccion {
+    overflow-x: auto;
+  }
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: var(--white);
+
+  &--ancha { grid-column: span 2; }
+
+  &--alerta {
+    border-color: var(--main-color-300);
+    background: var(--main-color-200);
+  }
+
+  &__valor {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #1e293b;
+
+    &--chico { font-size: 0.95rem; }
+  }
+
+  &__rotulo {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+  }
+}
+
+.contador {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+/* Una arista sin ocupantes no es un error: se atenúa, no se alarma. */
+.fila-atenuada {
+  opacity: 0.65;
+}
+
+.valor-baja {
+  font-weight: 700;
+  color: var(--main-color-800);
+}
+
+.celda-nota {
+  max-width: 42ch;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+@media (max-width: 720px) {
+  .panel-sso {
+    padding: 1rem 0.9rem 1.5rem;
+  }
+
+  .tarjeta--ancha {
+    grid-column: span 1;
+  }
+}
+
+/* El escalón sólo lo sostienen cuentas de prueba: en producción estaría vacío. */
+.nota-local {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  color: #94a3b8;
+}

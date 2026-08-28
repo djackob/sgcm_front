@@ -1,0 +1,254 @@
+<div class="panel-sso">
+
+  <header class="panel-sso__cabecera">
+    <div>
+      <h1 class="panel-sso__titulo">Accesos y perfiles</h1>
+      <p class="panel-sso__bajada">
+        Quién puede entrar al SIGCM, con qué rol y en qué unidad. El padrón lo
+        gobierna el SSO institucional; el mapeo de perfiles y el árbol de
+        derivación son configuración del sistema.
+      </p>
+    </div>
+
+    <div class="panel-sso__acciones">
+      <button type="button" class="btn btn-app-secundario" [disabled]="cargando" (click)="cargar()">
+        <i class="mdi mdi-refresh" aria-hidden="true"></i> Recargar
+      </button>
+      <button type="button" class="btn btn-app-primary" [disabled]="sincronizando" (click)="sincronizar()">
+        <i class="mdi" [ngClass]="sincronizando ? 'mdi-loading mdi-spin' : 'mdi-cloud-sync-outline'" aria-hidden="true"></i>
+        Sincronizar con el SSO
+      </button>
+    </div>
+  </header>
+
+  <div class="panel-sso__error" *ngIf="error">
+    <i class="mdi mdi-alert-outline" aria-hidden="true"></i> {{ error }}
+  </div>
+
+  <div class="panel-sso__estado" *ngIf="cargando">
+    <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando el panel…
+  </div>
+
+  <ng-container *ngIf="!cargando && resumen">
+
+    <!-- Resumen -->
+    <div class="panel-sso__tarjetas">
+      <div class="tarjeta">
+        <span class="tarjeta__valor">{{ resumen.PersonasSso }}</span>
+        <span class="tarjeta__rotulo">personas del SSO</span>
+      </div>
+      <div class="tarjeta">
+        <span class="tarjeta__valor">{{ resumen.TernasVigentes }}</span>
+        <span class="tarjeta__rotulo">ternas vigentes</span>
+      </div>
+      <div class="tarjeta">
+        <span class="tarjeta__valor">{{ resumen.Unidades }}</span>
+        <span class="tarjeta__rotulo">unidades</span>
+      </div>
+      <div class="tarjeta">
+        <span class="tarjeta__valor">{{ resumen.PerfilesMapeados }}</span>
+        <span class="tarjeta__rotulo">perfiles mapeados</span>
+      </div>
+      <div class="tarjeta" [class.tarjeta--alerta]="resumen.DescartesUltima > 0">
+        <span class="tarjeta__valor">{{ resumen.DescartesUltima }}</span>
+        <span class="tarjeta__rotulo">descartes</span>
+      </div>
+      <div class="tarjeta tarjeta--ancha">
+        <span class="tarjeta__valor tarjeta__valor--chico">
+          {{ resumen.UltimaSincronizacion || 'nunca' }}
+        </span>
+        <span class="tarjeta__rotulo">última sincronización</span>
+      </div>
+    </div>
+
+    <!--
+      Los descartes se muestran fuera de las pestañas, arriba del todo, porque
+      son la respuesta a la pregunta que trae a alguien a esta pantalla: por qué
+      una persona no puede entrar. Esconderlos en una pestaña sería obligar a
+      buscarlos a quien ya viene buscando.
+    -->
+    <div class="panel-sso__descartes" *ngIf="descartesRecientes.length">
+      <h2 class="panel-sso__subtitulo">
+        <i class="mdi mdi-account-alert-outline" aria-hidden="true"></i>
+        Cuentas que el SSO autentica pero el SIGCM no admite
+      </h2>
+      <table class="table scm-table">
+        <thead>
+          <tr>
+            <th>Cuenta</th><th>Nombre</th><th>Perfil SSO</th><th>Centro de costo</th><th>Motivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let d of descartesRecientes">
+            <td>{{ d.Cuenta }}</td>
+            <td>{{ d.NombreCompleto }}</td>
+            <td>{{ d.CodigoPerfilSso }} · {{ d.Perfil }}</td>
+            <td>{{ d.CentroCosto }}</td>
+            <td>{{ d.Motivo }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pestañas -->
+    <nav class="panel-sso__pestanas">
+      <button type="button" [class.activa]="seccion === 'padron'" (click)="ver('padron')">
+        Padrón <span class="contador">{{ padron.length }}</span>
+      </button>
+      <button type="button" [class.activa]="seccion === 'perfiles'" (click)="ver('perfiles')">
+        Perfiles <span class="contador">{{ perfiles.length }}</span>
+      </button>
+      <button type="button" [class.activa]="seccion === 'arbol'" (click)="ver('arbol')">
+        Árbol de derivación <span class="contador">{{ arbol.length }}</span>
+      </button>
+      <button type="button" [class.activa]="seccion === 'unidades'" (click)="ver('unidades')">
+        Unidades <span class="contador">{{ unidades.length }}</span>
+      </button>
+      <button type="button" [class.activa]="seccion === 'sincronizaciones'" (click)="ver('sincronizaciones')">
+        Sincronizaciones <span class="contador">{{ sincronizaciones.length }}</span>
+      </button>
+    </nav>
+
+    <!-- Padrón -->
+    <div class="panel-sso__seccion" *ngIf="seccion === 'padron'">
+      <table class="table scm-table">
+        <thead>
+          <tr>
+            <th>Cuenta</th><th>Nombre</th><th>Rol</th><th>Unidad</th>
+            <th>Centro de costo</th><th>Origen</th><th>Desde</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of padron">
+            <td>{{ p.Cuenta }}</td>
+            <td>{{ p.NombreCompleto }}</td>
+            <td>{{ p.Rol }}</td>
+            <td>{{ p.Sigla || p.CodigoUnidad }} · {{ p.Unidad }}</td>
+            <td>{{ p.CentroCosto || '—' }}</td>
+            <td>
+              <span class="status-pill" [ngClass]="p.Origen === 'SSO' ? 'status-pill--success' : 'status-pill--neutral'">
+                {{ p.Origen }}
+              </span>
+            </td>
+            <td>{{ p.Desde }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Perfiles -->
+    <div class="panel-sso__seccion" *ngIf="seccion === 'perfiles'">
+      <p class="panel-sso__nota">
+        La traducción entre el <code>cod_perfil</code> del SSO y el rol del SIGCM.
+        Un perfil que el SSO devuelva y no esté aquí no entra al sistema, y queda
+        listado arriba como descarte.
+      </p>
+      <table class="table scm-table">
+        <thead>
+          <tr><th>cod_perfil</th><th>Perfil en el SSO</th><th>Rol del SIGCM</th><th>Personas</th><th>Nota</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of perfiles">
+            <td><code>{{ m.CodigoPerfilSso }}</code></td>
+            <td>{{ m.NombreSso }}</td>
+            <td>{{ m.Rol }}</td>
+            <td>
+              <span class="status-pill" [ngClass]="m.Personas ? 'status-pill--success' : 'status-pill--neutral'">
+                {{ m.Personas }}
+              </span>
+            </td>
+            <td class="celda-nota">{{ m.Observacion }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Árbol -->
+    <div class="panel-sso__seccion" *ngIf="seccion === 'arbol'">
+      <p class="panel-sso__nota">
+        Quién puede derivarle un expediente a quién. El módulo es columna: por eso
+        en CMN el área usuaria no pasa por el coordinador y en Requerimiento sí.
+        La columna <b>Puestos</b> cuenta las unidades donde alguien ejerce el rol
+        destino: si está en cero, el escalón existe en el flujo pero nadie lo
+        ocupa, y el jefe no encontrará a quién derivar. Se cuentan sólo personas
+        del SSO — los usuarios de prueba taparían el hueco.
+      </p>
+      <table class="table scm-table">
+        <thead>
+          <tr><th>Módulo</th><th>Desde</th><th>Hacia</th><th>Alcance</th><th>Orden</th><th>Puestos</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of arbol" [class.fila-atenuada]="aristaVacia(a)">
+            <td>{{ a.Modulo }}</td>
+            <td>{{ a.RolOrigen }}</td>
+            <td>{{ a.RolDestino }}</td>
+            <td><code>{{ a.Alcance }}</code></td>
+            <td>{{ a.Orden }}</td>
+            <td>
+              <span class="status-pill" [ngClass]="aristaVacia(a) ? 'status-pill--warning' : 'status-pill--success'">
+                {{ a.PuestosSso }}
+              </span>
+              <span class="nota-local" *ngIf="aristaSoloLocal(a)">
+                {{ a.PuestosOcupados }} sólo con cuentas de prueba
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Unidades -->
+    <div class="panel-sso__seccion" *ngIf="seccion === 'unidades'">
+      <table class="table scm-table">
+        <thead>
+          <tr><th>Código</th><th>Unidad</th><th>Centro de costo</th><th>Depende de</th><th>Rol en el flujo</th><th>Personas</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of unidades">
+            <td><code>{{ u.Codigo }}</code></td>
+            <td>{{ u.Sigla ? u.Sigla + ' · ' : '' }}{{ u.Nombre }}</td>
+            <td>{{ u.CentroCosto || '—' }}</td>
+            <td>{{ u.UnidadPadre || '—' }}</td>
+            <td>
+              <span class="status-pill" [ngClass]="u.Tramitadora ? 'status-pill--neutral' : 'status-pill--success'">
+                {{ u.Tramitadora ? 'Tramita' : 'Área usuaria' }}
+              </span>
+            </td>
+            <td>{{ u.Personas }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Sincronizaciones -->
+    <div class="panel-sso__seccion" *ngIf="seccion === 'sincronizaciones'">
+      <p class="panel-sso__nota">
+        Cada ingreso por SSO dispara una sincronización completa. Las bajas salen
+        por diferencia: quien desaparece del padrón del SSO pierde su asignación.
+      </p>
+      <table class="table scm-table">
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Origen</th><th>Recibidas</th>
+            <th>Unidades +</th><th>Personas +</th><th>Asignaciones +</th><th>Asignaciones −</th><th>Descartes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of sincronizaciones">
+            <td>{{ s.Fecha }}</td>
+            <td>{{ s.Disparador }}<span *ngIf="s.CuentaDisparo"> · {{ s.CuentaDisparo }}</span></td>
+            <td>{{ s.PadronRecibido }}</td>
+            <td>{{ s.UnidadesAlta }}</td>
+            <td>{{ s.UsuariosAlta }}</td>
+            <td>{{ s.AsignacionesAlta }}</td>
+            <td>
+              <span [class.valor-baja]="s.AsignacionesBaja > 0">{{ s.AsignacionesBaja }}</span>
+            </td>
+            <td>{{ s.Descartes.length }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </ng-container>
+</div>
