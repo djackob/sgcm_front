@@ -1,0 +1,253 @@
+<div class="modal-fondo" *ngIf="abierto" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--ccp"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">Registro de certificación presupuestaria (CCP)</h2>
+          <p class="modal-subtitulo" *ngIf="fila">
+            {{ fila.Codigo }} · {{ fila.Denominacion }}
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()" [disabled]="procesando">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="cargando">
+        <p class="ccp-cargando">
+          <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando expediente…
+        </p>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="!cargando && detalle">
+        <section class="ccp-bloque ccp-bloque--resumen">
+          <h3 class="ccp-bloque__titulo">Expediente en tránsito</h3>
+          <dl class="ccp-resumen-grid">
+            <div>
+              <dt>N.° expediente</dt>
+              <dd>{{ detalle.Codigo }}</dd>
+            </div>
+            <div>
+              <dt>Locador</dt>
+              <dd>
+                {{ nombreLocador }}
+                <span *ngIf="documentoLocadorTexto">(RUC/DNI: {{ documentoLocadorTexto }})</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Pedido SIGA N.°</dt>
+              <dd>{{ pedido?.NumeroPedido || proveedor?.NumeroPedido || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Monto contractual total (Anexo 5)</dt>
+              <dd>S/ {{ montoPropuesta | number: '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Meta / clasificador</dt>
+              <dd>{{ metaClasificador }}</dd>
+            </div>
+            <div>
+              <dt>Fecha solicitud CCP</dt>
+              <dd>{{ fechaSolicitudCcp }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="ccp-bloque">
+          <h3 class="ccp-bloque__titulo">Metadata presupuestaria de la emisión</h3>
+          <div class="ccp-form-grid">
+            <label class="ccp-campo">
+              <span>N.° certificación (CCP)</span>
+              <input
+                class="campo-control"
+                [(ngModel)]="formulario.NumeroCcp"
+                [disabled]="procesando"
+                maxlength="40"
+              />
+            </label>
+            <label class="ccp-campo">
+              <span>N.° expediente SIAF</span>
+              <input
+                class="campo-control"
+                [(ngModel)]="formulario.NumeroExpedienteSiaf"
+                [disabled]="procesando"
+                maxlength="20"
+                inputmode="numeric"
+              />
+            </label>
+            <label class="ccp-campo">
+              <span>Monto certificado (S/)</span>
+              <input
+                type="number"
+                class="campo-control"
+                [(ngModel)]="formulario.MontoCertificado"
+                [disabled]="procesando"
+                step="0.01"
+                min="0"
+              />
+            </label>
+            <label class="ccp-campo">
+              <span>Fecha de emisión</span>
+              <input
+                type="date"
+                class="campo-control"
+                [(ngModel)]="formulario.FechaEmision"
+                [disabled]="procesando"
+              />
+            </label>
+          </div>
+          <p class="ccp-ayuda" *ngIf="formulario.MontoCertificado != null && montoPropuesta">
+            Monto Anexo 5: S/ {{ montoPropuesta | number: '1.2-2' }}
+            <span
+              class="ccp-ayuda--alerta"
+              *ngIf="montoNoCoincide"
+            >
+              · No coincide con el monto certificado
+            </span>
+          </p>
+        </section>
+
+        <section class="ccp-bloque">
+          <h3 class="ccp-bloque__titulo">Documentación sustentatoria (obligatoria)</h3>
+
+          <div class="ccp-upload">
+            <p class="ccp-upload__titulo">1. Certificado presupuestal (CCP) en PDF</p>
+            <div
+              class="ccp-upload__zona"
+              [class.ccp-upload__zona--activa]="arrastrando === 'ccp'"
+              (dragover)="onDragOver('ccp', $event)"
+              (dragleave)="onDragLeave('ccp', $event)"
+              (drop)="onDrop('ccp', $event)"
+            >
+              <ng-container *ngIf="formulario.archivoCcp; else vacioCcp">
+                <span class="ccp-upload__archivo">
+                  <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+                  <a [href]="urlDescarga(formulario.archivoCcp)" target="_blank" rel="noopener">
+                    {{ formulario.archivoCcp.nombreOriginal }}
+                  </a>
+                </span>
+                <button type="button" class="btn btn-link btn-sm" (click)="quitarArchivo('ccp')" [disabled]="procesando">
+                  Eliminar
+                </button>
+              </ng-container>
+              <ng-template #vacioCcp>
+                <span>Cargar certificado CCP firmado por UP (arrastre o examine)</span>
+                <button
+                  type="button"
+                  class="btn btn-app-secundario btn-sm"
+                  (click)="examinarArchivo('ccp', inputCcp)"
+                  [disabled]="procesando || subiendo === 'ccp'"
+                >
+                  {{ subiendo === 'ccp' ? 'Subiendo…' : 'Examinar' }}
+                </button>
+                <input #inputCcp type="file" accept=".pdf,application/pdf" hidden (change)="onArchivoSeleccionado('ccp', $event)" />
+              </ng-template>
+            </div>
+          </div>
+
+          <div class="ccp-upload">
+            <p class="ccp-upload__titulo">2. Memorando de respuesta de la UP en PDF</p>
+            <div
+              class="ccp-upload__zona"
+              [class.ccp-upload__zona--activa]="arrastrando === 'memoUp'"
+              (dragover)="onDragOver('memoUp', $event)"
+              (dragleave)="onDragLeave('memoUp', $event)"
+              (drop)="onDrop('memoUp', $event)"
+            >
+              <ng-container *ngIf="formulario.archivoMemoUp; else vacioMemoUp">
+                <span class="ccp-upload__archivo">
+                  <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+                  <a [href]="urlDescarga(formulario.archivoMemoUp)" target="_blank" rel="noopener">
+                    {{ formulario.archivoMemoUp.nombreOriginal }}
+                  </a>
+                </span>
+                <button type="button" class="btn btn-link btn-sm" (click)="quitarArchivo('memoUp')" [disabled]="procesando">
+                  Eliminar
+                </button>
+              </ng-container>
+              <ng-template #vacioMemoUp>
+                <span>Cargar memorando de traslado de la CCP</span>
+                <button
+                  type="button"
+                  class="btn btn-app-secundario btn-sm"
+                  (click)="examinarArchivo('memoUp', inputMemoUp)"
+                  [disabled]="procesando || subiendo === 'memoUp'"
+                >
+                  {{ subiendo === 'memoUp' ? 'Subiendo…' : 'Examinar' }}
+                </button>
+                <input #inputMemoUp type="file" accept=".pdf,application/pdf" hidden (change)="onArchivoSeleccionado('memoUp', $event)" />
+              </ng-template>
+            </div>
+          </div>
+
+          <div class="ccp-upload">
+            <p class="ccp-upload__titulo">
+              3. Previsión presupuestal
+              <span class="ccp-upload__etiqueta" *ngIf="!exigePrevision">No aplica</span>
+              <span class="ccp-upload__etiqueta ccp-upload__etiqueta--req" *ngIf="exigePrevision">Obligatoria</span>
+            </p>
+            <div
+              class="ccp-upload__zona"
+              [class.ccp-upload__zona--activa]="arrastrando === 'prevision'"
+              [class.ccp-upload__zona--inactiva]="!exigePrevision"
+              (dragover)="exigePrevision && onDragOver('prevision', $event)"
+              (dragleave)="exigePrevision && onDragLeave('prevision', $event)"
+              (drop)="exigePrevision && onDrop('prevision', $event)"
+            >
+              <ng-container *ngIf="formulario.archivoPrevision; else vacioPrevision">
+                <span class="ccp-upload__archivo">
+                  <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+                  <a [href]="urlDescarga(formulario.archivoPrevision)" target="_blank" rel="noopener">
+                    {{ formulario.archivoPrevision.nombreOriginal }}
+                  </a>
+                </span>
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm"
+                  (click)="quitarArchivo('prevision')"
+                  [disabled]="procesando || !exigePrevision"
+                >
+                  Eliminar
+                </button>
+              </ng-container>
+              <ng-template #vacioPrevision>
+                <span *ngIf="exigePrevision">Adjunte la previsión aprobada por OPP</span>
+                <span *ngIf="!exigePrevision">El plazo no supera el año fiscal en curso</span>
+                <button
+                  *ngIf="exigePrevision"
+                  type="button"
+                  class="btn btn-app-secundario btn-sm"
+                  (click)="examinarArchivo('prevision', inputPrevision)"
+                  [disabled]="procesando || subiendo === 'prevision'"
+                >
+                  {{ subiendo === 'prevision' ? 'Subiendo…' : 'Examinar' }}
+                </button>
+                <input #inputPrevision type="file" accept=".pdf,application/pdf" hidden (change)="onArchivoSeleccionado('prevision', $event)" />
+              </ng-template>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-footer">
+        <p class="ccp-paso" *ngIf="paso">{{ paso }}</p>
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()" [disabled]="procesando">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-primary"
+          (click)="registrarYGenerarOrden()"
+          [disabled]="!puedeRegistrar"
+        >
+          {{ etiquetaBotonPrincipal }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -2,10 +2,10 @@
   <header class="cabecera-pagina">
     <div class="cabecera">
       <app-breadcrumb [items]="breadcrumb" />
-      <h1 class="page-title">Requerimiento a Notificación</h1>
-      <p class="page-subtitle">
+      <h1 class="page-title">Requerimiento</h1>
+      <!-- <p class="page-subtitle">
         Desde el registro de la necesidad hasta la emisión y notificación de la orden
-      </p>
+      </p> -->
     </div>
 
     <div class="cabecera-opciones">
@@ -151,7 +151,7 @@
 
             <td data-column-name="Acción del perfil" class="td-acciones">
               <div class="action-cell">
-                <span class="action-cell__label" *ngIf="!esMiTurno(item)">
+                <span class="action-cell__label" *ngIf="!esMiTurno(item) && !puedeEditar(item)">
                   Sin acción pendiente
                 </span>
 
@@ -191,8 +191,17 @@
 
                 <button
                   type="button"
+                  class="btn btn-app-primary btn-sm"
+                  *ngIf="puedeEditar(item) && !tieneAccionVisible(item)"
+                  (click)="editarRequerimiento(item)"
+                >
+                  Modificar requerimiento
+                </button>
+
+                <button
+                  type="button"
                   class="btn-icon-outline"
-                  *ngIf="puedeEditar(item)"
+                  *ngIf="puedeEditar(item) && tieneAccionVisible(item)"
                   title="Editar el requerimiento"
                   (click)="editarRequerimiento(item)"
                 >
@@ -280,9 +289,23 @@
         <ul class="req-avisos">
           <li *ngIf="accionEnCurso.transicion.RequiereFirma">
             <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
-            Esta acción registra la firma del Jefe del Área usuaria sobre el
-            documento técnico. Si el documento se modifica después, la firma
-            queda invalidada y hay que firmar de nuevo.
+            Esta acción registra la firma sobre {{ etiquetaDocumentoFirma }}.
+          </li>
+          <li *ngIf="debeInvocarFirmaDigital && secuenciaPendienteFirma.length > 1">
+            <i class="mdi mdi-file-multiple-outline" aria-hidden="true"></i>
+            En locación firme digitalmente el Anexo 5 y el Anexo 3 (en ese orden) antes de confirmar.
+          </li>
+          <li *ngIf="debeInvocarFirmaDigital">
+            <i class="mdi mdi-signature-freehand" aria-hidden="true"></i>
+            Cada área coloca su sello en su espacio (Especialista a la izquierda, Jefe a la derecha), sin superponer firmas.
+          </li>
+          <li *ngIf="debeInvocarFirmaDigital && !todasFirmasDigitalesListas">
+            <i class="mdi mdi-certificate-outline" aria-hidden="true"></i>
+            Al abrir cada documento se ofrece la firma digital; el PDF firmado se registra de inmediato en el expediente.
+          </li>
+          <li *ngIf="todasFirmasDigitalesListas" class="req-aviso-ok">
+            <i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
+            Anexos con firma digital registrados. Ya puede confirmar la acción.
           </li>
           <li *ngIf="accionEnCurso.transicion.GeneraObservacion">
             <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
@@ -293,19 +316,30 @@
             La DEC es la Unidad de Abastecimiento: el expediente pasa primero por
             la Oficina de Administración.
           </li>
-          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_REMITIR_DAI'">
-            <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
-            La DEC es DAI: el expediente va directo, sin pasar por la Oficina de
-            Administración.
-          </li>
         </ul>
 
-        <div class="req-pdf-acciones" *ngIf="puedeVerAnexo5(accionEnCurso.requerimiento)">
+        <div class="req-pdf-acciones" *ngIf="debeInvocarFirmaDigital || puedeVerAnexo5(accionEnCurso.requerimiento)">
+          <button
+            type="button"
+            class="btn btn-app-secundario"
+            [disabled]="cargandoPdf"
+            (click)="abrirDocumentoSecuenciaFirma(doc)"
+            *ngFor="let doc of secuenciaPendienteFirma"
+          >
+            <i
+              class="mdi"
+              [ngClass]="firmaDigitalDe(doc.codigo) ? 'mdi-check-circle-outline' : (cargandoPdf ? 'mdi-loading mdi-spin' : 'mdi-file-pdf-box')"
+              aria-hidden="true"
+            ></i>
+            Ver {{ doc.anexo }} (PDF)
+            <span *ngIf="firmaDigitalDe(doc.codigo)"> · firmado</span>
+          </button>
           <button
             type="button"
             class="btn btn-app-secundario"
             [disabled]="!!cargandoPdfId"
             (click)="verAnexo5Pdf(accionEnCurso.requerimiento)"
+            *ngIf="secuenciaPendienteFirma.length === 0 && puedeVerAnexo5(accionEnCurso.requerimiento)"
           >
             <i class="mdi" [ngClass]="iconoPdfFila(accionEnCurso.requerimiento)" aria-hidden="true"></i>
             Ver Anexo 5 (PDF)
@@ -315,10 +349,21 @@
             class="btn btn-app-secundario"
             [disabled]="!!cargandoPdfId"
             (click)="verAnexo3Pdf(accionEnCurso.requerimiento)"
+            *ngIf="secuenciaPendienteFirma.length === 0 && puedeVerAnexo3(accionEnCurso.requerimiento)"
           >
             <i class="mdi" [ngClass]="iconoPdfFila(accionEnCurso.requerimiento)" aria-hidden="true"></i>
             Anexo 3 (TDR)
           </button>
+          <a
+            *ngIf="nombreDocumentoFirmado"
+            class="btn btn-app-secundario"
+            [href]="urlDocumentoFirmado()"
+            target="_blank"
+            rel="noopener"
+          >
+            <i class="mdi mdi-file-check-outline" aria-hidden="true"></i>
+            Ver archivo firmado
+          </a>
         </div>
 
         <div class="campo">
@@ -358,10 +403,71 @@
 
 <app-modal-registro-requerimiento
   (registrado)="alRegistrar()"
-  (anexo5Creado)="abrirAnexo3($event)"
+  (anexosCompletados)="iniciarFirmaAnexos($event)"
 />
 <app-modal-detalle-requerimiento
   (editar)="editarRequerimiento($event)"
   (elaborarAnexo3)="abrirAnexo3($event)"
 />
 <app-modal-anexo3-requerimiento (registrado)="alRegistrar()" />
+<app-modal-solicitar-ccp (completado)="alRegistrar()" />
+<app-modal-cargar-ccp
+  (completado)="alRegistrar()"
+  (ccpRegistrada)="abrirAsistenteOrden($event)"
+/>
+<app-modal-orden-servicio
+  (completado)="alRegistrar()"
+  (solicitarCcp)="completarCcpDesdeOrden($event)"
+/>
+
+<!-- Visor del documento a firmar (mismo patrón que Gestión CMN) -->
+<div class="modal-fondo req-pdf-fondo" *ngIf="visorPdfUrl" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--pdf"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">{{ visorPdfTitulo }}</h2>
+          <p class="modal-subtitulo">{{ visorPdfCodigo }} · {{ visorPdfSubtitulo }}</p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarVisorPdf()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-cuerpo">
+        <div class="req-pdf-marco">
+          <iframe
+            id="marcoAnexoPdfReq"
+            [src]="visorPdfUrl"
+            [title]="visorPdfTitulo + ' en formato PDF'"
+          ></iframe>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-app-secundario" (click)="imprimirPdfVisor()">
+          <i class="mdi mdi-printer-outline" aria-hidden="true"></i>
+          Imprimir / guardar PDF
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          *ngIf="debeInvocarFirmaDigital && !nombreDocumentoFirmado"
+          (click)="firmarDigitalDesdeVisor()"
+        >
+          <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
+          Firmar digitalmente
+        </button>
+        <span class="req-firma-ok" *ngIf="nombreDocumentoFirmado">
+          <i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
+          Firmado digitalmente
+          <ng-container *ngIf="documentoPendienteFirma"> · {{ documentoPendienteFirma.anexo }}</ng-container>
+        </span>
+        <button type="button" class="btn btn-app-primary" (click)="cerrarVisorPdf()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>

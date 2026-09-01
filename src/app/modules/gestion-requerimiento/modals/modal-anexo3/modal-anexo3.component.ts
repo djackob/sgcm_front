@@ -1,6 +1,7 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { AccordionModule } from 'ngx-bootstrap/accordion';
 
 import { BreadcrumbComponent } from '../../../../shared/components/breadcrumb/breadcrumb.component';
 import { FormPedidoComponent } from '../../components/form-pedido/form-pedido.component';
@@ -14,27 +15,31 @@ import {
   crearPedidoFormularioRequerimiento
 } from '../../models/requerimiento.model';
 import {
+  ACREDITACION_ESTUDIOS,
   AYUDA_FINALIDAD,
   AYUDA_JUSTIFICACION,
   AYUDA_OBJETIVO,
-  CONFORMIDAD_PLANTILLA,
+  CONFORMIDAD_FIJA,
   FINALIDAD_COMPLEMENTO,
-  FORMA_PAGO,
+  FORMA_PAGO_DOCUMENTOS,
   INTRO_ENTREGABLES,
   JUSTIFICACION_COMPLEMENTO,
   MARCO_LEGAL,
+  MESA_PARTES,
   OBSERVACION_ENTREGABLES,
   OTRAS_CONSIDERACIONES,
   PENALIDAD_MORA,
-  PLAZO_PLANTILLA,
-  REQUISITOS_PLANTILLA,
+  PLAZO_NOTA,
+  RECURSOS_PROVEEDOR,
   RESOLUCION_CONTRACTUAL,
   SOLUCION_CONTROVERSIAS,
   TdrLocacion,
   ajustarEntregables,
   crearTdrLocacion,
-  interpolar,
-  plazoEntregables
+  plazoEntregables,
+  textoFormaPago,
+  validarActividadesTdr,
+  validarEntregablesTdr
 } from '../../documentos/anexo3-tdr.plantilla';
 import {
   CARPETA_ANEXO_3,
@@ -44,8 +49,6 @@ import {
   pedidosDesdeDetalle
 } from '../../documentos/anexo3.pdfmake';
 
-type PestanaTdr = 'clausulas' | 'actividades' | 'entregables';
-
 /**
  * TDR de locación (Anexo 3). Se abre después de registrar el Anexo 5.
  * Los pedidos SIGA se copian del requerimiento y no se vuelven a capturar
@@ -54,13 +57,23 @@ type PestanaTdr = 'clausulas' | 'actividades' | 'entregables';
 @Component({
   selector: 'app-modal-anexo3-requerimiento',
   standalone: true,
-  imports: [CommonModule, FormsModule, BreadcrumbComponent, FormPedidoComponent],
+  imports: [CommonModule, FormsModule, AccordionModule, BreadcrumbComponent, FormPedidoComponent],
   templateUrl: './modal-anexo3.component.html',
   styleUrl: './modal-anexo3.component.scss',
 })
-export class ModalAnexo3RequerimientoComponent {
+export class ModalAnexo3RequerimientoComponent implements OnChanges {
 
+  /** Dentro del registro: sin overlay, datos del Anexo 5 congelados. */
+  @Input() embebido = false;
+  /** Al setearse (pestaña Anexo 3 o tras grabar el Anexo 5) carga el TDR. */
+  @Input() idParaAbrir: string | null = null;
   @Output() registrado = new EventEmitter<void>();
+  /** Tras grabar con éxito en el flujo de registro (Anexo 5 + Anexo 3). */
+  @Output() completado = new EventEmitter<{
+    IdRequerimiento: string;
+    IdExpediente: string;
+    Version: number;
+  }>();
 
   readonly breadcrumb = ['Requerimiento', 'TDR Locadores · Anexo 3'];
   readonly marcoLegal = MARCO_LEGAL;
@@ -68,7 +81,6 @@ export class ModalAnexo3RequerimientoComponent {
   readonly justificacionComplemento = JUSTIFICACION_COMPLEMENTO;
   readonly introEntregables = INTRO_ENTREGABLES;
   readonly observacionEntregables = OBSERVACION_ENTREGABLES;
-  readonly formaPago = FORMA_PAGO;
   readonly penalidadMora = PENALIDAD_MORA;
   readonly otrasConsideraciones = OTRAS_CONSIDERACIONES;
   readonly resolucionContractual = RESOLUCION_CONTRACTUAL;
@@ -80,7 +92,20 @@ export class ModalAnexo3RequerimientoComponent {
   abierto = false;
   cargando = false;
   guardando = false;
-  pestana: PestanaTdr = 'clausulas';
+  acordeonMarco = true;
+  acordeonFinalidad = false;
+  acordeonObjetivo = false;
+  acordeonJustificacion = false;
+  acordeonCaracteristicas = false;
+  acordeonEntregables = false;
+  acordeonRequisitos = false;
+  acordeonConformidad = false;
+  acordeonFormaPago = false;
+  acordeonLugar = false;
+  acordeonPenalidades = false;
+  acordeonOtras = false;
+  acordeonResolucion = false;
+  acordeonControversias = false;
 
   detalle: RequerimientoDetalle | null = null;
   tdr: TdrLocacion = crearTdrLocacion({});
@@ -108,29 +133,49 @@ export class ModalAnexo3RequerimientoComponent {
   }
 
   get textoRequisitos(): string {
-    return interpolar(REQUISITOS_PLANTILLA, {
-      EXPERIENCIA_PROVEEDOR: this.tdr.PerfilProveedor || '',
-      EXPERIENCIA_GENERAL: this.tdr.ExperienciaGeneral || '',
-      EXPERIENCIA_ESPECIFICA: this.tdr.ExperienciaEspecifica || ''
-    });
+    return [
+      '7.1.1. Registro Nacional de Proveedores vigente.',
+      '7.1.2. No contar con impedimento para contratar con el Estado, según el artículo 30 de la Ley General de Contrataciones Públicas.',
+      `7.1.3. Grado de instrucción: ${this.tdr.PerfilProveedor || ''}`,
+      `7.1.4. Capacitación requerida: ${this.tdr.Capacitacion || ''}`,
+      `7.1.5. Experiencia general mínima: ${this.tdr.ExperienciaGeneral || ''}`,
+      `7.1.6. Experiencia específica mínima: ${this.tdr.ExperienciaEspecifica || ''}`,
+      '',
+      ACREDITACION_ESTUDIOS,
+      '',
+      '7.2. Recursos a ser provistos por el/la proveedora',
+      RECURSOS_PROVEEDOR
+    ].join('\n');
   }
 
   get textoConformidad(): string {
-    const unidad = (this.tdr.UnidadOrganizacional || '').trim();
-    return interpolar(CONFORMIDAD_PLANTILLA, {
-      UNIDAD_ORGANIZACIONAL: unidad ? `${unidad} ` : ''
-    });
+    return CONFORMIDAD_FIJA;
+  }
+
+  get textoFormaPagoVista(): string {
+    return `${textoFormaPago(this.tdr.Entregables?.length || 1)}\n\n${FORMA_PAGO_DOCUMENTOS}`;
   }
 
   get textoPlazo(): string {
-    return interpolar(PLAZO_PLANTILLA, { PLAZO: String(this.plazoTotal || '') });
+    const plazo = this.plazoTotal;
+    const linea = plazo
+      ? `${plazo} días calendario, contados a partir del día siguiente de la notificación de la orden de servicio o de suscrito el contrato.`
+      : PLAZO_NOTA;
+    return `10.2. Plazo:\n${linea}\n\n10.3. ${MESA_PARTES}`;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    const id = changes['idParaAbrir']?.currentValue as string | null | undefined;
+    if (this.embebido && id) {
+      this.abrir(id);
+    }
   }
 
   abrir(idRequerimiento: string): void {
     this.abierto = true;
     this.cargando = true;
     this.guardando = false;
-    this.pestana = 'clausulas';
+    this.acordeonMarco = true;
     this.detalle = null;
     this.tdr = crearTdrLocacion({});
     this.pedidos = [crearPedidoFormularioRequerimiento()];
@@ -164,6 +209,7 @@ export class ModalAnexo3RequerimientoComponent {
             const previo = this.leerTdr(tdrDoc?.Payload);
             if (previo) {
               this.tdr = { ...this.tdr, ...previo, Entregables: previo.Entregables?.length ? previo.Entregables : this.tdr.Entregables };
+              this.tdr.Capacitacion = this.tdr.Capacitacion || '';
             }
             this.cantidadEntregables = this.tdr.Entregables.length || 1;
             this.cargando = false;
@@ -189,10 +235,6 @@ export class ModalAnexo3RequerimientoComponent {
     this.abierto = false;
   }
 
-  mostrar(pestana: PestanaTdr): void {
-    this.pestana = pestana;
-  }
-
   agregarActividad(): void {
     this.tdr.Actividades = [...this.tdr.Actividades, { Descripcion: '' }];
   }
@@ -207,6 +249,43 @@ export class ModalAnexo3RequerimientoComponent {
   }
 
   grabar(): void {
+    if (!this.detalle || this.guardando) {
+      return;
+    }
+
+    const errActividades = validarActividadesTdr(this.tdr);
+    if (errActividades) {
+      this.funciones.mensaje('info', errActividades);
+      return;
+    }
+
+    const errEntregables = validarEntregablesTdr(this.tdr);
+    if (errEntregables) {
+      this.funciones.mensaje('info', errEntregables);
+      return;
+    }
+
+    const entregablesValidos = (this.tdr.Entregables || []).filter(e => (e.Nombre || '').trim());
+    if (entregablesValidos.length === 1) {
+      this.funciones.Mensaje(
+        'question',
+        'Un solo entregable',
+        'La contratación quedará con <b>un único entregable</b>. ¿Desea guardar el Anexo 3 y continuar con la firma de los anexos?',
+        (result: any) => {
+          if (result.isConfirmed) {
+            this.ejecutarGrabado();
+          }
+        },
+        'Sí, guardar',
+        'No'
+      );
+      return;
+    }
+
+    this.ejecutarGrabado();
+  }
+
+  private ejecutarGrabado(): void {
     if (!this.detalle || this.guardando) {
       return;
     }
@@ -237,8 +316,17 @@ export class ModalAnexo3RequerimientoComponent {
               this.funciones.mensaje('error', doc?.mensaje || 'No se registró el Anexo 3.');
               return;
             }
-            this.abierto = false;
+            if (!this.embebido) {
+              this.abierto = false;
+            }
             this.registrado.emit();
+            if (this.embebido && this.detalle) {
+              this.completado.emit({
+                IdRequerimiento: this.detalle.IdRequerimiento,
+                IdExpediente: this.detalle.IdExpediente,
+                Version: this.detalle.Version
+              });
+            }
             this.funciones.mensaje('success',
               `Se registró el TDR (Anexo 3) del requerimiento ${this.detalle?.Codigo}.`);
           },

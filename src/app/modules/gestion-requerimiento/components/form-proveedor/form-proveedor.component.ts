@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { MaestraService } from '../../../../shared/services/maestra.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import {
+  PedidoFormularioRequerimiento,
   ProveedorFormularioRequerimiento,
   montoTotalProveedor
 } from '../../models/requerimiento.model';
@@ -22,13 +23,14 @@ export class FormProveedorComponent {
   @Input() indice = 0;
   @Input() total = 1;
   @Input() puedeQuitar = false;
+  @Input() pedidos: PedidoFormularioRequerimiento[] = [];
 
   @Output() quitar = new EventEmitter<void>();
 
   readonly tiposDocumento = [
     { valor: 'DNI' as const, nombre: 'DNI' },
-    { valor: 'CE' as const, nombre: 'Carné de extranjería' },
-    { valor: 'RUC' as const, nombre: 'RUC' }
+    { valor: 'CE' as const, nombre: 'Carné de extranjería' }
+    // { valor: 'RUC' as1 const, nombre: 'RUC' }
   ];
 
   readonly tiposRegistro = [
@@ -51,6 +53,10 @@ export class FormProveedorComponent {
 
   get montoTotal(): number {
     return montoTotalProveedor(this.proveedor);
+  }
+
+  get pedidosConNumero(): PedidoFormularioRequerimiento[] {
+    return (this.pedidos || []).filter(p => !!(p.NumeroPedido || '').trim());
   }
 
   onDniChange(): void {

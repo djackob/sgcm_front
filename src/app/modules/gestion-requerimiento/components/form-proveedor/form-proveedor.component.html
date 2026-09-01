@@ -165,6 +165,31 @@
     </div>
 
     <div class="campo req-grid__ancho">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-pedido'">N.° Pedido SIGA</label>
+      <select
+        *ngIf="pedidosConNumero.length; else pedidoTexto"
+        [id]="prefijo + '-pedido'"
+        class="campo-control"
+        [name]="prefijo + '-pedido'"
+        [(ngModel)]="proveedor.NumeroPedido"
+      >
+        <option value="">Seleccione el pedido de esta propuesta</option>
+        <option *ngFor="let pedido of pedidosConNumero" [value]="pedido.NumeroPedido">
+          {{ pedido.NumeroPedido }}{{ pedido.NombreItemPedido ? ' — ' + pedido.NombreItemPedido : '' }}
+        </option>
+      </select>
+      <ng-template #pedidoTexto>
+        <input
+          [id]="prefijo + '-pedido'"
+          type="text"
+          class="campo-control"
+          [name]="prefijo + '-pedido'"
+          [(ngModel)]="proveedor.NumeroPedido"
+        />
+      </ng-template>
+    </div>
+
+    <div class="campo req-grid__ancho">
       <label class="campo-etiqueta" [attr.for]="prefijo + '-email'">Email</label>
       <input
         [id]="prefijo + '-email'"

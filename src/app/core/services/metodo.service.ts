@@ -31,9 +31,17 @@ export class MetodoService {
   GET(path: string, ipInput: any = null, respuesta: any = 'json'): Observable<any> {
     if (ipInput == null) {
       return this.http.get(ConfigService.settings.apiUrl + `${path}`, { responseType: respuesta });
-    } else {
-      return this.http.get(ConfigService.settings.apiUrl + `${path}?ipInput=${JSON.stringify(ipInput)}`, { responseType: respuesta });
     }
+
+    /* ipInput va en la query string: sin encodeURIComponent las comillas y
+       llaves del JSON rompen la URL en algunos navegadores/proxies y el
+       backend recibe un payload ilegible (o la peticion falla del todo). */
+    const params = new HttpParams({ encoder: new CustomURLEncoder() })
+      .set('ipInput', JSON.stringify(ipInput));
+    return this.http.get(ConfigService.settings.apiUrl + `${path}`, {
+      params,
+      responseType: respuesta
+    });
   }
 
   FORM_DATA(path: string, formData: any) {

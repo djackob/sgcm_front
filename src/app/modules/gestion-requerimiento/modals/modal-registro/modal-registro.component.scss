@@ -434,11 +434,78 @@
      el tope del año que tenga sembrado. */
   &--excede {
     background: #fef3c7;
+    color: #b45309;
+    font-weight: 600;
 
     .req-monto__valor {
       color: #b45309;
     }
   }
+}
+
+.req-pestanias {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #e2e8f0;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 0;
+    background: #f1f5f9;
+    color: #64748b;
+    border-radius: 8px;
+    padding: 0.42rem 0.9rem;
+    font-size: 0.84rem;
+    font-weight: 500;
+    line-height: 1.2;
+
+    &:hover:not(.req-pestanias__activa):not(:disabled) {
+      background: #e2e8f0;
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+
+  &__activa {
+    background: transparent !important;
+    color: #0f172a !important;
+    font-weight: 700;
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+  }
+}
+
+.req-alerta {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.req-travel {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.req-tdr-embebido {
+  min-height: 12rem;
 }
 
 .scm-table--compacta {

@@ -1,26 +1,33 @@
-<div class="modal-fondo" *ngIf="abierto" role="presentation">
+<ng-container *ngIf="abierto">
   <div
-    class="modal-app-dialog modal-app-dialog--tdr"
-    role="dialog"
-    aria-modal="true"
-    (click)="$event.stopPropagation()"
+    [class.modal-fondo]="!embebido"
+    [attr.role]="embebido ? null : 'presentation'"
   >
-    <div class="modal-app">
-      <div class="modal-cabecera">
+    <div
+      [class.modal-app-dialog]="!embebido"
+      [class.modal-app-dialog--tdr]="!embebido"
+      [class.tdr-embebido]="embebido"
+      [attr.role]="embebido ? null : 'dialog'"
+      [attr.aria-modal]="embebido ? null : 'true'"
+      (click)="$event.stopPropagation()"
+    >
+      <div [class.modal-app]="!embebido">
+
+      <div class="modal-cabecera" *ngIf="!embebido">
         <div class="modal-cabecera-info">
           <app-breadcrumb [items]="breadcrumb" />
           <h2 class="modal-titulo">
             {{ codigo ? 'TDR Locadores' : 'Nuevo TDR Locadores' }}
             <span class="modal-codigo" *ngIf="codigo">· {{ codigo }}</span>
           </h2>
-          <p class="modal-subtitulo">Anexo 3 · se elabora después de la propuesta del Área usuaria (Anexo 5)</p>
+          <p class="modal-subtitulo">Anexo 3 · los datos del Anexo 5 viajan y quedan congelados</p>
         </div>
         <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
           <i class="mdi mdi-close" aria-hidden="true"></i>
         </button>
       </div>
 
-      <div class="modal-cuerpo">
+      <div class="modal-cuerpo" [class.modal-cuerpo--embebido]="embebido">
         <div class="req-cargando" *ngIf="cargando">
           <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando el TDR…
         </div>
@@ -40,6 +47,19 @@
             <div class="campo req-grid__ancho">
               <label class="campo-etiqueta" for="tdrDenominacion">Denominación de la contratación</label>
               <textarea id="tdrDenominacion" class="campo-control campo-control--bloqueado" rows="2" [value]="detalle.Denominacion" readonly></textarea>
+            </div>
+
+            <div class="campo campo--corto">
+              <label class="campo-etiqueta" for="tdrPlazoA5">Plazo (días calendario)</label>
+              <input id="tdrPlazoA5" type="number" class="campo-control campo-control--bloqueado" [value]="detalle.PlazoDias" readonly disabled />
+            </div>
+
+            <div class="campo campo--corto">
+              <label class="campo-etiqueta" for="tdrMontoA5">Monto</label>
+              <div class="campo-moneda">
+                <span>S/</span>
+                <input id="tdrMontoA5" type="text" class="campo-control campo-control--bloqueado" [value]="detalle.Monto | number: '1.2-2'" readonly disabled />
+              </div>
             </div>
 
             <div class="campo campo--corto">
@@ -84,168 +104,216 @@
             />
           </div>
 
-          <div class="tdr-pestanias" role="tablist">
-            <button type="button" role="tab" [class.tdr-pestanias__activa]="pestana === 'clausulas'" (click)="mostrar('clausulas')">
-              Cláusulas Generales
-            </button>
-            <button type="button" role="tab" [class.tdr-pestanias__activa]="pestana === 'actividades'" (click)="mostrar('actividades')">
-              Actividades
-            </button>
-            <button type="button" role="tab" [class.tdr-pestanias__activa]="pestana === 'entregables'" (click)="mostrar('entregables')">
-              Entregables
-            </button>
-          </div>
+          <accordion class="tdr-acordeones" [isAnimated]="true" [closeOthers]="false">
+            <accordion-group [(isOpen)]="acordeonMarco">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">1. MARCO LEGAL (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <textarea class="campo-control campo-control--bloqueado" rows="6" [value]="marcoLegal" readonly></textarea>
+            </accordion-group>
 
-          <!-- Cláusulas generales -->
-          <div *ngIf="pestana === 'clausulas'">
-            <h5 class="tdr-seccion">1. MARCO LEGAL</h5>
-            <textarea class="campo-control campo-control--bloqueado" rows="6" [value]="marcoLegal" readonly></textarea>
+            <accordion-group [(isOpen)]="acordeonFinalidad">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">2. FINALIDAD PÚBLICA (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <p class="tdr-ayuda">{{ ayudaFinalidad }}</p>
+              <textarea class="campo-control" rows="4" [(ngModel)]="tdr.FinalidadPublica"></textarea>
+              <label class="campo-etiqueta">Texto complementario</label>
+              <textarea class="campo-control campo-control--bloqueado" rows="3" [value]="finalidadComplemento" readonly></textarea>
+            </accordion-group>
 
-            <h5 class="tdr-seccion">2. FINALIDAD PÚBLICA</h5>
-            <p class="tdr-ayuda">{{ ayudaFinalidad }}</p>
-            <textarea class="campo-control" rows="4" [(ngModel)]="tdr.FinalidadPublica"></textarea>
-            <label class="campo-etiqueta">Texto complementario</label>
-            <textarea class="campo-control campo-control--bloqueado" rows="3" [value]="finalidadComplemento" readonly></textarea>
+            <accordion-group [(isOpen)]="acordeonObjetivo">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">3. OBJETIVO DE LA CONTRATACIÓN</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <p class="tdr-ayuda">{{ ayudaObjetivo }}</p>
+              <textarea class="campo-control" rows="4" [(ngModel)]="tdr.Objetivo"></textarea>
+            </accordion-group>
 
-            <h5 class="tdr-seccion">3. OBJETIVO DE LA CONTRATACIÓN</h5>
-            <p class="tdr-ayuda">{{ ayudaObjetivo }}</p>
-            <textarea class="campo-control" rows="4" [(ngModel)]="tdr.Objetivo"></textarea>
+            <accordion-group [(isOpen)]="acordeonJustificacion">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">4. JUSTIFICACIÓN DE LA NECESIDAD DE LA CONTRATACIÓN (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <p class="tdr-ayuda">{{ ayudaJustificacion }}</p>
+              <textarea class="campo-control" rows="5" [(ngModel)]="tdr.Justificacion"></textarea>
+              <label class="campo-etiqueta">Texto complementario</label>
+              <textarea class="campo-control campo-control--bloqueado" rows="3" [value]="justificacionComplemento" readonly></textarea>
+            </accordion-group>
 
-            <h5 class="tdr-seccion">4. JUSTIFICACIÓN DE LA NECESIDAD DE LA CONTRATACIÓN</h5>
-            <p class="tdr-ayuda">{{ ayudaJustificacion }}</p>
-            <textarea class="campo-control" rows="5" [(ngModel)]="tdr.Justificacion"></textarea>
-            <label class="campo-etiqueta">Texto complementario</label>
-            <textarea class="campo-control campo-control--bloqueado" rows="3" [value]="justificacionComplemento" readonly></textarea>
-
-            <h5 class="tdr-seccion">5. CARACTERÍSTICAS Y CONDICIONES DE LA CONTRATACIÓN</h5>
-            <p class="req-nota">Las actividades se registran en la pestaña Actividades.</p>
-            <textarea class="campo-control" rows="3" [(ngModel)]="tdr.IntroActividades"></textarea>
-
-            <h5 class="tdr-seccion">6. ENTREGABLES</h5>
-            <p class="req-nota">La cantidad, el plazo y los nombres se registran en la pestaña Entregables.</p>
-            <textarea class="campo-control campo-control--bloqueado" rows="3" [value]="introEntregables" readonly></textarea>
-
-            <h5 class="tdr-seccion">7. REQUISITOS Y RECURSOS DEL/DE LA PROVEEDOR/A</h5>
-            <div class="req-grid">
-              <div class="campo req-grid__ancho">
-                <label class="campo-etiqueta">Perfil de Proveedor</label>
-                <textarea class="campo-control" rows="3" [(ngModel)]="tdr.PerfilProveedor"></textarea>
+            <accordion-group [(isOpen)]="acordeonCaracteristicas">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">5. CARACTERÍSTICAS Y CONDICIONES DE LA CONTRATACIÓN (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <label class="campo-etiqueta">5.1. Actividades (*)</label>
+              <textarea class="campo-control" rows="3" [(ngModel)]="tdr.IntroActividades"></textarea>
+              <div class="req-bloque__cabecera">
+                <h4 class="req-bloque__titulo">Actividades</h4>
+                <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarActividad()">
+                  <i class="mdi mdi-plus" aria-hidden="true"></i>
+                  Agregar actividad
+                </button>
               </div>
+              <div class="tdr-fila" *ngFor="let actividad of tdr.Actividades; let i = index">
+                <span class="tdr-fila__nro">{{ i + 1 }}</span>
+                <textarea class="campo-control" rows="2" [(ngModel)]="actividad.Descripcion" placeholder="Descripción de la actividad"></textarea>
+                <button type="button" class="btn-icon-outline" title="Quitar" (click)="quitarActividad(i)">
+                  <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="req-nota" *ngIf="tdr.Actividades.length === 0">Aún no hay actividades. Agregue al menos una.</p>
+            </accordion-group>
+
+            <accordion-group [(isOpen)]="acordeonEntregables">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">6. ENTREGABLES (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <textarea class="campo-control campo-control--bloqueado" rows="3" [value]="introEntregables" readonly></textarea>
+              <div class="req-grid">
+                <div class="campo campo--corto">
+                  <label class="campo-etiqueta" for="tdrCantEnt">Cantidad de Entregables</label>
+                  <input
+                    id="tdrCantEnt"
+                    type="number"
+                    min="1"
+                    max="20"
+                    class="campo-control"
+                    [(ngModel)]="cantidadEntregables"
+                    (ngModelChange)="onCantidadEntregables()"
+                  />
+                </div>
+                <div class="campo campo--corto">
+                  <label class="campo-etiqueta" for="tdrPlazoEnt">Plazo (días calendario)</label>
+                  <input id="tdrPlazoEnt" type="number" class="campo-control campo-control--bloqueado" [value]="plazoTotal" readonly />
+                </div>
+              </div>
+              <div class="tdr-fila tdr-fila--entregable" *ngFor="let entregable of tdr.Entregables; let i = index">
+                <span class="tdr-fila__nro">{{ i + 1 }}</span>
+                <div class="campo">
+                  <label class="campo-etiqueta">Nombre del Entregable</label>
+                  <textarea class="campo-control" rows="2" [(ngModel)]="entregable.Nombre"></textarea>
+                </div>
+                <div class="campo campo--corto">
+                  <label class="campo-etiqueta">Días Calendario</label>
+                  <input type="number" min="1" class="campo-control" [(ngModel)]="entregable.Dias" />
+                </div>
+              </div>
+              <label class="campo-etiqueta">Observaciones a los entregables</label>
+              <textarea class="campo-control campo-control--bloqueado" rows="6" [value]="observacionEntregables" readonly></textarea>
+            </accordion-group>
+
+            <accordion-group [(isOpen)]="acordeonRequisitos">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">7. REQUISITOS Y RECURSOS DEL/DE LA PROVEEDOR/A (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <div class="req-grid">
+                <div class="campo req-grid__ancho">
+                  <label class="campo-etiqueta">7.1.3 Grado de instrucción</label>
+                  <textarea class="campo-control" rows="3" [(ngModel)]="tdr.PerfilProveedor"></textarea>
+                </div>
+                <div class="campo req-grid__ancho">
+                  <label class="campo-etiqueta">7.1.4 Capacitación requerida</label>
+                  <textarea class="campo-control" rows="2" [(ngModel)]="tdr.Capacitacion"></textarea>
+                </div>
+                <div class="campo">
+                  <label class="campo-etiqueta">7.1.5 Experiencia general mínima</label>
+                  <textarea class="campo-control" rows="3" [(ngModel)]="tdr.ExperienciaGeneral"></textarea>
+                </div>
+                <div class="campo">
+                  <label class="campo-etiqueta">7.1.6 Experiencia específica mínima</label>
+                  <textarea class="campo-control" rows="3" [(ngModel)]="tdr.ExperienciaEspecifica"></textarea>
+                </div>
+              </div>
+              <label class="campo-etiqueta">Texto principal</label>
+              <textarea class="campo-control campo-control--bloqueado" rows="8" [value]="textoRequisitos" readonly></textarea>
+            </accordion-group>
+
+            <accordion-group [(isOpen)]="acordeonConformidad">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">8. CONFORMIDAD DE LA PRESTACIÓN (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
               <div class="campo">
-                <label class="campo-etiqueta">Experiencia laboral general mínima</label>
-                <textarea class="campo-control" rows="3" [(ngModel)]="tdr.ExperienciaGeneral"></textarea>
+                <label class="campo-etiqueta" for="tdrUnidadOrg">Unidad Organizacional</label>
+                <textarea id="tdrUnidadOrg" class="campo-control" rows="2" [(ngModel)]="tdr.UnidadOrganizacional"></textarea>
               </div>
-              <div class="campo">
-                <label class="campo-etiqueta">Experiencia laboral específica mínima</label>
-                <textarea class="campo-control" rows="3" [(ngModel)]="tdr.ExperienciaEspecifica"></textarea>
+              <label class="campo-etiqueta">Texto principal</label>
+              <textarea class="campo-control campo-control--bloqueado" rows="6" [value]="textoConformidad" readonly></textarea>
+              <div class="req-grid">
+                <div class="campo">
+                  <label class="campo-etiqueta" for="tdrUnidadConf">Unidad de Conformidad</label>
+                  <input id="tdrUnidadConf" type="text" class="campo-control" [(ngModel)]="tdr.UnidadConformidad" />
+                </div>
+                <div class="campo">
+                  <label class="campo-etiqueta" for="tdrUnidadInf">Unidad de Informe</label>
+                  <input id="tdrUnidadInf" type="text" class="campo-control" [(ngModel)]="tdr.UnidadInforme" />
+                </div>
               </div>
-            </div>
-            <label class="campo-etiqueta">Texto principal</label>
-            <textarea class="campo-control campo-control--bloqueado" rows="8" [value]="textoRequisitos" readonly></textarea>
+            </accordion-group>
 
-            <h5 class="tdr-seccion">8. CONFORMIDAD DE LA PRESTACIÓN</h5>
-            <div class="campo">
-              <label class="campo-etiqueta" for="tdrUnidadOrg">Unidad Organizacional</label>
-              <textarea id="tdrUnidadOrg" class="campo-control" rows="2" [(ngModel)]="tdr.UnidadOrganizacional"></textarea>
-            </div>
-            <label class="campo-etiqueta">Texto principal</label>
-            <textarea class="campo-control campo-control--bloqueado" rows="6" [value]="textoConformidad" readonly></textarea>
-            <div class="req-grid">
-              <div class="campo">
-                <label class="campo-etiqueta" for="tdrUnidadConf">Unidad de Conformidad</label>
-                <input id="tdrUnidadConf" type="text" class="campo-control" [(ngModel)]="tdr.UnidadConformidad" />
-              </div>
-              <div class="campo">
-                <label class="campo-etiqueta" for="tdrUnidadInf">Unidad de Informe</label>
-                <input id="tdrUnidadInf" type="text" class="campo-control" [(ngModel)]="tdr.UnidadInforme" />
-              </div>
-            </div>
+            <accordion-group [(isOpen)]="acordeonFormaPago">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">9. FORMA DE PAGO (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <textarea class="campo-control campo-control--bloqueado" rows="8" [value]="textoFormaPagoVista" readonly></textarea>
+            </accordion-group>
 
-            <h5 class="tdr-seccion">9. FORMA DE PAGO</h5>
-            <textarea class="campo-control campo-control--bloqueado" rows="8" [value]="formaPago" readonly></textarea>
+            <accordion-group [(isOpen)]="acordeonLugar">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">10. LUGAR Y PLAZO DE LA PRESTACIÓN (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <textarea class="campo-control" rows="4" [(ngModel)]="tdr.LugarPrestacion"></textarea>
+              <label class="campo-etiqueta">Plazo (el valor es automático desde los entregables)</label>
+              <textarea class="campo-control campo-control--bloqueado" rows="4" [value]="textoPlazo" readonly></textarea>
+            </accordion-group>
 
-            <h5 class="tdr-seccion">10. LUGAR Y PLAZO DE LA PRESTACIÓN</h5>
-            <textarea class="campo-control" rows="4" [(ngModel)]="tdr.LugarPrestacion"></textarea>
-            <label class="campo-etiqueta">Plazo (el valor es automático desde los entregables)</label>
-            <textarea class="campo-control campo-control--bloqueado" rows="4" [value]="textoPlazo" readonly></textarea>
+            <accordion-group [(isOpen)]="acordeonPenalidades">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">11. PENALIDADES (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <textarea class="campo-control campo-control--bloqueado" rows="8" [value]="penalidadMora" readonly></textarea>
+              <label class="campo-etiqueta">Otras Penalidades (De corresponder).</label>
+              <textarea class="campo-control" rows="3" [(ngModel)]="tdr.OtrasPenalidades"></textarea>
+            </accordion-group>
 
-            <h5 class="tdr-seccion">11. PENALIDADES</h5>
-            <textarea class="campo-control campo-control--bloqueado" rows="8" [value]="penalidadMora" readonly></textarea>
-            <label class="campo-etiqueta">Otras Penalidades (De corresponder).</label>
-            <textarea class="campo-control" rows="3" [(ngModel)]="tdr.OtrasPenalidades"></textarea>
+            <accordion-group [(isOpen)]="acordeonOtras">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">12. OTRAS CONSIDERACIONES PARA LA EJECUCIÓN DE LA PRESTACIÓN (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <textarea class="campo-control campo-control--bloqueado" rows="10" [value]="otrasConsideraciones" readonly></textarea>
+            </accordion-group>
 
-            <h5 class="tdr-seccion">12. OTRAS CONSIDERACIONES PARA LA EJECUCIÓN DE LA PRESTACIÓN</h5>
-            <textarea class="campo-control campo-control--bloqueado" rows="10" [value]="otrasConsideraciones" readonly></textarea>
+            <accordion-group [(isOpen)]="acordeonResolucion">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">13. RESOLUCIÓN CONTRACTUAL (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <textarea class="campo-control campo-control--bloqueado" rows="8" [value]="resolucionContractual" readonly></textarea>
+            </accordion-group>
 
-            <h5 class="tdr-seccion">13. RESOLUCIÓN CONTRACTUAL</h5>
-            <textarea class="campo-control campo-control--bloqueado" rows="8" [value]="resolucionContractual" readonly></textarea>
-
-            <h5 class="tdr-seccion">14. SOLUCIÓN DE CONTROVERSIAS</h5>
-            <textarea class="campo-control campo-control--bloqueado" rows="4" [value]="solucionControversias" readonly></textarea>
-          </div>
-
-          <!-- Actividades -->
-          <div *ngIf="pestana === 'actividades'">
-            <h5 class="tdr-seccion">5. CARACTERÍSTICAS Y CONDICIONES DE LA CONTRATACIÓN</h5>
-            <textarea class="campo-control" rows="3" [(ngModel)]="tdr.IntroActividades"></textarea>
-            <div class="req-bloque__cabecera">
-              <h4 class="req-bloque__titulo">Actividades</h4>
-              <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarActividad()">
-                <i class="mdi mdi-plus" aria-hidden="true"></i>
-                Agregar actividad
-              </button>
-            </div>
-            <div class="tdr-fila" *ngFor="let actividad of tdr.Actividades; let i = index">
-              <span class="tdr-fila__nro">{{ i + 1 }}</span>
-              <textarea class="campo-control" rows="2" [(ngModel)]="actividad.Descripcion" placeholder="Descripción de la actividad"></textarea>
-              <button type="button" class="btn-icon-outline" title="Quitar" (click)="quitarActividad(i)">
-                <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
-              </button>
-            </div>
-            <p class="req-nota" *ngIf="tdr.Actividades.length === 0">Aún no hay actividades. Agregue al menos una.</p>
-          </div>
-
-          <!-- Entregables -->
-          <div *ngIf="pestana === 'entregables'">
-            <h5 class="tdr-seccion">6. ENTREGABLES</h5>
-            <textarea class="campo-control campo-control--bloqueado" rows="3" [value]="introEntregables" readonly></textarea>
-            <div class="req-grid">
-              <div class="campo campo--corto">
-                <label class="campo-etiqueta" for="tdrCantEnt">Cantidad de Entregables</label>
-                <input
-                  id="tdrCantEnt"
-                  type="number"
-                  min="1"
-                  max="20"
-                  class="campo-control"
-                  [(ngModel)]="cantidadEntregables"
-                  (ngModelChange)="onCantidadEntregables()"
-                />
-              </div>
-              <div class="campo campo--corto">
-                <label class="campo-etiqueta" for="tdrPlazoEnt">Plazo (días calendario)</label>
-                <input id="tdrPlazoEnt" type="number" class="campo-control campo-control--bloqueado" [value]="plazoTotal" readonly />
-              </div>
-            </div>
-            <div class="tdr-fila tdr-fila--entregable" *ngFor="let entregable of tdr.Entregables; let i = index">
-              <span class="tdr-fila__nro">{{ i + 1 }}</span>
-              <div class="campo">
-                <label class="campo-etiqueta">Nombre del Entregable</label>
-                <textarea class="campo-control" rows="2" [(ngModel)]="entregable.Nombre"></textarea>
-              </div>
-              <div class="campo campo--corto">
-                <label class="campo-etiqueta">Días Calendario</label>
-                <input type="number" min="1" class="campo-control" [(ngModel)]="entregable.Dias" />
-              </div>
-            </div>
-            <label class="campo-etiqueta">Observaciones a los entregables</label>
-            <textarea class="campo-control campo-control--bloqueado" rows="6" [value]="observacionEntregables" readonly></textarea>
-          </div>
+            <accordion-group [(isOpen)]="acordeonControversias">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">14. SOLUCIÓN DE CONTROVERSIAS (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <textarea class="campo-control campo-control--bloqueado" rows="4" [value]="solucionControversias" readonly></textarea>
+            </accordion-group>
+          </accordion>
         </ng-container>
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="btn btn-app-secundario" [disabled]="guardando" (click)="cerrar()">Salir</button>
+        <button type="button" class="btn btn-app-secundario" *ngIf="!embebido" [disabled]="guardando" (click)="cerrar()">Salir</button>
         <span class="modal-footer__info" *ngIf="guardando">Armando y registrando el Anexo 3…</span>
         <button
           type="button"
@@ -254,9 +322,11 @@
           (click)="grabar()"
         >
           <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
-          Grabar
+          {{ embebido ? 'Grabar y firmar anexos' : 'Grabar' }}
         </button>
+      </div>
+
       </div>
     </div>
   </div>
-</div>
+</ng-container>

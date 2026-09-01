@@ -27,8 +27,36 @@
           <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando el requerimiento…
         </div>
 
+        <div class="scm-tabs" *ngIf="!cargandoEdicion && esLocacion" role="tablist">
+          <button
+            type="button"
+            class="scm-tabs__tab"
+            role="tab"
+            [class.scm-tabs__tab--activa]="pestanaTrabajo === 'anexo5'"
+            (click)="pestanaTrabajo = 'anexo5'"
+          >
+            Anexo 5 · Propuesta
+          </button>
+          <button
+            type="button"
+            class="scm-tabs__tab"
+            role="tab"
+            [class.scm-tabs__tab--activa]="pestanaTrabajo === 'anexo3'"
+            [disabled]="!idRequerimientoEdicion"
+            (click)="mostrarAnexo3()"
+          >
+            Anexo 3 · TDR
+          </button>
+        </div>
+
+        <p class="req-alerta" *ngIf="esLocacion && excedeTope">
+          El cálculo monto mensual × entregables (S/ {{ montoProveedorTotal | number: '1.2-2' }})
+          supera el tope de ocho UIT (S/ {{ montoTope | number: '1.2-2' }}).
+          No se puede continuar el flujo de contratos menores.
+        </p>
+
         <accordion
-          *ngIf="!cargandoEdicion"
+          *ngIf="!cargandoEdicion && pestanaTrabajo === 'anexo5'"
           class="req-acordeones"
           [isAnimated]="true"
           [closeOthers]="false"
@@ -159,25 +187,46 @@
                 [indice]="i"
                 [total]="proveedores.length"
                 [puedeQuitar]="proveedores.length > 1"
+                [pedidos]="pedidos"
                 (quitar)="quitarProveedor(i)"
               />
             </div>
           </accordion-group>
 
         </accordion>
+
+        <div class="req-tdr-embebido" *ngIf="idRequerimientoEdicion" [hidden]="cargandoEdicion || pestanaTrabajo !== 'anexo3'">
+          <p class="req-travel">
+            Los datos críticos del Anexo 5 (denominación, plazo, pedido SIGA y monto)
+            viajan al TDR y quedan congelados. Complete cláusulas, actividades y entregables.
+          </p>
+          <app-modal-anexo3-requerimiento
+            #tdrEmbebido
+            [embebido]="true"
+            [idParaAbrir]="pestanaTrabajo === 'anexo3' ? idRequerimientoEdicion : null"
+            (registrado)="alRegistrarTdr()"
+          />
+        </div>
       </div>
 
-      <div class="modal-footer">
+      <div class="modal-footer" *ngIf="pestanaTrabajo === 'anexo5'">
         <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cerrar</button>
+        <span class="req-monto" [class.req-monto--excede]="excedeTope" *ngIf="montoTope != null">
+          Total S/ {{ montoTotal | number: '1.2-2' }}
+          · tope 8 UIT S/ {{ montoTope | number: '1.2-2' }}
+        </span>
         <button
           type="button"
           class="btn btn-app-primary"
-          [disabled]="guardando || cargandoEdicion"
+          [disabled]="guardando || cargandoEdicion || excedeTope"
           (click)="guardar()"
         >
           <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
           {{ modoEdicion ? 'Guardar cambios' : 'Registrar requerimiento' }}
         </button>
+      </div>
+      <div class="modal-footer" *ngIf="pestanaTrabajo === 'anexo3'">
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cerrar</button>
       </div>
     </div>
   </div>

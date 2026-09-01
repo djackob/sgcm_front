@@ -1,0 +1,175 @@
+<div class="modal-fondo" *ngIf="abierto" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--ccp"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">Confirmar idoneidad y solicitar CCP</h2>
+          <p class="modal-subtitulo" *ngIf="fila">
+            {{ fila.Codigo }} · {{ fila.Denominacion }}
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()" [disabled]="procesando">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="cargando">
+        <p class="ccp-cargando"><i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando expediente…</p>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="!cargando && detalle">
+        <section class="ccp-bloque">
+          <h3 class="ccp-bloque__titulo">Resumen de filtros de idoneidad</h3>
+          <div class="ccp-filtros-resumen">
+            <span
+              class="ccp-filtro-chip"
+              *ngFor="let filtro of filtros"
+              [ngClass]="claseAptitud(filtro.Resultado)"
+            >
+              {{ etiquetaCorta(filtro.CodigoFiltro) }}: {{ aptitud(filtro.Resultado) }}
+            </span>
+          </div>
+
+          <div class="ccp-alerta ccp-alerta--error" *ngIf="bloqueado">
+            <i class="mdi mdi-alert-circle-outline" aria-hidden="true"></i>
+            {{ mensajeBloqueo }}
+          </div>
+
+          <div class="ccp-evidencias" *ngIf="filtros.length">
+            <h4>Evidencias adjuntas</h4>
+            <ul>
+              <li *ngFor="let filtro of filtros">
+                <span>{{ filtro.Tipo }}</span>
+                <a
+                  *ngIf="urlEvidencia(filtro); else sinEvidencia"
+                  [href]="urlEvidencia(filtro)"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  {{ filtro.NombreDocumentoEvidencia || 'Ver PDF' }}
+                </a>
+                <ng-template #sinEvidencia>
+                  <span class="ccp-evidencias__falta">Sin evidencia registrada</span>
+                </ng-template>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="ccp-bloque">
+          <h3 class="ccp-bloque__titulo">Datos de la contratación</h3>
+          <dl class="ccp-datos">
+            <div>
+              <dt>Locador propuesto</dt>
+              <dd>{{ nombreLocador }} <span *ngIf="documentoLocadorTexto">(RUC/DNI: {{ documentoLocadorTexto }})</span></dd>
+            </div>
+            <div>
+              <dt>Denominación de la contratación (TDR)</dt>
+              <dd>{{ detalle.Denominacion }}</dd>
+            </div>
+            <div>
+              <dt>Pedido SIGA N°</dt>
+              <dd>{{ pedido?.NumeroPedido || proveedor?.NumeroPedido || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Monto mensual</dt>
+              <dd>S/ {{ proveedor?.MontoMensual | number: '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Número de entregables</dt>
+              <dd>{{ proveedor?.CantidadEntregables || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Monto total a certificar</dt>
+              <dd>
+                S/ {{ montoTotal | number: '1.2-2' }}
+                <span *ngIf="proveedor?.CantidadEntregables && proveedor?.MontoMensual">
+                  ({{ proveedor?.CantidadEntregables }} pagos de S/ {{ proveedor?.MontoMensual | number: '1.2-2' }})
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Meta presupuestaria</dt>
+              <dd>{{ pedidoExtraData.MetaPresupuestaria || pedido?.SecFunc || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Fuente de financiamiento</dt>
+              <dd>{{ pedido?.FuenteFinanc || pedidoExtraData.FuenteFinanc || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Clasificador de gastos</dt>
+              <dd>{{ pedido?.Clasificador || pedidoExtraData.Clasificador || '—' }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="ccp-bloque">
+          <h3 class="ccp-bloque__titulo">Vista previa del memorando de solicitud a OPP</h3>
+          <div class="ccp-memorando">
+            <p class="ccp-memorando__encabezado">MEMORANDO N° _____-{{ detalle.AnoEje || '2026' }}-ANIN/OA-UA</p>
+            <p><strong>A:</strong> Oficina de Planeamiento y Presupuesto (OPP)</p>
+            <p><strong>Asunto:</strong> Solicitud de Certificación de Crédito Presupuestario (CCP)</p>
+            <textarea
+              class="ccp-memorando__editor"
+              rows="12"
+              [(ngModel)]="cuerpoMemorando"
+              (ngModelChange)="documentoMemoSubido = ''; documentoMemoFirmado = ''"
+              [disabled]="bloqueado || procesando"
+            ></textarea>
+          </div>
+          <label class="ccp-notas">
+            <span>Notas o justificación (opcional)</span>
+            <textarea
+              rows="3"
+              [(ngModel)]="notasMemorando"
+              (blur)="actualizarMemorando()"
+              [disabled]="bloqueado || procesando"
+            ></textarea>
+          </label>
+          <p class="ccp-firma-estado" *ngIf="documentoMemoFirmado">
+            <i class="mdi mdi-check-circle text-success" aria-hidden="true"></i>
+            Memorando firmado digitalmente.
+          </p>
+        </section>
+      </div>
+
+      <div class="modal-footer">
+        <p class="ccp-paso" *ngIf="paso">{{ paso }}</p>
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()" [disabled]="procesando">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          (click)="firmarMemorando()"
+          [disabled]="bloqueado || procesando || !cuerpoMemorando.trim()"
+        >
+          Firmar digitalmente
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          (click)="enviarSinFirma()"
+          [disabled]="!puedeEnviarSinFirma"
+          title="Solo para pruebas del flujo, sin firma digital"
+        >
+          Enviar sin firma (pruebas)
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-primary"
+          (click)="confirmarSolicitud()"
+          [disabled]="!puedeConfirmar"
+          [title]="bloqueado ? mensajeBloqueo : ''"
+        >
+          Confirmar y solicitar CCP (Enviar a OPP)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

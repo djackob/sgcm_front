@@ -7,14 +7,14 @@ import {
 
 /**
  * Anexo N.° 05 — Propuesta del Área usuaria para locación de servicios
- * (personas naturales). Formato oficial: tabla apaisada de hasta cinco filas.
+ * (personas naturales). Una fila por postor registrado; no se rellenan
+ * tuplas vacías.
  */
 
 export const TIPO_ANEXO_5 = 'REQ_PROPUESTA_LOCACION';
 export const CARPETA_ANEXO_5 = 'requerimiento';
 
 const NEGRO = '#000000';
-const FILAS_OFICIALES = 5;
 
 export function nombreArchivoAnexo5(detalle: { Codigo?: string }): string {
   return `Anexo 5 - ${detalle.Codigo || 'requerimiento'}.pdf`;
@@ -49,82 +49,51 @@ export function construirAnexo5(detalle: RequerimientoDetalle | any): any {
   const proveedores = proveedoresDelRequerimiento(detalle);
   const pedidos: PedidoRequerimiento[] = detalle?.Pedidos || [];
   const extra = extraDatosAdicionales(detalle);
-  const pedidosExtra = extra.PedidosExtra || extra.pedidosExtra || [];
+  const pedidosExtraRaw = extra.PedidosExtra || extra.pedidosExtra;
+  const pedidosExtra = Array.isArray(pedidosExtraRaw) ? pedidosExtraRaw : [];
   const area = [detalle?.CentroCostoNombre, detalle?.CentroCosto]
     .filter(x => !!x)
     .join(' — ');
   const denominacion = detalle?.Denominacion || '';
   const plazo = detalle?.PlazoDias != null ? String(detalle.PlazoDias) : '';
 
-  const filas = Array.from({ length: FILAS_OFICIALES }, (_, indice) =>
-    filaPropuesta(indice, proveedores[indice], pedidos[indice], pedidosExtra[indice], {
+  const filas = proveedores.map((proveedor, indice) => {
+    const nroPedido = (proveedor.NumeroPedido || '').trim();
+    const pedido = pedidos.find(p => (p.NumeroPedido || '').trim() === nroPedido)
+      || (!nroPedido ? pedidos[indice] : undefined);
+    const extraPedido = pedidosExtra.find((p: any) => (p?.NumeroPedido || '').trim() === nroPedido)
+      || (!nroPedido ? pedidosExtra[indice] : undefined);
+    return filaPropuesta(indice, proveedor, pedido, extraPedido, {
       area,
       denominacion,
       plazo
-    })
-  );
+    });
+  });
 
   return {
     pageSize: 'A4',
     pageOrientation: 'landscape',
-    pageMargins: [22, 28, 22, 48],
+    pageMargins: [22, 28, 22, 36],
     info: {
       title: `Anexo N.° 05 · ${detalle?.Codigo || ''}`,
       author: 'Autoridad Nacional de Infraestructura'
     },
 
     footer: (pagina: number, total: number) => ({
-      margin: [22, 6, 22, 12],
-      columns: [
-        {
-          width: 260,
-          stack: [
-            {
-              canvas: [{
-                type: 'rect', x: 0, y: 0, w: 250, h: 28,
-                lineWidth: 0.7, lineColor: NEGRO
-              }]
-            },
-            {
-              text: 'FIRMA DIGITAL',
-              fontSize: 7,
-              color: NEGRO,
-              margin: [8, -22, 0, 0]
-            },
-            detalle?.Responsable
-              ? { text: detalle.Responsable, fontSize: 7, margin: [8, 2, 0, 0] }
-              : {}
-          ]
-        },
-        {
-          text: `Página ${pagina} de ${total}`,
-          fontSize: 8,
-          alignment: 'right',
-          margin: [0, 12, 0, 0]
-        }
-      ]
+      margin: [22, 8, 22, 12],
+      text: `Página ${pagina} de ${total}`,
+      fontSize: 8,
+      alignment: 'right'
     }),
 
     content: [
       {
-        columns: [
+        stack: [
+          { text: 'ANEXO N° 05', style: 'titulo' },
           {
-            width: 70,
-            stack: [
-              { text: 'ANIN', fontSize: 11, bold: true, color: NEGRO },
-              { text: 'Autoridad Nacional\nde Infraestructura', fontSize: 6, color: NEGRO }
-            ]
-          },
-          {
-            width: '*',
-            stack: [
-              { text: 'ANEXO N° 05', style: 'titulo' },
-              {
-                text: 'PROPUESTA DEL ÁREA USUARIA PARA LA CONTRATACIÓN DE SERVICIOS TÉCNICOS, PROFESIONALES Y/O ESPECIALIZADOS REALIZADOS POR PERSONAS NATURALES',
-                style: 'subtitulo',
-                margin: [0, 4, 0, 0]
-              }
-            ]
+            text: 'PROPUESTA DEL ÁREA USUARIA PARA LA CONTRATACIÓN DE SERVICIOS TÉCNICOS, PROFESIONALES Y/O ESPECIALIZADOS REALIZADOS POR PERSONAS NATURALES',
+            style: 'subtitulo',
+            margin: [0, 4, 0, 0]
           }
         ],
         margin: [0, 0, 0, 10]
@@ -162,6 +131,19 @@ export function construirAnexo5(detalle: RequerimientoDetalle | any): any {
           paddingLeft: () => 2,
           paddingRight: () => 2
         }
+      },
+      {
+        text: 'En señal de conformidad. Cada firmante coloca su sello digital en su espacio, sin superponer firmas:',
+        fontSize: 8,
+        margin: [0, 18, 0, 8]
+      },
+      {
+        unbreakable: true,
+        columnGap: 40,
+        columns: [
+          espacioFirmaAnexo5('1. Especialista del Área usuaria'),
+          espacioFirmaAnexo5('2. Jefe del Área usuaria')
+        ]
       }
     ],
 
@@ -171,6 +153,22 @@ export function construirAnexo5(detalle: RequerimientoDetalle | any): any {
     },
 
     defaultStyle: { font: 'Roboto' }
+  };
+}
+
+function espacioFirmaAnexo5(rol: string): any {
+  return {
+    width: '*',
+    alignment: 'center',
+    stack: [
+      { text: rol, fontSize: 8, bold: true, margin: [0, 0, 0, 4] },
+      { text: '', margin: [0, 0, 0, 28] },
+      {
+        canvas: [{ type: 'line', x1: 20, y1: 0, x2: 220, y2: 0, lineWidth: 0.6, lineColor: NEGRO }],
+        margin: [0, 0, 0, 4]
+      },
+      { text: 'Firma digital', fontSize: 7.5, color: NEGRO }
+    ]
   };
 }
 
@@ -195,27 +193,19 @@ function celdaTd(texto: string, alineacion: 'left' | 'center' | 'right' = 'left'
 
 function filaPropuesta(
   indice: number,
-  proveedor: ProveedorFormularioRequerimiento | undefined,
+  proveedor: ProveedorFormularioRequerimiento,
   pedido: PedidoRequerimiento | undefined,
   pedidoExtra: any,
   comunes: { area: string; denominacion: string; plazo: string }
 ): any[] {
-  if (!proveedor) {
-    return [
-      celdaTd(String(indice + 1), 'center'),
-      celdaTd(''), celdaTd(''), celdaTd(''), celdaTd(''),
-      celdaTd(''), celdaTd(''), celdaTd(''), celdaTd(''),
-      celdaTd(''), celdaTd(''), celdaTd(''), celdaTd('')
-    ];
-  }
-
   const nombre = [proveedor.ApellidoPaterno, proveedor.ApellidoMaterno, proveedor.Nombres]
     .filter(x => !!x)
     .join(' ')
     .trim();
   const mensual = Number(proveedor.MontoMensual);
   const total = montoTotalProveedor(proveedor);
-  const nroPedido = pedido?.NumeroPedido
+  const nroPedido = proveedor.NumeroPedido
+    || pedido?.NumeroPedido
     || pedidoExtra?.NumeroPedido
     || '';
 

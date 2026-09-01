@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { forkJoin, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { MetodoService } from '../../../core/services/metodo.service';
+import { idDocumentoSistema } from '../../../shared/funciones/archivo';
 import { PedidoSiga, PedidoSigaDetalle } from '../models/requerimiento.model';
 
 /**
@@ -104,6 +105,64 @@ export class RequerimientoService {
     });
   }
 
+  listarFiltroIdoneidad(idRequerimiento: string): Observable<any> {
+    return this.apiService.GET('api/requerimiento/listarFiltroIdoneidad', {
+      IdRequerimiento: idRequerimiento
+    });
+  }
+
+  registrarFiltroIdoneidad(idRequerimiento: string, filtros: any[]): Observable<any> {
+    return this.apiService.POST('api/requerimiento/registrarFiltroIdoneidad', {
+      IdRequerimiento: idRequerimiento,
+      Filtros: filtros
+    });
+  }
+
+  derivarFiltrosIdoneidad(
+    idRequerimiento: string,
+    version: number,
+    codigoTransicion: string
+  ): Observable<any> {
+    return this.apiService.POST('api/requerimiento/derivarFiltrosIdoneidad', {
+      IdRequerimiento: idRequerimiento,
+      Version: version,
+      CodigoTransicion: codigoTransicion
+    });
+  }
+
+  confirmarFiltrosIdoneidad(
+    idRequerimiento: string,
+    version: number,
+    extras: Record<string, unknown> = {}
+  ): Observable<any> {
+    return this.apiService.POST('api/requerimiento/confirmarFiltrosIdoneidad', {
+      IdRequerimiento: idRequerimiento,
+      Version: version,
+      ...extras
+    });
+  }
+
+  registrarCcp(idRequerimiento: string, ccp: any): Observable<any> {
+    return this.apiService.POST('api/requerimiento/registrarCcp', {
+      IdRequerimiento: idRequerimiento,
+      ...ccp
+    });
+  }
+
+  registrarOrdenServicio(idRequerimiento: string, orden: any): Observable<any> {
+    return this.apiService.POST('api/requerimiento/registrarOrdenServicio', {
+      IdRequerimiento: idRequerimiento,
+      ...orden
+    });
+  }
+
+  notificarOrdenServicio(idRequerimiento: string, version: number): Observable<any> {
+    return this.apiService.POST('api/requerimiento/notificarOrdenServicio', {
+      IdRequerimiento: idRequerimiento,
+      Version: version
+    });
+  }
+
   /**
    * Firma la versión vigente. No mueve el expediente: la acción del flujo se
    * ejecuta después con `ejecutarTransicion`, que comprueba que esté firmado.
@@ -120,8 +179,9 @@ export class RequerimientoService {
       IdExpediente: idExpediente,
       CodigoTipoDocumento: codigoTipoDocumento
     };
-    if (opciones.GeneradoDocumento) {
-      body.GeneradoDocumento = opciones.GeneradoDocumento;
+    const generado = idDocumentoSistema(opciones.GeneradoDocumento);
+    if (generado) {
+      body.GeneradoDocumento = generado;
     }
     if (opciones.ArchivoHash) {
       body.ArchivoHash = opciones.ArchivoHash;

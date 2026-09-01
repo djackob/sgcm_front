@@ -66,7 +66,8 @@ const ESTADOS_CON_ANEXO4 = new Set([
  * demás quedarían atrás.
  */
 const ACCIONES_DEL_PAQUETE = new Set([
-  'CMN_ABAST_JEFE_FIRMAR_A4'
+  'CMN_ABAST_JEFE_FIRMAR_A4',
+  'CMN_ABAST_JEFE_DERIVAR'
 ]);
 
 /**
@@ -1366,6 +1367,11 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.funciones.mensaje(
+      'info',
+      'Coloque la representación gráfica en un espacio libre del documento, sin superponerla a otra firma ya existente. '
+        + 'Si ONPE indica superposición, mueva el sello a otra zona.'
+    );
     this.iniciarMonitoreoPopup();
   }
 

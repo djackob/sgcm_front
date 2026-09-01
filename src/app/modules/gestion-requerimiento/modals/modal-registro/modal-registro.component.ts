@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Output, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -6,6 +6,7 @@ import { AccordionModule } from 'ngx-bootstrap/accordion';
 import { BreadcrumbComponent } from '../../../../shared/components/breadcrumb/breadcrumb.component';
 import { FormPedidoComponent } from '../../components/form-pedido/form-pedido.component';
 import { FormProveedorComponent } from '../../components/form-proveedor/form-proveedor.component';
+import { ModalAnexo3RequerimientoComponent } from '../modal-anexo3/modal-anexo3.component';
 import { RequerimientoService } from '../../services/requerimiento.service';
 import { SessionService } from '../../../../core/services/session.service';
 import { ConfigService } from '../../../../core/services/config.service';
@@ -62,7 +63,8 @@ import {
     AccordionModule,
     BreadcrumbComponent,
     FormPedidoComponent,
-    FormProveedorComponent
+    FormProveedorComponent,
+    ModalAnexo3RequerimientoComponent
   ],
   templateUrl: './modal-registro.component.html',
   styleUrl: './modal-registro.component.scss',
@@ -70,10 +72,19 @@ import {
 export class ModalRegistroRequerimientoComponent {
 
   @Output() registrado = new EventEmitter<void>();
+  /** Anexo 5 y Anexo 3 guardados; listo para iniciar «Firmar anexos». */
+  @Output() anexosCompletados = new EventEmitter<{
+    IdRequerimiento: string;
+    IdExpediente: string;
+    Version: number;
+  }>();
   /** Locación: el Anexo 5 ya está en el file server; toca abrir el TDR. */
   @Output() anexo5Creado = new EventEmitter<string>();
 
+  @ViewChild('tdrEmbebido') tdrEmbebido?: ModalAnexo3RequerimientoComponent;
+
   readonly breadcrumb = ['Requerimiento', 'Registro de la necesidad'];
+  pestanaTrabajo: 'anexo5' | 'anexo3' = 'anexo5';
 
   readonly objetos: { valor: TipoContratacionRequerimiento; nombre: string }[] = [
     { valor: 'BIEN', nombre: 'Bien' },
@@ -158,6 +169,7 @@ export class ModalRegistroRequerimientoComponent {
     this.anoEje = anoEje || new Date().getFullYear();
 
     this.limpiarFormulario();
+    this.pestanaTrabajo = 'anexo5';
     this.abierto = true;
 
     this.cargarTope();
@@ -185,6 +197,7 @@ export class ModalRegistroRequerimientoComponent {
     this.cargo = info?.cargo || detalle?.perfil?.[0]?.perfil || '';
 
     this.limpiarFormulario();
+    this.pestanaTrabajo = 'anexo5';
     this.abierto = true;
 
     this.requerimientoService.obtenerRequerimiento(idRequerimiento).subscribe({
@@ -417,7 +430,8 @@ export class ModalRegistroRequerimientoComponent {
       Celular: prov?.Celular || '',
       CantidadEntregables: prov?.CantidadEntregables ?? null,
       MontoMensual: prov?.MontoMensual ?? null,
-      Email: prov?.Email || ''
+      Email: prov?.Email || '',
+      NumeroPedido: prov?.NumeroPedido || ''
     };
   }
 
@@ -488,7 +502,11 @@ export class ModalRegistroRequerimientoComponent {
   }
 
   agregarProveedor(): void {
-    this.proveedores = [...this.proveedores, crearProveedorFormularioRequerimiento()];
+    const nuevo = crearProveedorFormularioRequerimiento();
+    if (this.pedidos.length === 1) {
+      nuevo.NumeroPedido = this.pedidos[0].NumeroPedido || '';
+    }
+    this.proveedores = [...this.proveedores, nuevo];
     this.acordeonProveedor = true;
   }
 
@@ -590,6 +608,29 @@ export class ModalRegistroRequerimientoComponent {
     return !!this.montoTope && this.montoTotal > this.montoTope;
   }
 
+  get esLocacion(): boolean {
+    return this.codigoTipoContratacion === 'LOCACION';
+  }
+
+  mostrarAnexo3(): void {
+    if (!this.idRequerimientoEdicion) {
+      this.funciones.mensaje('info',
+        'Guarde primero el Anexo 5 (propuesta) para que los datos viajen al TDR.');
+      return;
+    }
+    this.pestanaTrabajo = 'anexo3';
+    this.tdrEmbebido?.abrir(this.idRequerimientoEdicion);
+  }
+
+  alCompletarTdr(payload: { IdRequerimiento: string; IdExpediente: string; Version: number }): void {
+    this.abierto = false;
+    this.anexosCompletados.emit(payload);
+  }
+
+  alRegistrarTdr(): void {
+    this.registrado.emit();
+  }
+
   /* ---------------------------------------------------------------------- */
   /* Guardar                                                                */
   /* ---------------------------------------------------------------------- */
@@ -608,7 +649,9 @@ export class ModalRegistroRequerimientoComponent {
 
     const sintetizados: ItemFormularioRequerimiento[] = [];
     this.proveedores.forEach((proveedor, i) => {
-      const pedido = this.pedidos[i] || this.pedidos[0];
+      const pedido = this.pedidos.find(p => p.NumeroPedido === proveedor.NumeroPedido)
+        || this.pedidos[i]
+        || this.pedidos[0];
       const descripcion = (pedido?.NombreItemPedido || this.denominacion).trim();
       const cantidad = Number(proveedor.CantidadEntregables);
       const precio = Number(proveedor.MontoMensual);
@@ -681,6 +724,15 @@ export class ModalRegistroRequerimientoComponent {
     }
     if (this.montoTotal <= 0) {
       return 'El monto del requerimiento debe ser mayor que cero. Complete entregables y monto mensual.';
+    }
+    if (this.esLocacion && this.montoTope != null && this.montoProveedorTotal > this.montoTope) {
+      return `El cálculo monto mensual × entregables (S/ ${this.montoProveedorTotal.toFixed(2)}) supera el tope de ocho UIT (S/ ${this.montoTope.toFixed(2)}). Una contratación mayor no se tramita por esta vía.`;
+    }
+    if (this.esLocacion && this.numerosDePedido.length > 1) {
+      const sinPedido = this.proveedores.find(p => !(p.NumeroPedido || '').trim());
+      if (sinPedido) {
+        return 'Cada locador del Anexo 5 debe quedar asociado a su Pedido SIGA.';
+      }
     }
 
     return null;
@@ -836,6 +888,25 @@ export class ModalRegistroRequerimientoComponent {
 
   private terminarGuardado(registro: any, archivoOk: boolean, aviso?: string | null): void {
     this.guardando = false;
+    const eraEdicion = this.modoEdicion;
+    if (this.esLocacion && registro?.IdRequerimiento) {
+      this.modoEdicion = true;
+      this.idRequerimientoEdicion = registro.IdRequerimiento;
+      this.codigoEdicion = registro.Codigo || this.codigoEdicion;
+      this.registrado.emit();
+      if (archivoOk) {
+        this.funciones.mensaje('success',
+          eraEdicion
+            ? (registro.mensaje || `Se actualizó el requerimiento ${registro.Codigo}.`)
+            : (registro.mensaje || `Se registró el requerimiento ${registro.Codigo}.`));
+        this.mostrarAnexo3();
+        return;
+      }
+      this.funciones.mensaje('warning',
+        aviso || `Se guardó el requerimiento ${registro.Codigo}, pero el Anexo 5 no quedó en el servidor.`);
+      return;
+    }
+
     this.abierto = false;
     this.registrado.emit();
 
@@ -844,9 +915,6 @@ export class ModalRegistroRequerimientoComponent {
         this.modoEdicion
           ? (registro.mensaje || `Se actualizó el requerimiento ${registro.Codigo}.`)
           : (registro.mensaje || `Se registró el requerimiento ${registro.Codigo}.`));
-      if (this.codigoTipoContratacion === 'LOCACION' && registro?.IdRequerimiento) {
-        this.anexo5Creado.emit(registro.IdRequerimiento);
-      }
       return;
     }
 

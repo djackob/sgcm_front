@@ -1,6 +1,25 @@
+.tdr-embebido {
+  min-height: 8rem;
+}
+
 .modal-app-dialog--tdr {
   max-width: 1120px;
   width: 100%;
+}
+
+.modal-cuerpo--embebido {
+  padding: 0;
+}
+
+.campo-moneda {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+
+  span {
+    color: #64748b;
+    font-size: 0.82rem;
+  }
 }
 
 .req-cargando {
@@ -94,31 +113,6 @@
   cursor: not-allowed;
 }
 
-.tdr-pestanias {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 1.35rem 0 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e2e8f0;
-
-  button {
-    border: 1px solid #bfdbfe;
-    background: #eff6ff;
-    color: #1d4ed8;
-    border-radius: 6px;
-    padding: 0.4rem 0.85rem;
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-
-  &__activa {
-    background: #2563eb !important;
-    border-color: #2563eb !important;
-    color: #fff !important;
-  }
-}
-
 .tdr-seccion {
   margin: 1.25rem 0 0.45rem;
   font-size: 0.88rem;
@@ -162,5 +156,73 @@
     @media (max-width: 720px) {
       grid-template-columns: 1.6rem 1fr;
     }
+  }
+}
+
+.tdr-acordeones {
+  display: block;
+  margin-top: 1.1rem;
+
+  accordion-group + accordion-group {
+    margin-top: 0.75rem;
+  }
+
+  .accordion-item,
+  .panel {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .accordion-button,
+  .panel-heading,
+  button.accordion-button {
+    display: flex !important;
+    align-items: center;
+    width: 100% !important;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1e293b;
+    background: #f8fafc;
+    box-shadow: none;
+
+    &::after {
+      display: none !important;
+      content: none !important;
+    }
+  }
+
+  .req-acordeon__cabecera {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .req-acordeon__titulo {
+    text-align: left;
+  }
+
+  .req-acordeon__expand {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  .accordion-button:not(.collapsed),
+  .panel-open > .panel-heading {
+    background: #eff6ff;
+    color: #1e3a8a;
+  }
+
+  .accordion-button:not(.collapsed) .req-acordeon__expand,
+  .panel-open .req-acordeon__expand {
+    transform: rotate(180deg);
+  }
+
+  .accordion-body,
+  .panel-body {
+    padding: 0.9rem 1rem 1.1rem;
   }
 }

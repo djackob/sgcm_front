@@ -144,6 +144,9 @@ export interface RequerimientoDetalle extends RespuestaSigcm {
   NombreDocumentoDisponibilidad: string | null;
   Sustento: string;
   DatosAdicionales: string;
+  Filtros?: any[];
+  Ccp?: any;
+  OrdenServicio?: any;
   IdExpediente: string;
   CodigoEstado: string;
   Version: number;
@@ -304,6 +307,8 @@ export interface ProveedorFormularioRequerimiento {
   CantidadEntregables: number | null;
   MontoMensual: number | null;
   Email: string;
+  /** Pedido SIGA de esta fila del Anexo 5 (una propuesta = un pedido). */
+  NumeroPedido: string;
 }
 
 export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequerimiento {
@@ -318,7 +323,8 @@ export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequ
     Celular: '',
     CantidadEntregables: null,
     MontoMensual: null,
-    Email: ''
+    Email: '',
+    NumeroPedido: ''
   };
 }
 

@@ -1,0 +1,159 @@
+<div class="modal-fondo" *ngIf="abierto" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--os"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">Asistente de orden de servicio</h2>
+          <p class="modal-subtitulo" *ngIf="detalle">
+            {{ detalle.Codigo }} · Integración Anexo 5 + cláusulas Anexo 3
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()" [disabled]="procesando">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="cargando">
+        <p class="os-cargando">
+          <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando datos del expediente…
+        </p>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="!cargando && detalle && tdr">
+        <div class="os-alerta" *ngIf="faltaCcp">
+          <i class="mdi mdi-alert-circle-outline" aria-hidden="true"></i>
+          <div>
+            <strong>Falta registrar la CCP en el sistema.</strong>
+            <p>
+              La certificación presupuestaria se carga en SCM (formulario + PDF de la UP), no directamente en SIGA.
+              SIGA solo recibe la orden de servicio al final de este asistente.
+            </p>
+            <button type="button" class="btn btn-app-secundario btn-sm" (click)="irARegistrarCcp()">
+              Completar registro de CCP
+            </button>
+          </div>
+        </div>
+
+        <section class="os-bloque os-bloque--resumen">
+          <h3 class="os-bloque__titulo">Datos integrados (solo lectura)</h3>
+          <dl class="os-resumen-grid">
+            <div>
+              <dt>Locador</dt>
+              <dd>{{ resumenLocadorTexto }}</dd>
+            </div>
+            <div>
+              <dt>Denominación (TDR)</dt>
+              <dd>{{ detalle.Denominacion }}</dd>
+            </div>
+            <div>
+              <dt>Pedido SIGA</dt>
+              <dd>{{ pedido?.NumeroPedido || proveedor?.NumeroPedido || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Monto contractual</dt>
+              <dd>{{ resumenMontoTexto }}</dd>
+            </div>
+            <div>
+              <dt>Meta / clasificador</dt>
+              <dd>{{ resumenMetaTexto }}</dd>
+            </div>
+            <div>
+              <dt>CCP N.° / SIAF</dt>
+              <dd>{{ ccp?.NumeroCcp || '—' }} / {{ ccp?.NumeroExpedienteSiaf || '—' }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="os-bloque">
+          <h3 class="os-bloque__titulo">Emisión de la orden</h3>
+          <div class="os-form-grid">
+            <label class="os-campo">
+              <span>Fecha de emisión O/S</span>
+              <input type="date" class="campo-control" [(ngModel)]="formulario.FechaEmision" [disabled]="procesando" />
+            </label>
+            <label class="os-campo os-campo--ancho">
+              <span>Notas adicionales (opcional)</span>
+              <textarea rows="2" class="campo-control" [(ngModel)]="formulario.NotasAdicionales" [disabled]="procesando"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="os-bloque">
+          <h3 class="os-bloque__titulo">Vista previa del contenido contractual</h3>
+          <p class="os-ayuda">
+            El PDF integra los datos del Anexo 5 y las cláusulas obligatorias del Anexo 3 (TDR).
+          </p>
+
+          <accordion [isAnimated]="true" class="os-acordeon">
+            <accordion-group heading="Objeto y actividades" [isOpen]="true">
+              <p><strong>Objeto:</strong> {{ detalle.Denominacion }}</p>
+              <ul *ngIf="tdr.Actividades?.length; else sinActividades">
+                <li *ngFor="let act of tdr.Actividades">{{ act.Descripcion }}</li>
+              </ul>
+              <ng-template #sinActividades>
+                <p class="os-vacio">Sin actividades registradas en el TDR.</p>
+              </ng-template>
+            </accordion-group>
+
+            <accordion-group heading="Entregables y plazo">
+              <ul *ngIf="tdr.Entregables?.length; else sinEntregables">
+                <li *ngFor="let ent of tdr.Entregables">
+                  {{ ent.Nombre }}<span *ngIf="ent.Dias"> — {{ ent.Dias }} días</span>
+                </li>
+              </ul>
+              <ng-template #sinEntregables>
+                <p class="os-vacio">Sin entregables en el TDR.</p>
+              </ng-template>
+              <p class="os-parrafo"><strong>Plazo:</strong> {{ textoPlazo }}</p>
+              <p class="os-parrafo"><strong>Lugar:</strong> {{ tdr.LugarPrestacion || '—' }}</p>
+            </accordion-group>
+
+            <accordion-group heading="Conformidad y forma de pago">
+              <pre class="os-pre">{{ conformidad }}</pre>
+              <pre class="os-pre">{{ textoFormaPago }}</pre>
+            </accordion-group>
+
+            <accordion-group heading="Penalidades, resolución y controversias">
+              <pre class="os-pre">{{ penalidades }}</pre>
+              <pre class="os-pre" *ngIf="tdr.OtrasPenalidades">{{ tdr.OtrasPenalidades }}</pre>
+              <pre class="os-pre">{{ resolucion }}</pre>
+              <pre class="os-pre">{{ controversias }}</pre>
+            </accordion-group>
+
+            <accordion-group heading="Otras consideraciones (Anexo 3)">
+              <pre class="os-pre">{{ otrasConsideraciones }}</pre>
+            </accordion-group>
+          </accordion>
+        </section>
+      </div>
+
+      <div class="modal-footer">
+        <p class="os-paso" *ngIf="paso">{{ paso }}</p>
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()" [disabled]="procesando">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          (click)="verVistaPrevia()"
+          [disabled]="procesando || cargando || !tdr || faltaCcp"
+        >
+          Vista previa PDF
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-primary"
+          (click)="registrarYEmitir()"
+          [disabled]="procesando || cargando || !tdr || faltaCcp"
+        >
+          Registrar y emitir en SIGA
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,14 +1,18 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { RequerimientoService } from '../../services/requerimiento.service';
+import { DocumentoService } from '../../../../core/services/documento.service';
 import { MaestraService } from '../../../../shared/services/maestra.service';
+import { SessionService } from '../../../../core/services/session.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import { esPdfDelFileServer, idDocumentoSistema } from '../../../../shared/funciones/archivo';
+import { CARPETA_MEMO_CCP } from '../../documentos/filtro-idoneidad.util';
 import { CARPETA_ANEXO_5 } from '../../documentos/anexo5.pdfmake';
-import { TIPO_ANEXO_3 } from '../../documentos/anexo3.pdfmake';
+import { CARPETA_ANEXO_3, TIPO_ANEXO_3 } from '../../documentos/anexo3.pdfmake';
 import {
   DOCUMENTO_TECNICO,
   HistorialRequerimiento,
@@ -52,7 +56,7 @@ interface DocumentoExpediente {
 @Component({
   selector: 'app-modal-detalle-requerimiento',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './modal-detalle.component.html',
   styleUrl: './modal-detalle.component.scss',
 })
@@ -71,10 +75,24 @@ export class ModalDetalleRequerimientoComponent {
   documentos: DocumentoExpediente[] = [];
 
   puedeEditar = false;
+  filtros: {
+    CodigoFiltro: string; Tipo: string; Resultado: string;
+    Origen: string; Observacion: string | null;
+    GeneradoDocumentoEvidencia?: string | null;
+    NombreDocumentoEvidencia?: string | null;
+  }[] = [];
+  subiendoEvidencia: string | null = null;
+  guardandoFiltros = false;
+  guardandoCcp = false;
+  guardandoOs = false;
+  ccp = { NumeroCcp: '', FechaEmision: '', Observacion: '' };
+  orden = { NumeroOrden: '' };
 
   constructor(
     private requerimientoService: RequerimientoService,
+    private documentoService: DocumentoService,
     private maestraService: MaestraService,
+    private sesion: SessionService,
     private funciones: Funciones
   ) { }
 
@@ -83,6 +101,9 @@ export class ModalDetalleRequerimientoComponent {
     this.detalle = null;
     this.historial = [];
     this.documentos = [];
+    this.filtros = [];
+    this.ccp = { NumeroCcp: '', FechaEmision: '', Observacion: '' };
+    this.orden = { NumeroOrden: '' };
     this.puedeEditar = opciones.puedeEditar;
     this.abierto = true;
     this.cargando = true;
@@ -114,6 +135,10 @@ export class ModalDetalleRequerimientoComponent {
         this.detalle = respuestas.detalle;
         this.historial = respuestas.trazabilidad?.Historial || [];
         this.documentos = respuestas.documentos?.Documentos || [];
+        this.aplicarCcpOs(respuestas.detalle);
+        if (this.detalle?.CodigoTipoContratacion === 'LOCACION') {
+          this.cargarFiltros();
+        }
       },
       error: () => {
         this.cargando = false;
@@ -200,9 +225,12 @@ export class ModalDetalleRequerimientoComponent {
     if (!esPdfDelFileServer(documento?.GeneradoDocumento)) {
       return '';
     }
+    const carpeta = documento?.CodigoTipoDocumento === TIPO_ANEXO_3
+      ? CARPETA_ANEXO_3
+      : CARPETA_ANEXO_5;
     return this.maestraService.urlDescarga(
       idDocumentoSistema(documento?.GeneradoDocumento),
-      CARPETA_ANEXO_5
+      carpeta
     );
   }
 
@@ -220,5 +248,240 @@ export class ModalDetalleRequerimientoComponent {
     }
     this.elaborarAnexo3.emit(this.detalle.IdRequerimiento);
     this.cerrar();
+  }
+
+  get codigoRol(): string {
+    return this.sesion.getInfoUsuario()?.detalle?.[0]?.perfil?.[0]?.cod_perfil || '';
+  }
+
+  get esLocacion(): boolean {
+    return this.detalle?.CodigoTipoContratacion === 'LOCACION';
+  }
+
+  get puedeEditarFiltros(): boolean {
+    return this.esLocacion
+      && this.detalle?.CodigoEstado === 'REQ_FILTROS'
+      && this.codigoRol === 'ABAST_ESPECIALISTA';
+  }
+
+  get puedeEditarCcp(): boolean {
+    return false;
+  }
+
+  get puedeEditarOs(): boolean {
+    return this.esLocacion
+      && (this.detalle?.CodigoEstado === 'REQ_CUADRO_GENERADO'
+        || this.detalle?.CodigoEstado === 'REQ_OS_EMITIDA')
+      && ['ABAST_ESPECIALISTA', 'ABAST_COORDINADOR', 'ABAST_JEFE'].includes(this.codigoRol);
+  }
+
+  get muestraTramiteLocacion(): boolean {
+    return this.esLocacion && (
+      this.filtros.length > 0
+      || !!this.detalle?.Ccp
+      || !!this.detalle?.OrdenServicio
+      || ['REQ_FILTROS', 'REQ_FILTROS_COORD', 'REQ_FILTROS_JEFE', 'REQ_CCP_SOLICITADO', 'REQ_CCP_CARGADA', 'REQ_CUADRO_GENERADO', 'REQ_OS_EMITIDA', 'REQ_NOTIFICADO', 'REQ_CONFORME']
+        .includes(this.detalle?.CodigoEstado || '')
+    );
+  }
+
+  private cargarFiltros(): void {
+    if (!this.detalle?.IdRequerimiento) {
+      return;
+    }
+    this.requerimientoService.listarFiltroIdoneidad(this.detalle.IdRequerimiento).subscribe({
+      next: (respuesta: any) => {
+        const raw = respuesta?.Filtros;
+        if (Array.isArray(raw)) {
+          this.filtros = raw;
+          return;
+        }
+        if (typeof raw === 'string' && raw.trim()) {
+          try {
+            const parsed = JSON.parse(raw);
+            this.filtros = Array.isArray(parsed) ? parsed : [];
+            return;
+          } catch {
+            this.filtros = [];
+            return;
+          }
+        }
+        this.filtros = [];
+      }
+    });
+  }
+
+  private aplicarCcpOs(detalle: any): void {
+    const ccp = detalle?.Ccp;
+    if (ccp) {
+      this.ccp = {
+        NumeroCcp: ccp.NumeroCcp || '',
+        FechaEmision: (ccp.FechaEmision || '').substring(0, 10),
+        Observacion: ccp.Observacion || ''
+      };
+    }
+    const os = detalle?.OrdenServicio;
+    if (os) {
+      this.orden = { NumeroOrden: os.NumeroOrden || '' };
+    }
+  }
+
+  guardarFiltros(): void {
+    if (!this.detalle || this.guardandoFiltros) {
+      return;
+    }
+    const incompleto = this.filtros.some(
+      (filtro) => !['CONFORME', 'NO_CONFORME'].includes(filtro.Resultado)
+    );
+    if (incompleto) {
+      this.funciones.mensaje('info', 'Indique Sí o No en cada filtro de idoneidad.');
+      return;
+    }
+    this.guardandoFiltros = true;
+    this.requerimientoService.registrarFiltroIdoneidad(this.detalle.IdRequerimiento, this.filtros).subscribe({
+      next: (respuesta: any) => {
+        this.guardandoFiltros = false;
+        if (respuesta?.estado !== 1) {
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No se guardaron los filtros.');
+          return;
+        }
+        this.funciones.mensaje('success', respuesta.mensaje || 'Se registraron los filtros de idoneidad.');
+      },
+      error: () => {
+        this.guardandoFiltros = false;
+        this.funciones.mensaje('error', 'No fue posible guardar los filtros.');
+      }
+    });
+  }
+
+  marcarFiltro(filtro: { Resultado: string }, respuesta: 'SI' | 'NO'): void {
+    filtro.Resultado = respuesta === 'SI' ? 'CONFORME' : 'NO_CONFORME';
+  }
+
+  esFiltroSi(filtro: { Resultado: string }): boolean {
+    return filtro.Resultado === 'CONFORME';
+  }
+
+  esFiltroNo(filtro: { Resultado: string }): boolean {
+    return filtro.Resultado === 'NO_CONFORME';
+  }
+
+  etiquetaFiltro(filtro: { Resultado: string }): string {
+    if (filtro.Resultado === 'CONFORME') {
+      return 'Sí';
+    }
+    if (filtro.Resultado === 'NO_CONFORME') {
+      return 'No';
+    }
+    if (filtro.Resultado === 'NO_APLICA') {
+      return 'No aplica';
+    }
+    return 'Pendiente';
+  }
+
+  urlEvidenciaFiltro(filtro: { GeneradoDocumentoEvidencia?: string | null }): string {
+    const id = idDocumentoSistema(filtro.GeneradoDocumentoEvidencia);
+    return id ? this.maestraService.urlDescarga(id, CARPETA_MEMO_CCP) : '';
+  }
+
+  subirEvidenciaFiltro(filtro: {
+    CodigoFiltro: string;
+    GeneradoDocumentoEvidencia?: string | null;
+    NombreDocumentoEvidencia?: string | null;
+  }, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    input.value = '';
+    if (!archivo || this.subiendoEvidencia) {
+      return;
+    }
+    if (!archivo.name.toLowerCase().endsWith('.pdf')) {
+      this.funciones.mensaje('info', 'La evidencia debe ser un archivo PDF.');
+      return;
+    }
+
+    this.subiendoEvidencia = filtro.CodigoFiltro;
+    this.documentoService.subirArchivo(archivo, CARPETA_MEMO_CCP).subscribe({
+      next: (respuesta: any) => {
+        this.subiendoEvidencia = null;
+        const documentoSistema = idDocumentoSistema(respuesta?.documento_sistema);
+        if (!documentoSistema) {
+          this.funciones.mensaje('error', 'No se obtuvo el identificador del PDF.');
+          return;
+        }
+        filtro.GeneradoDocumentoEvidencia = documentoSistema;
+        filtro.NombreDocumentoEvidencia = archivo.name;
+      },
+      error: () => {
+        this.subiendoEvidencia = null;
+        this.funciones.mensaje('error', 'No fue posible subir la evidencia.');
+      }
+    });
+  }
+
+  guardarCcp(): void {
+    if (!this.detalle || this.guardandoCcp) {
+      return;
+    }
+    if (!this.ccp.NumeroCcp.trim()) {
+      this.funciones.mensaje('info', 'Indique el número de la CCP emitida.');
+      return;
+    }
+    this.guardandoCcp = true;
+    this.requerimientoService.registrarCcp(this.detalle.IdRequerimiento, {
+      NumeroCcp: this.ccp.NumeroCcp.trim(),
+      FechaEmision: this.ccp.FechaEmision || null,
+      Observacion: this.ccp.Observacion.trim() || null,
+      MarcarSolicitud: this.detalle.CodigoEstado === 'REQ_CCP_SOLICITADO' ? 1 : 0
+    }).subscribe({
+      next: (respuesta: any) => {
+        this.guardandoCcp = false;
+        if (respuesta?.estado !== 1) {
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No se registró la CCP.');
+          return;
+        }
+        this.funciones.mensaje('success', respuesta.mensaje || 'Se registró la CCP.');
+      },
+      error: () => {
+        this.guardandoCcp = false;
+        this.funciones.mensaje('error', 'No fue posible registrar la CCP.');
+      }
+    });
+  }
+
+  guardarOrden(): void {
+    if (!this.detalle || this.guardandoOs) {
+      return;
+    }
+    this.guardandoOs = true;
+    this.requerimientoService.registrarOrdenServicio(this.detalle.IdRequerimiento, {}).subscribe({
+      next: (respuesta: any) => {
+        this.guardandoOs = false;
+        if (respuesta?.estado !== 1) {
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No se registraron los datos de la orden.');
+          return;
+        }
+        this.funciones.mensaje('success', respuesta.mensaje || 'Datos guardados.');
+      },
+      error: () => {
+        this.guardandoOs = false;
+        this.funciones.mensaje('error', 'No fue posible registrar los datos de la orden de servicio.');
+      }
+    });
+  }
+
+  get estadoIntegracionOs(): string {
+    return this.detalle?.OrdenServicio?.EstadoIntegracion || '';
+  }
+
+  get etiquetaIntegracionOs(): string {
+    const mapa: Record<string, string> = {
+      PENDIENTE: 'Pendiente de registro en SIGA',
+      EN_PROCESO: 'Registrando en SIGA…',
+      COMPLETADO: 'Registrada en SIGA',
+      SIMULADO: 'Simulada (sin escritura real)',
+      ERROR: 'Error al registrar en SIGA'
+    };
+    return mapa[this.estadoIntegracionOs] || 'Sin registrar en SIGA';
   }
 }

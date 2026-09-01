@@ -33,10 +33,16 @@
 }
 
 .det-nota {
-  margin: 0.6rem 0 0;
+  margin: 0.6rem 0 0.75rem;
   font-size: 0.78rem;
   color: #94a3b8;
   line-height: 1.4;
+}
+
+.det-seccion + .btn,
+.table-responsive + .btn,
+.det-datos + .btn {
+  margin-top: 0.65rem;
 }
 
 .det-datos {
@@ -67,6 +73,10 @@
   &__fuerte {
     font-weight: 700;
     color: #0f172a;
+  }
+
+  &__ancho {
+    grid-column: 1 / -1;
   }
 }
 
@@ -182,4 +192,52 @@
 
 .text-end {
   text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.filtro-sino {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  &__opcion {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    font-size: 0.85rem;
+    color: #334155;
+    cursor: pointer;
+
+    input {
+      margin: 0;
+      cursor: pointer;
+    }
+  }
+
+  &__lectura {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+  }
+}
+
+.filtro-evidencia {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #2563eb;
+  cursor: pointer;
+
+  input {
+    max-width: 150px;
+    font-size: 0.75rem;
+  }
 }

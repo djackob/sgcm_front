@@ -1,0 +1,80 @@
+/* Pestañas de formulario. Se importan DESPUÉS de Bootstrap: si van antes,
+   el reboot de button pisa fondo, borde y peso y el cambio no se ve. */
+.scm-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px;
+  margin: 1.1rem 0 0;
+  padding: 8px 8px 0;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+}
+
+.scm-tabs__tab {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0 !important;
+  border: 1px solid transparent !important;
+  border-bottom: 0 !important;
+  background: #e2e8f0 !important;
+  color: #64748b !important;
+  border-radius: 8px 8px 0 0 !important;
+  padding: 0.5rem 0.95rem !important;
+  min-height: 0 !important;
+  font-size: 0.84rem !important;
+  font-weight: 500 !important;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none !important;
+
+  &:hover:not(.scm-tabs__tab--activa):not(:disabled) {
+    background: #cbd5e1 !important;
+    color: #475569 !important;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.scm-tabs__tab--activa {
+  background: #fff !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  border-color: #e2e8f0 !important;
+  position: relative;
+  bottom: -1px;
+  padding-bottom: calc(0.5rem + 1px) !important;
+}
+
+.scm-tabs__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: #475569;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.scm-tabs-panel {
+  padding: 1rem 0.25rem 0.25rem;
+  border: 1px solid #e2e8f0;
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+  background: #fff;
+}

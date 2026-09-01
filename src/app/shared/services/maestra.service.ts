@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { MetodoService } from '../../core/services/metodo.service';
 import { ConfigService } from '../../core/services/config.service';
 import { esBlobJson, idDocumentoSistema } from '../funciones/archivo';
@@ -50,6 +51,18 @@ export class MaestraService {
         return blob;
       })
     );
+  }
+
+  /**
+   * Descarga probando la carpeta principal y alternativas (p. ej. requerimiento,
+   * luego cmn para PDFs firmados antes del ajuste de carpeta).
+   */
+  descargarArchivoConFallback(codigo: string, carpeta: string, alternativas: string[] = []): Observable<Blob> {
+    let cadena = this.descargarArchivo(codigo, carpeta);
+    for (const alt of alternativas) {
+      cadena = cadena.pipe(catchError(() => this.descargarArchivo(codigo, alt)));
+    }
+    return cadena.pipe(catchError(() => this.descargarArchivo(codigo)));
   }
 
   abrirArchivo(codigo: string, nombre?: string, carpeta?: string): Observable<void> {

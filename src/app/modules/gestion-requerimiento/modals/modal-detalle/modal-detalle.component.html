@@ -248,6 +248,175 @@
             </table>
           </div>
 
+          <ng-container *ngIf="muestraTramiteLocacion">
+            <h3 class="det-seccion">Filtros de idoneidad</h3>
+            <p class="det-nota">
+              Verifique cada registro y marque <strong>Sí</strong> si el proveedor cumple
+              (sin impedimento) o <strong>No</strong> si no cumple. Adjunte el PDF de
+              sustento de cada portal.
+            </p>
+            <div class="table-responsive" *ngIf="filtros.length">
+              <table class="table scm-table">
+                <thead>
+                  <tr>
+                    <th>Registro</th>
+                    <th class="text-center">¿Cumple?</th>
+                    <th>Evidencia PDF</th>
+                    <th>Observación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let filtro of filtros">
+                    <td>{{ filtro.Tipo }}</td>
+                    <td class="text-center">
+                      <div class="filtro-sino" *ngIf="puedeEditarFiltros">
+                        <label class="filtro-sino__opcion">
+                          <input
+                            type="radio"
+                            [name]="'filtro-' + filtro.CodigoFiltro"
+                            [checked]="esFiltroSi(filtro)"
+                            (change)="marcarFiltro(filtro, 'SI')"
+                          />
+                          Sí
+                        </label>
+                        <label class="filtro-sino__opcion">
+                          <input
+                            type="radio"
+                            [name]="'filtro-' + filtro.CodigoFiltro"
+                            [checked]="esFiltroNo(filtro)"
+                            (change)="marcarFiltro(filtro, 'NO')"
+                          />
+                          No
+                        </label>
+                      </div>
+                      <span *ngIf="!puedeEditarFiltros" class="filtro-sino__lectura">
+                        {{ etiquetaFiltro(filtro) }}
+                      </span>
+                    </td>
+                    <td>
+                      <a
+                        *ngIf="urlEvidenciaFiltro(filtro)"
+                        [href]="urlEvidenciaFiltro(filtro)"
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        {{ filtro.NombreDocumentoEvidencia || 'Ver PDF' }}
+                      </a>
+                      <label class="filtro-evidencia" *ngIf="puedeEditarFiltros">
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          (change)="subirEvidenciaFiltro(filtro, $event)"
+                          [disabled]="subiendoEvidencia === filtro.CodigoFiltro"
+                        />
+                        <span *ngIf="subiendoEvidencia === filtro.CodigoFiltro">Subiendo…</span>
+                        <span *ngIf="subiendoEvidencia !== filtro.CodigoFiltro">
+                          {{ filtro.NombreDocumentoEvidencia || 'Adjuntar PDF' }}
+                        </span>
+                      </label>
+                      <span *ngIf="!puedeEditarFiltros && !urlEvidenciaFiltro(filtro)" class="cell-muted">—</span>
+                    </td>
+                    <td>
+                      <input
+                        class="campo-control"
+                        [(ngModel)]="filtro.Observacion"
+                        [disabled]="!puedeEditarFiltros"
+                        [name]="'filtro-obs-' + filtro.CodigoFiltro"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="det-nota" *ngIf="!filtros.length">
+              Los filtros se generan al abrir el expediente en la etapa de idoneidad.
+            </p>
+            <button
+              type="button"
+              class="btn btn-app-secundario btn-sm"
+              *ngIf="puedeEditarFiltros"
+              [disabled]="guardandoFiltros"
+              (click)="guardarFiltros()"
+            >
+              Guardar filtros
+            </button>
+
+            <h3 class="det-seccion">Certificación de crédito presupuestario</h3>
+            <p class="det-nota" *ngIf="detalle.CodigoEstado === 'REQ_CCP_SOLICITADO'">
+              Use la acción <b>Registrar CCP y generar orden de servicio</b> en la bandeja para cargar la certificación.
+            </p>
+            <div class="det-datos" *ngIf="detalle.Ccp">
+              <div>
+                <dt>N.° CCP</dt>
+                <dd>{{ detalle.Ccp.NumeroCcp || '—' }}</dd>
+              </div>
+              <div>
+                <dt>N.° expediente SIAF</dt>
+                <dd>{{ detalle.Ccp.NumeroExpedienteSiaf || '—' }}</dd>
+              </div>
+              <div>
+                <dt>Monto certificado</dt>
+                <dd>
+                  <ng-container *ngIf="detalle.Ccp.MontoCertificado != null; else sinMontoCcp">
+                    S/ {{ detalle.Ccp.MontoCertificado | number: '1.2-2' }}
+                  </ng-container>
+                  <ng-template #sinMontoCcp>—</ng-template>
+                </dd>
+              </div>
+              <div>
+                <dt>Fecha de emisión</dt>
+                <dd>{{ (detalle.Ccp.FechaEmision || '').substring(0, 10) || '—' }}</dd>
+              </div>
+              <div class="det-datos__ancho" *ngIf="detalle.Ccp.Observacion">
+                <dt>Observación</dt>
+                <dd>{{ detalle.Ccp.Observacion }}</dd>
+              </div>
+            </div>
+
+            <h3 class="det-seccion">Orden de servicio</h3>
+            <p class="cell-subtitle" *ngIf="detalle.CodigoEstado === 'REQ_CCP_CARGADA'">
+              Use la acción <b>Generar cuadro de adquisicion</b> en la bandeja. SIGA no ofrece esa pantalla para pedidos de requerimiento; SCM la escribe directo.
+            </p>
+            <p class="cell-subtitle" *ngIf="detalle.CodigoEstado === 'REQ_CUADRO_GENERADO'">
+              Use la acción <b>Emitir orden de servicio</b> en la bandeja para abrir el asistente y generar el PDF.
+            </p>
+            <div class="det-datos">
+              <div>
+                <dt>Estado integración SIGA</dt>
+                <dd>{{ etiquetaIntegracionOs }}</dd>
+              </div>
+              <div>
+                <dt>N.° orden SIGA</dt>
+                <dd>
+                  <input
+                    class="campo-control"
+                    [(ngModel)]="orden.NumeroOrden"
+                    [disabled]="true"
+                    name="osNumero"
+                    placeholder="Se asignará al emitir en SIGA"
+                  />
+                </dd>
+              </div>
+              <div *ngIf="detalle.OrdenServicio?.ErrorIntegracion">
+                <dt>Error SIGA</dt>
+                <dd class="text-danger">{{ detalle.OrdenServicio.ErrorIntegracion }}</dd>
+              </div>
+              <div *ngIf="detalle.OrdenServicio?.NotificadoEn">
+                <dt>Notificada</dt>
+                <dd>{{ detalle.OrdenServicio.NotificadoEn }}</dd>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-app-secundario btn-sm"
+              *ngIf="puedeEditarOs && detalle.CodigoEstado !== 'REQ_CUADRO_GENERADO'"
+              [disabled]="guardandoOs"
+              (click)="guardarOrden()"
+            >
+              Guardar datos de notificación
+            </button>
+          </ng-container>
+
           <!-- Trazabilidad -->
           <h3 class="det-seccion">Trazabilidad</h3>
 
