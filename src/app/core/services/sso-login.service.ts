@@ -32,6 +32,30 @@ export class SsoLoginService {
   }
 
   /**
+   * Segundo tramo del ingreso, sólo cuando `tksistema` respondió `PERFIL`.
+   *
+   * Ocurre cuando la persona ejerce más de una terna: la coordinadora que
+   * atiende Abastecimiento y Desarrollo de Sistemas entra con una o con la otra,
+   * y son bandejas distintas. La sesión lleva UNA terna porque todo el frontend
+   * consume `detalle[0].perfil[0]`.
+   *
+   * El `preToken` es lo que acredita que esta persona ya presentó un token
+   * válido del SSO, y de él sale la cuenta. Por eso no se manda: si el cliente
+   * pudiera decir de quién es la sesión, este endpoint sería una puerta abierta.
+   */
+  iniciarSesionPerfil(preToken: string, perfil: { CodigoRol: string; CodigoUnidad: string }): Observable<any> {
+    const body: HttpParams = new HttpParams()
+      .append('strpretoken', preToken)
+      .append('ipInput', JSON.stringify(perfil));
+
+    const headersObject = new HttpHeaders()
+      .set('Content-Type', 'application/x-www-form-urlencoded');
+
+    return this.http.post(
+      ConfigService.settings.apiUrl + 'api/token/iniciarSesionPerfil', body, { headers: headersObject });
+  }
+
+  /**
    * Cierra la sesión por la misma puerta por la que se entró.
    *
    * El SSO institucional es quien invalida su propia sesión, así que una sesión

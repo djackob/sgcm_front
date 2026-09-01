@@ -282,6 +282,7 @@
                   class="campo-control"
                   [(ngModel)]="item.Clasificador"
                   [name]="'clasificador' + i"
+                  (ngModelChange)="elegirClasificador(item)"
                 >
                   <option value="">Seleccione…</option>
                   <option
@@ -327,16 +328,21 @@
               </div>
             </div>
 
-            <!-- Cantidades por año -->
-            <div class="registro-anios">
-              <div class="campo" *ngFor="let anio of anios; let a = index">
-                <label class="campo-etiqueta">Cantidad {{ anio }}</label>
+            <!-- Cantidad del año base.
+                 Solo para los clasificadores de bienes (2.6): en los de
+                 servicios (2.3) el gasto se expresa con el importe y la
+                 cantidad no corresponde, que es lo que dice la nota 3/ del
+                 formato oficial. Los años 2 a 4 ya no se capturan aquí; en una
+                 exclusión siguen viajando con lo que traiga el cuadro vigente. -->
+            <div class="registro-anios" *ngIf="pideCantidad(item)">
+              <div class="campo">
+                <label class="campo-etiqueta">Cantidad {{ anoEje }}</label>
                 <input
                   type="number"
                   step="0.01"
                   class="campo-control"
-                  [(ngModel)]="item.Cantidades[a]"
-                  [name]="'cantidad' + i + '_' + a"
+                  [(ngModel)]="item.Cantidades[0]"
+                  [name]="'cantidad' + i + '_0'"
                   [readonly]="item.TipoMovimiento === 'EXCLUSION'"
                 />
               </div>

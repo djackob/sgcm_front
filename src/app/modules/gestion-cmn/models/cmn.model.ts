@@ -469,3 +469,40 @@ export function crearItemFormularioCmn(): ItemFormularioCmn {
     resultados: []
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Derivación a una persona                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Quién ocupa un puesto hoy. Sale del padrón que el SSO sincroniza, así que la
+ * lista se mantiene sola: quien deja la entidad desaparece de aquí en la
+ * siguiente sincronización, sin que nadie tenga que depurar nada.
+ */
+export interface PersonaDerivacionCmn {
+  IdUsuario: string;
+  Cuenta: string;
+  NombreCompleto: string;
+  Cargo: string;
+  Correo: string | null;
+  EsTitular: boolean;
+}
+
+/**
+ * Un escalón al que se puede derivar: el par rol · unidad, con sus ocupantes.
+ *
+ * Viene agrupado así porque es como se elige —primero el escalón, después la
+ * persona— y porque un puesto con un solo ocupante no necesita pregunta.
+ */
+export interface PuestoDerivacionCmn {
+  CodigoRol: string;
+  Rol: string;
+  Alcance: string;
+  Orden: number;
+  CodigoUnidad: string;
+  Unidad: string;
+  Sigla: string;
+  CentroCosto: string;
+  Ocupantes: number;
+  Personas: PersonaDerivacionCmn[];
+}

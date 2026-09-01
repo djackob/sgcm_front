@@ -512,6 +512,45 @@
           </p>
         </div>
 
+        <!--
+          A quién se deriva. Sólo aparece cuando la acción es una derivación: la
+          lista la arma la base a partir del árbol de perfiles y del padrón del
+          SSO, y llega vacía cuando no hay nada que preguntar.
+
+          Es opcional. Sin elegir a nadie el expediente queda a nombre del
+          puesto, que es como funcionó siempre: la bandeja se resuelve por unidad
+          y rol, no por persona.
+        -->
+        <div class="campo" *ngIf="ofreceDestinatarios">
+          <label class="campo-etiqueta" for="responsableDestino">
+            Derivar a (opcional)
+          </label>
+          <select
+            id="responsableDestino"
+            class="campo-control"
+            [(ngModel)]="responsableDestino"
+          >
+            <option value="">Sin asignar — lo toma quien corresponda</option>
+            <optgroup *ngFor="let puesto of puestosDerivacion" [label]="puesto.Rol + ' · ' + puesto.Unidad">
+              <option *ngFor="let persona of puesto.Personas" [value]="persona.IdUsuario">
+                {{ persona.NombreCompleto }}
+                <ng-container *ngIf="persona.EsTitular"> (titular)</ng-container>
+              </option>
+            </optgroup>
+          </select>
+          <p class="campo-ayuda">
+            Queda a nombre de esa persona, pero el expediente sigue perteneciendo
+            al puesto: si deja el cargo, su reemplazo lo ve igual en su bandeja.
+          </p>
+        </div>
+
+        <div class="campo" *ngIf="cargandoDestinatarios">
+          <p class="campo-ayuda">
+            <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i>
+            Consultando a quién puede derivar…
+          </p>
+        </div>
+
         <div class="campo">
           <label class="campo-etiqueta" for="comentarioAccion">
             Comentario

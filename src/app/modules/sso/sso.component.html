@@ -1,0 +1,63 @@
+<!--
+  En el caso normal esta pantalla no se ve: el navegador pasa por aquí mientras
+  el backend valida el token y redirige. Sólo aparece cuando la persona ejerce
+  más de una terna y tiene que elegir con cuál entra.
+-->
+<div class="sso-acceso">
+  <div class="sso-acceso__panel">
+    <header class="sso-acceso__cabecera">
+      <span class="sso-acceso__marca">SIGCM</span>
+      <h1 class="sso-acceso__titulo">
+        {{ perfiles.length ? 'Elija su perfil' : 'Verificando su acceso' }}
+      </h1>
+      <p class="sso-acceso__subtitulo">
+        Sistema de Gestión de Contratos Menores · Autoridad Nacional de Infraestructura
+      </p>
+      <p class="sso-acceso__aviso" *ngIf="perfiles.length">
+        <i class="mdi mdi-information-outline" aria-hidden="true"></i>
+        Usted ejerce más de un perfil. Cada uno tiene su propia bandeja y sus
+        propias acciones, así que la sesión se abre con uno a la vez.
+      </p>
+    </header>
+
+    <div class="sso-acceso__estado" *ngIf="cargando">
+      <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Validando con el SSO…
+    </div>
+
+    <ul class="sso-acceso__lista" *ngIf="perfiles.length">
+      <li class="sso-acceso__item" *ngFor="let perfil of perfiles">
+        <button
+          type="button"
+          class="sso-acceso__boton"
+          [disabled]="ingresando !== ''"
+          (click)="elegirPerfil(perfil)"
+        >
+          <span class="sso-acceso__avatar">{{ perfil.Sigla || '—' }}</span>
+
+          <span class="sso-acceso__datos">
+            <span class="sso-acceso__rol">{{ perfil.Rol }}</span>
+            <span class="sso-acceso__persona">{{ perfil.NombreCompleto }}</span>
+            <span class="sso-acceso__unidad">
+              {{ perfil.Unidad }}
+              <ng-container *ngIf="perfil.CentroCosto">
+                · Centro de costo {{ perfil.CentroCosto }}
+              </ng-container>
+            </span>
+          </span>
+
+          <span class="sso-acceso__marcas">
+            <span class="status-pill status-pill--success" *ngIf="perfil.EsTitular">Titular</span>
+          </span>
+
+          <span class="sso-acceso__accion">
+            <i
+              class="mdi"
+              [ngClass]="ingresando === clave(perfil) ? 'mdi-loading mdi-spin' : 'mdi-chevron-right'"
+              aria-hidden="true"
+            ></i>
+          </span>
+        </button>
+      </li>
+    </ul>
+  </div>
+</div>

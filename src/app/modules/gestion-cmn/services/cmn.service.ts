@@ -63,6 +63,25 @@ export class CmnService {
   }
 
   /**
+   * A quién puede derivarle este expediente el actor, para esta acción.
+   *
+   * Devuelve los puestos —coordinador, especialista— con las personas que los
+   * ocupan. La lista NO se arma en el cliente: sale del árbol de
+   * `sigcm.RolDerivacion` y viene ya acotada al rol que declara el estado
+   * destino de la transición, que es lo único que `ejecutarTransicion` va a
+   * aceptar después.
+   *
+   * Una acción que no es una derivación devuelve la lista vacía, y con eso la
+   * pantalla sabe que no tiene nada que preguntar.
+   */
+  listarDestinatarioDerivacion(idExpediente: string, codigoTransicion: string): Observable<any> {
+    return this.apiService.GET('api/sigcm/listarDestinatarioDerivacion', {
+      IdExpediente: idExpediente,
+      CodigoTransicion: codigoTransicion
+    });
+  }
+
+  /**
    * La misma acción sobre varios expedientes a la vez, en una sola transacción.
    *
    * Es lo que mueve un Anexo 4 que agrupa Anexos 3 de varias áreas usuarias:
@@ -70,11 +89,16 @@ export class CmnService {
    * Version, porque el control de concurrencia es por expediente y no por lote.
    */
   ejecutarTransicionLote(expedientes: ExpedienteLoteCmn[], codigoTransicion: string,
-                         comentario: string | null = null): Observable<any> {
+                         comentario: string | null = null,
+                         idResponsableDestino: string | null = null): Observable<any> {
     return this.apiService.POST('api/sigcm/ejecutarTransicion', {
       IdExpedientes: expedientes,
       CodigoTransicion: codigoTransicion,
-      Comentario: comentario
+      Comentario: comentario,
+      // A qué persona se deriva. Opcional: sin él, el expediente queda a nombre
+      // del puesto y lo toma quien corresponda. La rutina lo vuelve a validar
+      // contra el árbol, así que mandarlo no es una autorización.
+      IdResponsableDestino: idResponsableDestino
     });
   }
 
