@@ -1,0 +1,257 @@
+<div class="container-componentes p-3">
+  <header class="cabecera-pagina">
+    <div class="cabecera">
+      <app-breadcrumb [items]="breadcrumb" />
+      <h1 class="page-title">{{ esLocador ? 'Portal del locador' : 'Entregables y pagos' }}</h1>
+    </div>
+  </header>
+
+  <section class="content-card" *ngIf="esLocador">
+    <div class="contenido-cabecera">
+      <h2 class="contenido-titulo">Órdenes de servicio vigentes</h2>
+      <span class="contenido-conteo">{{ ordenes.length }} orden(es)</span>
+    </div>
+    <div class="req-cargando" *ngIf="cargando">
+      <i class="mdi mdi-loading mdi-spin"></i> Cargando…
+    </div>
+    <div class="req-vacio" *ngIf="!cargando && ordenes.length === 0">
+      <i class="mdi mdi-inbox-outline"></i>
+      <h3>Sin órdenes vigentes</h3>
+      <p class="cell-muted">Cuando Abastecimiento notifique una orden de servicio, el cronograma de entregables aparecerá aquí.</p>
+    </div>
+    <article class="pago-orden" *ngFor="let orden of ordenes">
+      <header>
+        <strong>{{ orden.CodigoRequerimiento }}</strong>
+        <span class="cell-muted">O/S {{ orden.NumeroOrdenSiga || '—' }}</span>
+        <span>{{ orden.Denominacion }}</span>
+      </header>
+      <table class="tabla-app">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Entregable</th>
+            <th>Límite</th>
+            <th>Monto</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ent of orden.Entregables">
+            <td>{{ ent.NumeroEntregable }}</td>
+            <td>{{ ent.NombreEntregable }}</td>
+            <td>{{ fecha(ent.FechaLimiteCronograma) }}</td>
+            <td>S/ {{ monto(ent.MontoEntregable) }}</td>
+            <td><span class="status-pill">{{ ent.Estado }}</span></td>
+            <td>
+              <button type="button" class="btn btn-app-primary btn-sm" (click)="abrir(ent)">Abrir</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </article>
+  </section>
+
+  <section class="content-card" *ngIf="!esLocador">
+    <div class="contenido-cabecera">
+      <h2 class="contenido-titulo">Bandeja de pagos</h2>
+      <span class="contenido-conteo">{{ total }} expediente(s)</span>
+    </div>
+    <div class="req-filtros">
+      <div class="req-filtros__campo">
+        <label class="campo-etiqueta" for="filtroTexto">Buscar</label>
+        <input id="filtroTexto" type="text" class="campo-control" placeholder="Código, O/S o locador"
+               [(ngModel)]="filtro.Texto" (keyup.enter)="buscar()" />
+      </div>
+      <label class="req-check">
+        <input type="checkbox" [(ngModel)]="filtro.SoloMiBandeja" (change)="buscar()" />
+        Solo mi bandeja
+      </label>
+      <button type="button" class="btn btn-app-secundario btn-sm" (click)="buscar()">Buscar</button>
+    </div>
+    <div class="req-cargando" *ngIf="cargando">
+      <i class="mdi mdi-loading mdi-spin"></i> Cargando…
+    </div>
+    <div class="tabla-responsive" *ngIf="!cargando">
+      <table class="tabla-app">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>O/S</th>
+            <th>Entregable</th>
+            <th>Locador</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of expedientes">
+            <td>{{ item.Codigo }}</td>
+            <td>{{ item.NumeroOrdenSiga || '—' }}</td>
+            <td>{{ item.NumeroEntregable }}. {{ item.NombreEntregable }}</td>
+            <td>{{ item.NombreLocador }}</td>
+            <td><span class="status-pill">{{ item.Estado }}</span></td>
+            <td>
+              <button type="button" class="btn-icon-outline" title="Ver" (click)="abrir(item)">
+                <i class="mdi mdi-magnify"></i>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="expedientes.length === 0">
+            <td colspan="6">
+              <div class="req-vacio">
+                <h3>Sin expedientes</h3>
+                <p class="cell-muted">No hay entregables pendientes para este perfil.</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="content-card pago-detalle" *ngIf="seleccionado">
+    <div class="contenido-cabecera">
+      <div>
+        <h2 class="contenido-titulo">{{ seleccionado.Codigo }} · entregable {{ seleccionado.NumeroEntregable }}</h2>
+        <p class="cell-muted">{{ seleccionado.Denominacion }} · {{ seleccionado.Estado }}</p>
+      </div>
+      <button type="button" class="btn btn-app-secundario btn-sm" (click)="cerrarDetalle()">Cerrar</button>
+    </div>
+
+    <dl class="pago-datos">
+      <div><dt>Requerimiento</dt><dd>{{ seleccionado.CodigoRequerimiento }}</dd></div>
+      <div><dt>O/S SIGA</dt><dd>{{ seleccionado.NumeroOrdenSiga || '—' }}</dd></div>
+      <div><dt>Locador</dt><dd>{{ seleccionado.NombreLocador }} · RUC {{ seleccionado.RucLocador }}</dd></div>
+      <div><dt>Monto entregable</dt><dd>S/ {{ monto(seleccionado.MontoEntregable) }}</dd></div>
+      <div><dt>Límite cronograma</dt><dd>{{ fecha(seleccionado.FechaLimiteCronograma) }}</dd></div>
+      <div><dt>Presentado</dt><dd>{{ fecha(seleccionado.FechaPresentacion) }}</dd></div>
+      <div><dt>Días de atraso</dt><dd>{{ seleccionado.DiasAtraso }}</dd></div>
+      <div><dt>Penalidad</dt><dd>S/ {{ monto(seleccionado.MontoPenalidad) }}</dd></div>
+    </dl>
+
+    <p class="pago-obs" *ngIf="seleccionado.ObservacionAu">
+      <strong>Observación AU:</strong> {{ seleccionado.ObservacionAu }}
+      <span *ngIf="seleccionado.FechaLimiteSubsanacion">
+        · subsanar hasta {{ fecha(seleccionado.FechaLimiteSubsanacion) }}
+      </span>
+    </p>
+    <p class="pago-alerta" *ngIf="seleccionado.AlertaResolucion">
+      Alerta de resolución: las penalidades acumuladas superan el 10% del contrato.
+    </p>
+
+    <div class="pago-carga" *ngIf="codigoRol === 'PROVEEDOR'">
+      <h3>Carga del entregable</h3>
+      <label>Informe / entregable (PDF)
+        <input type="file" accept="application/pdf" (change)="onFile($event, 'informe')" />
+      </label>
+      <label>RHE PDF
+        <input type="file" accept="application/pdf" (change)="onFile($event, 'rhePdf')" />
+      </label>
+      <label>RHE XML
+        <input type="file" accept=".xml,text/xml,application/xml" (change)="onFile($event, 'rheXml')" />
+      </label>
+      <label>Suspensión 4ta (PDF, si corresponde)
+        <input type="file" accept="application/pdf" (change)="onFile($event, 'susp')" />
+      </label>
+      <div class="req-filtros">
+        <div class="req-filtros__campo">
+          <label class="campo-etiqueta">Serie RHE</label>
+          <input class="campo-control" [(ngModel)]="rheSerie" />
+        </div>
+        <div class="req-filtros__campo">
+          <label class="campo-etiqueta">Número RHE</label>
+          <input class="campo-control" [(ngModel)]="rheNumero" />
+        </div>
+      </div>
+    </div>
+
+    <div class="pago-carga" *ngIf="codigoRol === 'AREA_ESPECIALISTA' && seleccionado.CodigoEstado === 'PAG_ENTREGABLE_PRESENTADO'">
+      <label class="req-check">
+        <input type="checkbox" [(ngModel)]="retrasoJustificado" />
+        El atraso está justificado (no genera penalidad)
+      </label>
+      <label class="campo-etiqueta">Observaciones técnicas</label>
+      <textarea class="campo-control" rows="3" [(ngModel)]="comentario"></textarea>
+    </div>
+
+    <div class="pago-carga" *ngIf="codigoRol === 'ABAST_ESPECIALISTA' || codigoRol === 'ABAST_COORDINADOR'">
+      <h3>Anexo 9 — Checklist de control de pagos</h3>
+      <table class="tabla-app" *ngIf="seleccionado.Checklist?.length">
+        <thead>
+          <tr><th>Verificación</th><th>Marca</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of seleccionado.Checklist">
+            <td>{{ item.Nombre }} <span class="cell-muted" *ngIf="item.Obligatorio">*</span></td>
+            <td>
+              <select class="campo-control" [(ngModel)]="item.Valor">
+                <option value="">—</option>
+                <option value="SI">Sí</option>
+                <option value="NO_APLICA">No aplica</option>
+                <option value="NO">No</option>
+              </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <label class="req-check" *ngIf="seleccionado.AlertaResolucion || confirmarAlerta">
+        <input type="checkbox" [(ngModel)]="confirmarAlerta" />
+        Confirmo la alerta de resolución contractual (penalidades &gt; 10%)
+      </label>
+    </div>
+
+    <div class="pago-carga" *ngIf="codigoRol === 'CONTABILIDAD'">
+      <label class="campo-etiqueta">N.° expediente SIAF (devengado)</label>
+      <input class="campo-control" [(ngModel)]="expedienteSiaf" />
+      <label class="campo-etiqueta">Observación / devolución</label>
+      <textarea class="campo-control" rows="2" [(ngModel)]="comentario"></textarea>
+    </div>
+
+    <div class="pago-carga" *ngIf="codigoRol === 'TESORERIA'">
+      <label class="campo-etiqueta">N.° Nota de Pago SIAF</label>
+      <input class="campo-control" [(ngModel)]="notaPagoSiaf" />
+      <label class="campo-etiqueta">N.° operación interbancaria</label>
+      <input class="campo-control" [(ngModel)]="numeroOperacion" />
+      <label class="campo-etiqueta">CCI (20 dígitos)</label>
+      <input class="campo-control" [(ngModel)]="cci" maxlength="20" />
+      <label>Nota de pago SIAF (PDF)
+        <input type="file" accept="application/pdf" (change)="onFile($event, 'nota')" />
+      </label>
+      <label>Constancia de transferencia
+        <input type="file" accept="application/pdf" (change)="onFile($event, 'constancia')" />
+      </label>
+      <label>Papeleta de penalidad (si corresponde)
+        <input type="file" accept="application/pdf" (change)="onFile($event, 'papeleta')" />
+      </label>
+      <div class="req-filtros">
+        <div class="req-filtros__campo req-filtros__campo--corto">
+          <label class="campo-etiqueta">Prórroga (1-5)</label>
+          <input type="number" min="1" max="5" class="campo-control" [(ngModel)]="prorrogaDias" />
+        </div>
+        <div class="req-filtros__campo">
+          <label class="campo-etiqueta">Motivo</label>
+          <input class="campo-control" [(ngModel)]="motivoProrroga" />
+        </div>
+        <button type="button" class="btn btn-app-secundario btn-sm" (click)="guardarProrroga()">Registrar prórroga</button>
+      </div>
+    </div>
+
+    <div class="pago-acciones" *ngIf="seleccionado.Transiciones?.length">
+      <button
+        type="button"
+        class="btn btn-app-primary"
+        *ngFor="let t of seleccionado.Transiciones"
+        [disabled]="ejecutando"
+        (click)="ejecutar(t)"
+      >
+        {{ t.NombreAccion }}
+      </button>
+    </div>
+
+    <p class="cell-muted" *ngIf="seleccionado.CodigoEstado === 'PAG_PAGO_EFECTUADO'">
+      Expediente cerrado. Neto abonado: S/ {{ monto(seleccionado.MontoNeto) }}
+      · SIAF {{ seleccionado.NotaPagoSiaf || '—' }}
+    </p>
+  </section>
+</div>

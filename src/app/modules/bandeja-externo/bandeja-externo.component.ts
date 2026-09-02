@@ -1,10 +1,10 @@
 import { Component } from '@angular/core';
+import { GestionPagoComponent } from '../gestion-pago/gestion-pago.component';
 
 @Component({
   selector: 'app-bandeja-externo',
   standalone: true,
-  imports: [],
-  templateUrl: './bandeja-externo.component.html',
-  styleUrl: './bandeja-externo.component.scss'
+  imports: [GestionPagoComponent],
+  template: '<app-gestion-pago />'
 })
 export class BandejaExternoComponent { }
