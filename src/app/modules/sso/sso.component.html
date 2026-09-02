@@ -47,6 +47,9 @@
 
           <span class="sso-acceso__marcas">
             <span class="status-pill status-pill--success" *ngIf="perfil.EsTitular">Titular</span>
+            <span class="status-pill status-pill--neutral" *ngFor="let modulo of perfil.Modulos">
+              {{ modulo.Nombre }}
+            </span>
           </span>
 
           <span class="sso-acceso__accion">

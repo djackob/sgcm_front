@@ -80,3 +80,10 @@
     border-radius: 0 8px 8px 0 !important;
   }
 }
+
+.campo-control--bloqueado,
+.campo-control[readonly] {
+  background: #f1f5f9 !important;
+  color: #475569;
+  cursor: not-allowed;
+}

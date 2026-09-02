@@ -45,19 +45,12 @@ export class AuthInterceptor implements HttpInterceptor {
         } else if (err.status === 400) {
           this.funciones.Mensaje('error', 'Error 400', 'Mala respuesta por parte del servidor', () => { });
         } else if (err.status === 0) {
-          this.funciones.Mensaje('error', 'La sesión ha caducado', 'Será redireccionado al login', (data: any) => {
-            if (data.value) {
-              sessionStorage.clear();
-              this.ssoService.loginOut().subscribe(
-                data => {
-                  if (data.estado == 'OK') {
-                    sessionStorage.clear();
-                    window.location.href = data.mensaje;
-                  }
-                }
-              );
-            }
-          });
+          this.funciones.Mensaje(
+            'error',
+            'No hay conexión con el API',
+            'El servidor local no respondió. Compruebe que el backend esté en https://localhost:7182 y vuelva a intentar.',
+            () => { }
+          );
         } else if (err.status === 500) {
           this.funciones.Mensaje('error', 'El servidor no responde', 'Intente realizar esta operación más tarde', true);
         }

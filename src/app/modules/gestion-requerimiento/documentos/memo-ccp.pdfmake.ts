@@ -1,6 +1,7 @@
 import { RequerimientoDetalle } from '../models/requerimiento.model';
 import {
   construirTextoMemorando,
+  encabezadoMemorandoCcp,
   pedidoPrincipal,
   proveedorPrincipal
 } from './filtro-idoneidad.util';
@@ -9,22 +10,24 @@ const NEGRO = '#000000';
 
 export function construirMemorandoCcp(
   detalle: RequerimientoDetalle | any,
-  cuerpo: string
+  cuerpo: string,
+  numeroMemorando?: string | null
 ): any {
   const proveedor = proveedorPrincipal(detalle);
   const pedido = pedidoPrincipal(detalle);
-  const anio = new Date().getFullYear();
+  const anio = detalle?.AnoEje || new Date().getFullYear();
   const texto = (cuerpo || construirTextoMemorando(detalle)).split('\n');
+  const titulo = encabezadoMemorandoCcp(numeroMemorando, anio);
 
   return {
     pageSize: 'A4',
     pageMargins: [56, 56, 56, 56],
     info: {
-      title: `Memorando CCP · ${detalle?.Codigo || ''}`,
+      title: `${titulo} · ${detalle?.Codigo || ''}`,
       author: 'Autoridad Nacional de Infraestructura'
     },
     content: [
-      { text: 'MEMORANDO N° _____-' + anio + '-ANIN/OA-UA', style: 'titulo', alignment: 'center', margin: [0, 0, 0, 18] },
+      { text: titulo, style: 'titulo', alignment: 'center', margin: [0, 0, 0, 18] },
       { text: 'A: Oficina de Planeamiento y Presupuesto (OPP)', style: 'campo', margin: [0, 0, 0, 6] },
       { text: 'DE: Unidad de Abastecimiento', style: 'campo', margin: [0, 0, 0, 6] },
       { text: 'ASUNTO: Solicitud de Certificación de Crédito Presupuestario (CCP)', style: 'campo', margin: [0, 0, 0, 6] },

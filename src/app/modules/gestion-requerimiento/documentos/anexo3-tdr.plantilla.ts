@@ -213,37 +213,77 @@ export function plazoEntregables(tdr: TdrLocacion): number {
   return (tdr.Entregables || []).reduce((suma, e) => suma + (Number(e.Dias) || 0), 0);
 }
 
+/**
+ * Reparte el plazo contractual entre N entregables. El total no cambia:
+ * los días sobrantes van a los últimos.
+ */
+export function prorratearDias(plazo: number, cantidad: number): number[] {
+  const n = Math.max(1, Math.min(20, Math.floor(Number(cantidad) || 1)));
+  const total = Math.max(0, Math.floor(Number(plazo) || 0));
+  const base = Math.floor(total / n);
+  const resto = total - base * n;
+  return Array.from({ length: n }, (_, i) => base + (i >= n - resto ? 1 : 0));
+}
+
 /** Al menos una actividad con descripción. */
 export function validarActividadesTdr(tdr: TdrLocacion): string | null {
   const conTexto = (tdr.Actividades || []).filter(a => (a.Descripcion || '').trim());
   if (!conTexto.length) {
-    return 'Registre al menos una actividad en el Anexo 3.';
+    return 'Registre al menos una actividad (Sección 5. CARACTERÍSTICAS Y CONDICIONES DE LA CONTRATACIÓN).';
   }
   return null;
 }
 
-/** Al menos un entregable con nombre y plazo. */
-export function validarEntregablesTdr(tdr: TdrLocacion): string | null {
-  const conNombre = (tdr.Entregables || []).filter(e => (e.Nombre || '').trim());
-  if (!conNombre.length) {
+/** Al menos un entregable con nombre y plazo. Si el Anexo 5 ya fijó la
+ *  cantidad, el TDR tiene que traer exactamente esa cantidad. */
+export function validarEntregablesTdr(
+  tdr: TdrLocacion,
+  cantidadRegistrada?: number | null
+): string | null {
+  const filas = tdr.Entregables || [];
+  const conNombre = filas.filter(e => (e.Nombre || '').trim());
+  const esperada = Math.floor(Number(cantidadRegistrada) || 0);
+
+  if (esperada > 0) {
+    if (filas.length !== esperada || conNombre.length !== esperada) {
+      return `El Anexo 5 registró ${esperada} entregable(s). Complete exactamente esa cantidad en la sección 6 del TDR.`;
+    }
+  } else if (!conNombre.length) {
     return 'Registre al menos un entregable en el Anexo 3.';
   }
+
   if (conNombre.some(e => !(Number(e.Dias) > 0))) {
     return 'Cada entregable debe tener un plazo en días mayor que cero.';
   }
   return null;
 }
 
-export function ajustarEntregables(tdr: TdrLocacion, cantidad: number): void {
+export function ajustarEntregables(tdr: TdrLocacion, cantidad: number, plazoContrato?: number | null): void {
   const n = Math.max(1, Math.min(20, Math.floor(Number(cantidad) || 1)));
-  const plazo = plazoEntregables(tdr) || tdr.Entregables[0]?.Dias || 30;
+  const plazo = Number(plazoContrato) > 0
+    ? Math.floor(Number(plazoContrato))
+    : (tdr.Entregables?.[0]?.Dias || 30);
+
+  if (!Array.isArray(tdr.Entregables)) {
+    tdr.Entregables = [];
+  }
+
   while (tdr.Entregables.length < n) {
-    tdr.Entregables.push({ Nombre: '', Dias: plazo });
+    tdr.Entregables.push({ Nombre: '', Dias: 1 });
   }
   if (tdr.Entregables.length > n) {
     tdr.Entregables.length = n;
   }
-  if (n === 1 && !tdr.Entregables[0].Nombre) {
-    tdr.Entregables[0].Nombre = nombreEntregableUnico(tdr.Entregables[0].Dias || plazo);
+
+  const dias = prorratearDias(plazo, n);
+  tdr.Entregables.forEach((entregable, i) => {
+    entregable.Dias = dias[i];
+  });
+
+  if (n === 1) {
+    const actual = (tdr.Entregables[0].Nombre || '').trim();
+    if (!actual || actual.startsWith('ÚNICO ENTREGABLE')) {
+      tdr.Entregables[0].Nombre = nombreEntregableUnico(plazo);
+    }
   }
 }

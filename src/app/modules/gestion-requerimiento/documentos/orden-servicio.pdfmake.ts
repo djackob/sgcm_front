@@ -193,6 +193,8 @@ function tablaPartes(
         [celdaLabel('RUC / DNI'), celdaValor(docLocador || '—')],
         [celdaLabel('Correo electrónico'), celdaValor(proveedor?.Email || '—')],
         [celdaLabel('Celular'), celdaValor(proveedor?.Celular || '—')],
+        [celdaLabel('Dirección'), celdaValor(proveedor?.Direccion || '—')],
+        [celdaLabel('Ubigeo'), celdaValor(ubigeoProveedor(proveedor))],
         [celdaLabel('Área usuaria'), celdaValor(area || '—')],
         [celdaLabel('Fecha de emisión O/S'), celdaValor(fechaEmision)]
       ]
@@ -212,4 +214,11 @@ function celdaLabel(texto: string): any {
 
 function celdaValor(texto: string): any {
   return { text: texto, style: 'tablaValor', margin: [4, 3, 4, 3] };
+}
+
+function ubigeoProveedor(proveedor: any): string {
+  const partes = [proveedor?.Departamento, proveedor?.Provincia, proveedor?.Distrito]
+    .map((p: any) => (p || '').trim())
+    .filter(Boolean);
+  return partes.length ? partes.join(' · ') : '—';
 }

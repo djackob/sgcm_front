@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, ChangeDetectorRef } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -10,6 +10,21 @@ import {
   montoTotalProveedor
 } from '../../models/requerimiento.model';
 
+export interface UbigeoDepartamento {
+  iddpto: string;
+  departamento: string;
+}
+
+export interface UbigeoProvincia {
+  idprov: string;
+  provincia: string;
+}
+
+export interface UbigeoDistrito {
+  iddist: string;
+  distrito: string;
+}
+
 @Component({
   selector: 'app-form-proveedor',
   standalone: true,
@@ -17,7 +32,7 @@ import {
   templateUrl: './form-proveedor.component.html',
   styleUrl: './form-proveedor.component.scss',
 })
-export class FormProveedorComponent {
+export class FormProveedorComponent implements OnInit, OnChanges {
 
   @Input({ required: true }) proveedor!: ProveedorFormularioRequerimiento;
   @Input() indice = 0;
@@ -38,6 +53,10 @@ export class FormProveedorComponent {
     { valor: 'EXISTENTE' as const, nombre: 'Existente' }
   ];
 
+  departamentos: UbigeoDepartamento[] = [];
+  provincias: UbigeoProvincia[] = [];
+  distritos: UbigeoDistrito[] = [];
+
   buscandoPersona = false;
   private dniConsultado = '';
 
@@ -46,6 +65,17 @@ export class FormProveedorComponent {
     private funciones: Funciones,
     private cdr: ChangeDetectorRef
   ) { }
+
+  ngOnInit(): void {
+    this.aplicarPedidoPorDefecto();
+    this.cargarDepartamentos();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['pedidos']) {
+      queueMicrotask(() => this.aplicarPedidoPorDefecto());
+    }
+  }
 
   get prefijo(): string {
     return `proveedor-${this.indice}`;
@@ -57,6 +87,13 @@ export class FormProveedorComponent {
 
   get pedidosConNumero(): PedidoFormularioRequerimiento[] {
     return (this.pedidos || []).filter(p => !!(p.NumeroPedido || '').trim());
+  }
+
+  private aplicarPedidoPorDefecto(): void {
+    const numeros = this.pedidosConNumero.map(p => p.NumeroPedido.trim());
+    if (numeros.length === 1) {
+      this.proveedor.NumeroPedido = numeros[0];
+    }
   }
 
   onDniChange(): void {
@@ -89,6 +126,7 @@ export class FormProveedorComponent {
         const nombres = (datos.strnombres || '').trim();
         const apellidoPaterno = (datos.strapellidopaterno || '').trim();
         const apellidoMaterno = (datos.strapellidomaterno || '').trim();
+        const direccion = (datos.strdireccion || '').trim();
         const ok = datos.strcodigo === '0000' || !!nombres || !!apellidoPaterno;
 
         if (!ok) {
@@ -101,12 +139,85 @@ export class FormProveedorComponent {
         this.proveedor.Nombres = nombres;
         this.proveedor.ApellidoPaterno = apellidoPaterno;
         this.proveedor.ApellidoMaterno = apellidoMaterno;
+        this.proveedor.Direccion = direccion;
         this.cdr.detectChanges();
       },
       error: () => {
         this.buscandoPersona = false;
         this.funciones.mensaje('error', 'No fue posible consultar RENIEC.');
         this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onDepartamentoChange(): void {
+    const elegido = this.departamentos.find(d => d.iddpto === this.proveedor.CodDepartamento);
+    this.proveedor.Departamento = elegido?.departamento || '';
+    this.proveedor.CodProvincia = '';
+    this.proveedor.Provincia = '';
+    this.proveedor.CodDistrito = '';
+    this.proveedor.Distrito = '';
+    this.provincias = [];
+    this.distritos = [];
+    if (this.proveedor.CodDepartamento) {
+      this.cargarProvincias(this.proveedor.CodDepartamento);
+    }
+  }
+
+  onProvinciaChange(): void {
+    const elegido = this.provincias.find(p => p.idprov === this.proveedor.CodProvincia);
+    this.proveedor.Provincia = elegido?.provincia || '';
+    this.proveedor.CodDistrito = '';
+    this.proveedor.Distrito = '';
+    this.distritos = [];
+    if (this.proveedor.CodProvincia) {
+      this.cargarDistritos(this.proveedor.CodProvincia);
+    }
+  }
+
+  onDistritoChange(): void {
+    const elegido = this.distritos.find(d => d.iddist === this.proveedor.CodDistrito);
+    this.proveedor.Distrito = elegido?.distrito || '';
+  }
+
+  private cargarDepartamentos(): void {
+    this.maestraService.listarDepartamento().subscribe({
+      next: (lista) => {
+        this.departamentos = lista;
+        if (this.proveedor.CodDepartamento) {
+          this.cargarProvincias(this.proveedor.CodDepartamento, true);
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.funciones.mensaje('error', 'No fue posible listar los departamentos.');
+      }
+    });
+  }
+
+  private cargarProvincias(iddpto: string, restaurar = false): void {
+    this.maestraService.listarProvincia(iddpto).subscribe({
+      next: (lista) => {
+        this.provincias = lista;
+        if (restaurar && this.proveedor.CodProvincia) {
+          this.cargarDistritos(this.proveedor.CodProvincia);
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.funciones.mensaje('error', 'No fue posible listar las provincias.');
+      }
+    });
+  }
+
+  private cargarDistritos(idprov: string): void {
+    this.maestraService.listarDistrito(idprov).subscribe({
+      next: (lista) => {
+        this.distritos = lista;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.funciones.mensaje('error', 'No fue posible listar los distritos.');
       }
     });
   }

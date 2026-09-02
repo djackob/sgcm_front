@@ -28,9 +28,6 @@
     <div class="contenido-cabecera">
       <div>
         <h2 class="contenido-titulo">Bandeja de requerimientos</h2>
-        <p class="contenido-subtitulo">
-          Registro de la necesidad, documento técnico según el objeto y revisión de la DEC.
-        </p>
       </div>
       <span class="contenido-conteo">{{ total }} expediente(s)</span>
     </div>
@@ -80,9 +77,6 @@
           <input type="checkbox" [(ngModel)]="filtro.SoloMiBandeja" (change)="buscar()" />
           <span>Solo mi bandeja</span>
         </label>
-        <small class="req-filtros__ayuda">
-          Lo que está en mi unidad y espera una acción de mi rol.
-        </small>
       </div>
 
       <div class="req-filtros__acciones">
@@ -311,12 +305,42 @@
             <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
             Devuelve el expediente al área usuaria como observado.
           </li>
-          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_REMITIR_OA'">
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_FIRMAR_AU'">
             <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
-            La DEC es la Unidad de Abastecimiento: el expediente pasa primero por
-            la Oficina de Administración.
+            Al firmar, el expediente pasa al Jefe de la Oficina de Administración.
           </li>
         </ul>
+
+        <div class="campo" *ngIf="ofreceDestinatarios">
+          <label class="campo-etiqueta" for="responsableDestino">
+            Derivar a (opcional)
+          </label>
+          <select
+            id="responsableDestino"
+            class="campo-control"
+            [(ngModel)]="responsableDestino"
+            name="responsableDestino"
+          >
+            <option value="">Sin asignar — lo toma quien corresponda</option>
+            <optgroup *ngFor="let puesto of puestosDerivacion" [label]="puesto.Rol + ' · ' + puesto.Unidad">
+              <option *ngFor="let persona of puesto.Personas" [value]="persona.IdUsuario">
+                {{ persona.NombreCompleto }}
+                <ng-container *ngIf="persona.EsTitular"> (titular)</ng-container>
+              </option>
+            </optgroup>
+          </select>
+          <p class="campo-ayuda">
+            Queda a nombre de esa persona, pero el expediente sigue perteneciendo
+            al puesto: si deja el cargo, su reemplazo lo ve igual en su bandeja.
+          </p>
+        </div>
+
+        <div class="campo" *ngIf="cargandoDestinatarios">
+          <p class="campo-ayuda">
+            <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i>
+            Consultando a quién puede derivar…
+          </p>
+        </div>
 
         <div class="req-pdf-acciones" *ngIf="debeInvocarFirmaDigital || puedeVerAnexo5(accionEnCurso.requerimiento)">
           <button
@@ -410,14 +434,22 @@
   (elaborarAnexo3)="abrirAnexo3($event)"
 />
 <app-modal-anexo3-requerimiento (registrado)="alRegistrar()" />
+<app-modal-filtros-idoneidad
+  (solicitarCcp)="abrirSolicitudCcp($event)"
+  (completado)="alRegistrar()"
+/>
 <app-modal-solicitar-ccp (completado)="alRegistrar()" />
 <app-modal-cargar-ccp
   (completado)="alRegistrar()"
-  (ccpRegistrada)="abrirAsistenteOrden($event)"
 />
 <app-modal-orden-servicio
   (completado)="alRegistrar()"
   (solicitarCcp)="completarCcpDesdeOrden($event)"
+/>
+<app-modal-anexo8-cuadro (completado)="alRegistrar()" />
+<app-modal-respuesta-locador
+  (completado)="alRegistrar()"
+  (reinvitar)="reenviarInvitacionLocador($event)"
 />
 
 <!-- Visor del documento a firmar (mismo patrón que Gestión CMN) -->

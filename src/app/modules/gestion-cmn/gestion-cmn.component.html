@@ -28,9 +28,6 @@
     <div class="contenido-cabecera">
       <div>
         <h2 class="contenido-titulo">Bandeja de Gestión CMN</h2>
-        <p class="contenido-subtitulo">
-          Solicitud (Anexo 3) y aprobación (Anexo 4) de modificaciones al CMN.
-        </p>
       </div>
       <span class="contenido-conteo">{{ total }} expediente(s)</span>
     </div>
@@ -64,9 +61,6 @@
           <input type="checkbox" [(ngModel)]="filtro.SoloMiBandeja" (change)="buscar()" />
           <span>Solo mi bandeja</span>
         </label>
-        <small class="cmn-filtros__ayuda">
-          Lo que está en mi unidad y espera una acción de mi rol.
-        </small>
       </div>
 
       <div class="cmn-filtros__acciones">

@@ -1,0 +1,188 @@
+<div class="modal-fondo" *ngIf="abierto" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--a8"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">Generar cuadro de adquisición</h2>
+          <p class="modal-subtitulo" *ngIf="fila">
+            Anexo N.° 8 — Cuadro de cotizaciones · {{ fila.Codigo }}
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()" [disabled]="procesando">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="cargando">
+        <p class="a8-cargando">
+          <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando expediente…
+        </p>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="!cargando && detalle">
+        <section class="a8-bloque">
+          <h3 class="a8-bloque__titulo">Datos generales</h3>
+          <dl class="a8-cabecera">
+            <div><dt>Tipo de contratación</dt><dd>Contrato menor</dd></div>
+            <div><dt>Fecha de generación</dt><dd>{{ fechaGeneracion }}</dd></div>
+            <div><dt>Área usuaria requirente</dt><dd>{{ detalle.CentroCostoNombre || detalle.CentroCosto }}</dd></div>
+            <div><dt>DEC encargada</dt><dd>{{ etiquetaDecTexto }}</dd></div>
+            <div class="a8-cabecera__ancho"><dt>Denominación</dt><dd>{{ detalle.Denominacion }}</dd></div>
+            <div><dt>Expediente SGD</dt><dd>{{ detalle.Ate || detalle.Codigo }}</dd></div>
+          </dl>
+        </section>
+
+        <section class="a8-bloque">
+          <h3 class="a8-bloque__titulo">Matriz comparativa de proveedores e ítems</h3>
+          <p class="a8-ayuda">Mínimo dos postores. Precio total = cantidad × precio unitario (incluye impuestos).</p>
+          <div class="a8-tabla-wrap">
+            <table class="table scm-table a8-tabla">
+              <thead>
+                <tr>
+                  <th>Ítem</th>
+                  <th>Descripción</th>
+                  <th>U.M.</th>
+                  <th>Cant.</th>
+                  <th *ngFor="let postor of postores; let i = index" class="a8-col-postor">
+                    <input class="campo-control" [(ngModel)]="postor.RazonSocial" [name]="'rs'+i" placeholder="Razón social / nombres" [disabled]="procesando" />
+                    <input class="campo-control" [(ngModel)]="postor.Ruc" [name]="'ruc'+i" placeholder="RUC" [disabled]="procesando" />
+                    <input class="campo-control" [(ngModel)]="postor.Contacto" [name]="'cto'+i" placeholder="Contacto" [disabled]="procesando" />
+                    <input class="campo-control" [(ngModel)]="postor.Telefono" [name]="'tel'+i" placeholder="Teléfono" [disabled]="procesando" />
+                    <input class="campo-control" [(ngModel)]="postor.Email" [name]="'em'+i" placeholder="Correo" [disabled]="procesando" />
+                    <button type="button" class="btn btn-link btn-sm" (click)="quitarPostor(postor)" [disabled]="procesando || postores.length <= 2">Quitar</button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of items">
+                  <td class="text-center">{{ item.Orden }}</td>
+                  <td>{{ item.Descripcion }}</td>
+                  <td class="text-center">{{ item.Unidad }}</td>
+                  <td class="text-end">{{ item.Cantidad }}</td>
+                  <td *ngFor="let postor of postores; let i = index">
+                    <label class="a8-mini">P. unitario
+                      <input type="number" class="campo-control" [(ngModel)]="postor.Precios[item.IdItem]" [name]="'pu'+i+item.IdItem" step="0.01" min="0" [disabled]="procesando" />
+                    </label>
+                    <span class="a8-calc">Total S/ {{ totalCelda(item, postor) | number: '1.2-2' }}</span>
+                  </td>
+                </tr>
+                <tr class="a8-totales">
+                  <td colspan="4" class="text-end"><strong>TOTAL (INC. IGV)</strong></td>
+                  <td *ngFor="let postor of postores"><strong>S/ {{ totalDe(postor) | number: '1.2-2' }}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarPostor()" [disabled]="procesando">
+            Agregar postor
+          </button>
+        </section>
+
+        <section class="a8-bloque">
+          <h3 class="a8-bloque__titulo">Condiciones de cada oferta</h3>
+          <div class="a8-postor-cards">
+            <article class="a8-card" *ngFor="let postor of postores; let i = index">
+              <h4>{{ postor.RazonSocial || ('Postor ' + (i + 1)) }}</h4>
+              <div class="a8-form-grid">
+                <label>Plazo de entrega / ejecución
+                  <input class="campo-control" [(ngModel)]="postor.Plazo" [name]="'plazo'+i" [disabled]="procesando" />
+                </label>
+                <label>Forma de pago
+                  <select class="campo-control" [(ngModel)]="postor.FormaPago" [name]="'fp'+i" [disabled]="procesando">
+                    <option value="">Seleccione</option>
+                    <option value="UNICO">Pago único</option>
+                    <option value="ARMADAS">Pago en armadas</option>
+                  </select>
+                </label>
+                <label>Garantía
+                  <input class="campo-control" [(ngModel)]="postor.Garantia" [name]="'gar'+i" [disabled]="procesando" />
+                </label>
+                <label>Moneda
+                  <select class="campo-control" [(ngModel)]="postor.Moneda" [name]="'mon'+i" [disabled]="procesando">
+                    <option value="PEN">Soles</option>
+                    <option value="USD">Dólares</option>
+                    <option value="OTRA">Otra</option>
+                  </select>
+                </label>
+                <label *ngIf="postor.Moneda !== 'PEN'">Tipo de cambio
+                  <input type="number" class="campo-control" [(ngModel)]="postor.TipoCambio" [name]="'tc'+i" step="0.001" min="0" [disabled]="procesando" />
+                </label>
+                <label>Fecha de solicitud
+                  <input type="date" class="campo-control" [(ngModel)]="postor.FechaSolicitud" [name]="'fs'+i" [disabled]="procesando" />
+                </label>
+                <label>Reiteraciones
+                  <select class="campo-control" [(ngModel)]="postor.Reiteraciones" [name]="'re'+i" [disabled]="procesando">
+                    <option [ngValue]="0">0</option>
+                    <option [ngValue]="1">1</option>
+                    <option [ngValue]="2">2</option>
+                  </select>
+                </label>
+                <label>Fecha de recepción
+                  <input type="date" class="campo-control" [(ngModel)]="postor.FechaRecepcion" [name]="'fr'+i" [disabled]="procesando" />
+                </label>
+              </div>
+              <div class="a8-checks">
+                <label><input type="checkbox" [(ngModel)]="postor.DedicaObjeto" [name]="'do'+i" [disabled]="procesando" /> ¿El proveedor se dedica al objeto de la contratación?</label>
+                <label><input type="checkbox" [(ngModel)]="postor.AreaUsuariaVerifico" [name]="'au'+i" [disabled]="procesando" /> ¿El área usuaria participó en la verificación técnica?</label>
+                <label>¿Se tomó en cuenta para la determinación del valor?
+                  <select class="campo-control campo-control--corto" [(ngModel)]="postor.TomoEnCuentaValor" [name]="'tv'+i" [disabled]="procesando">
+                    <option value="">—</option>
+                    <option value="SI">Sí</option>
+                    <option value="NO">No</option>
+                  </select>
+                </label>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="a8-bloque">
+          <h3 class="a8-bloque__titulo">Adjudicación e informe de sustento</h3>
+          <div class="a8-form-grid">
+            <label>Proveedor adjudicado
+              <select class="campo-control" [(ngModel)]="idAdjudicado" name="adjudicado" [disabled]="procesando">
+                <option value="">Seleccione</option>
+                <option *ngFor="let postor of postores" [value]="postor.Id">{{ postor.RazonSocial || postor.Ruc || postor.Id }}</option>
+              </select>
+            </label>
+            <label>Valor adjudicado / monto a contratar
+              <input class="campo-control" [value]="'S/ ' + (montoAdjudicado | number: '1.2-2')" disabled />
+            </label>
+          </div>
+          <label class="a8-ancho">Criterio utilizado para la determinación del monto (obligatorio)
+            <textarea class="campo-control" rows="4" [(ngModel)]="criterio" name="criterio" [disabled]="procesando"
+              placeholder="Sustento técnico y económico de la elección"></textarea>
+          </label>
+        </section>
+
+        <section class="a8-bloque">
+          <h3 class="a8-bloque__titulo">Observaciones y firmas</h3>
+          <label class="a8-ancho">Observaciones
+            <textarea class="campo-control" rows="3" [(ngModel)]="observaciones" name="obs" [disabled]="procesando"></textarea>
+          </label>
+          <ul class="a8-firmas">
+            <li>Responsable de la elaboración (especialista DEC)</li>
+            <li>Coordinación o responsable de equipo (de corresponder)</li>
+            <li>Responsable de la DEC (jefe de Abastecimiento o DAI)</li>
+          </ul>
+          <p class="a8-ayuda">Al generar el PDF se incluyen las líneas de firma. El estampado digital se completa con el firmador de cada perfil.</p>
+        </section>
+      </div>
+
+      <div class="modal-footer a8-footer" *ngIf="!cargando && detalle">
+        <p class="a8-paso" *ngIf="paso">{{ paso }}</p>
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()" [disabled]="procesando">Cancelar</button>
+        <span class="a8-footer__spacer"></span>
+        <button type="button" class="btn btn-app-secundario" (click)="guardarBorrador()" [disabled]="procesando">Guardar borrador</button>
+        <button type="button" class="btn btn-app-primary" (click)="generarYFirmar()" [disabled]="procesando">
+          Generar cuadro y firmar Anexo 8 (PDF)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -67,12 +67,28 @@ export class RequerimientoService {
    * entretanto, la rutina responde CONFLICTO en vez de pisar ese cambio.
    */
   ejecutarTransicion(idExpediente: string, codigoTransicion: string,
-                     version: number, comentario: string | null = null): Observable<any> {
+                     version: number, comentario: string | null = null,
+                     idResponsableDestino: string | null = null): Observable<any> {
     return this.apiService.POST('api/sigcm/ejecutarTransicion', {
       IdExpediente: idExpediente,
       CodigoTransicion: codigoTransicion,
       Version: version,
-      Comentario: comentario
+      Comentario: comentario,
+      IdResponsableDestino: idResponsableDestino
+    });
+  }
+
+  /**
+   * A quién puede derivarle este expediente el actor, para esta acción.
+   *
+   * Misma rutina que Gestión CMN (`sigcm.paListarDestinatarioDerivacion`):
+   * puestos con las personas del padrón SSO, ya acotados al rol destino de la
+   * transición. Si la acción no es una derivación, la lista llega vacía.
+   */
+  listarDestinatarioDerivacion(idExpediente: string, codigoTransicion: string): Observable<any> {
+    return this.apiService.GET('api/sigcm/listarDestinatarioDerivacion', {
+      IdExpediente: idExpediente,
+      CodigoTransicion: codigoTransicion
     });
   }
 
@@ -105,9 +121,10 @@ export class RequerimientoService {
     });
   }
 
-  listarFiltroIdoneidad(idRequerimiento: string): Observable<any> {
+  listarFiltroIdoneidad(idRequerimiento: string, extras: Record<string, unknown> = {}): Observable<any> {
     return this.apiService.GET('api/requerimiento/listarFiltroIdoneidad', {
-      IdRequerimiento: idRequerimiento
+      IdRequerimiento: idRequerimiento,
+      ...extras
     });
   }
 
@@ -156,10 +173,21 @@ export class RequerimientoService {
     });
   }
 
-  notificarOrdenServicio(idRequerimiento: string, version: number): Observable<any> {
+  invitacionCotizacionLocador(
+    idRequerimiento: string,
+    adjuntos: { DocumentoSistema: string; Nombre: string; Carpeta: string; CodigoTipoDocumento: string }[]
+  ): Observable<any> {
+    return this.apiService.POST('api/requerimiento/invitacionCotizacionLocador', {
+      IdRequerimiento: idRequerimiento,
+      Adjuntos: adjuntos
+    });
+  }
+
+  notificarOrdenServicio(idRequerimiento: string, version: number, usuarioExterno: any = {}): Observable<any> {
     return this.apiService.POST('api/requerimiento/notificarOrdenServicio', {
       IdRequerimiento: idRequerimiento,
-      Version: version
+      Version: version,
+      ...usuarioExterno
     });
   }
 
@@ -205,11 +233,17 @@ export class RequerimientoService {
    * Pedidos SIGA del centro de costo y año. Es el maestro PEDIDO de
    * sigcm.paListarMaestroSiga (siga.vwPedido), no un HTTP aparte.
    */
-  listarPedidosSiga(anoEje: number, centroCosto: string, secEjec?: number): Observable<PedidoSiga[]> {
+  listarPedidosSiga(
+    anoEje: number,
+    centroCosto: string,
+    secEjec?: number,
+    codigoTipoContratacion?: string
+  ): Observable<PedidoSiga[]> {
     return this.listarMaestroSiga('PEDIDO', {
       AnoEje: anoEje,
       SecEjec: secEjec || 1750,
-      CentroCosto: centroCosto
+      CentroCosto: centroCosto,
+      CodigoTipoContratacion: codigoTipoContratacion || 'LOCACION'
     }).pipe(
       map((rpta: any) => rpta?.datos || [])
     );
@@ -223,13 +257,15 @@ export class RequerimientoService {
     anoEje: number,
     numeroPedido: string,
     centroCosto: string,
-    secEjec?: number
+    secEjec?: number,
+    codigoTipoContratacion?: string
   ): Observable<PedidoSigaDetalle | null> {
     return this.listarMaestroSiga('PEDIDO_DETALLE', {
       AnoEje: anoEje,
       SecEjec: secEjec || 1750,
       CentroCosto: centroCosto,
-      NumeroPedido: numeroPedido
+      NumeroPedido: numeroPedido,
+      CodigoTipoContratacion: codigoTipoContratacion || 'LOCACION'
     }).pipe(
       map((rpta: any) => (rpta?.datos && rpta.datos[0]) || null)
     );

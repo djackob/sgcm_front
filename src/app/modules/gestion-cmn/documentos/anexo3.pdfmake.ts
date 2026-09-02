@@ -67,8 +67,8 @@ export function construirAnexo3(solicitud: SolicitudDetalleCmn): any {
             stack: [
               { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 0.8, lineColor: NEGRO }] },
               { text: 'Firma: Responsable del Área usuaria', style: 'firma', margin: [0, 6, 0, 0] },
-              solicitud.Responsable
-                ? { text: solicitud.Responsable, style: 'firmaNombre', margin: [0, 3, 0, 0] }
+              (solicitud.JefeAreaUsuaria || solicitud.Responsable)
+                ? { text: solicitud.JefeAreaUsuaria || solicitud.Responsable, style: 'firmaNombre', margin: [0, 3, 0, 0] }
                 : {}
             ]
           }

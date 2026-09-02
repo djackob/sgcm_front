@@ -104,7 +104,12 @@
             />
           </div>
 
-          <accordion class="tdr-acordeones" [isAnimated]="true" [closeOthers]="false">
+          <div class="req-bloque">
+            <div class="req-bloque__cabecera">
+              <h4 class="req-bloque__titulo">Items de anexo 3</h4>
+            </div>
+            <p class="req-nota">Ítems propios del anexo 3</p>
+            <accordion class="tdr-acordeones" [isAnimated]="true" [closeOthers]="false">
             <accordion-group [(isOpen)]="acordeonMarco">
               <span accordion-heading class="req-acordeon__cabecera">
                 <span class="req-acordeon__titulo">1. MARCO LEGAL (Obligatorio)</span>
@@ -183,13 +188,23 @@
                     min="1"
                     max="20"
                     class="campo-control"
+                    [class.campo-control--bloqueado]="cantidadFijaAnexo5"
                     [(ngModel)]="cantidadEntregables"
                     (ngModelChange)="onCantidadEntregables()"
+                    [readonly]="cantidadFijaAnexo5"
+                    [disabled]="cantidadFijaAnexo5"
                   />
                 </div>
                 <div class="campo campo--corto">
                   <label class="campo-etiqueta" for="tdrPlazoEnt">Plazo (días calendario)</label>
-                  <input id="tdrPlazoEnt" type="number" class="campo-control campo-control--bloqueado" [value]="plazoTotal" readonly />
+                  <input
+                    id="tdrPlazoEnt"
+                    type="number"
+                    class="campo-control campo-control--bloqueado"
+                    [value]="detalle.PlazoDias"
+                    readonly
+                    disabled
+                  />
                 </div>
               </div>
               <div class="tdr-fila tdr-fila--entregable" *ngFor="let entregable of tdr.Entregables; let i = index">
@@ -271,7 +286,7 @@
                 <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
               </span>
               <textarea class="campo-control" rows="4" [(ngModel)]="tdr.LugarPrestacion"></textarea>
-              <label class="campo-etiqueta">Plazo (el valor es automático desde los entregables)</label>
+              <label class="campo-etiqueta">Plazo (días calendario del Anexo 5; no se modifica)</label>
               <textarea class="campo-control campo-control--bloqueado" rows="4" [value]="textoPlazo" readonly></textarea>
             </accordion-group>
 
@@ -309,6 +324,7 @@
               <textarea class="campo-control campo-control--bloqueado" rows="4" [value]="solucionControversias" readonly></textarea>
             </accordion-group>
           </accordion>
+          </div>
         </ng-container>
       </div>
 
@@ -322,7 +338,7 @@
           (click)="grabar()"
         >
           <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
-          {{ embebido ? 'Grabar y firmar anexos' : 'Grabar' }}
+          {{ embebido ? 'Grabar y firma especialista' : 'Grabar' }}
         </button>
       </div>
 

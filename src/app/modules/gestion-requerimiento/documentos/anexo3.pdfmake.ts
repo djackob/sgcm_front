@@ -52,7 +52,9 @@ export function construirAnexo3Tdr(
   tdr: TdrLocacion,
   pedidos: PedidoFormularioRequerimiento[]
 ): any {
-  const plazo = plazoEntregables(tdr);
+  const plazo = Number(detalle?.PlazoDias) > 0
+    ? Number(detalle.PlazoDias)
+    : plazoEntregables(tdr);
   const unidadConformidad = (tdr.UnidadConformidad || tdr.UnidadOrganizacional
     || detalle?.CentroCostoNombre || '').trim();
   const area = (detalle?.CentroCostoNombre || '').trim();

@@ -109,6 +109,18 @@
                 <dt>Email</dt>
                 <dd>{{ proveedor.Email }}</dd>
               </div>
+              <div *ngIf="proveedor.Direccion">
+                <dt>Dirección</dt>
+                <dd>{{ proveedor.Direccion }}</dd>
+              </div>
+              <div *ngIf="proveedor.Departamento || proveedor.Provincia || proveedor.Distrito">
+                <dt>Ubigeo</dt>
+                <dd>
+                  {{ proveedor.Departamento }}
+                  <ng-container *ngIf="proveedor.Provincia"> · {{ proveedor.Provincia }}</ng-container>
+                  <ng-container *ngIf="proveedor.Distrito"> · {{ proveedor.Distrito }}</ng-container>
+                </dd>
+              </div>
               <div *ngIf="proveedor.CantidadEntregables">
                 <dt>Entregables</dt>
                 <dd>{{ proveedor.CantidadEntregables }}</dd>
@@ -170,7 +182,11 @@
 
           <p class="det-nota" *ngIf="detalle.CodigoTipoContratacion === 'LOCACION'">
             En Locación el orden es obligatorio: la propuesta del Área usuaria se
-            firma antes de elaborar el TDR.
+            firma antes de elaborar el TDR. Tras la No Objeción o conformidad de la
+            DEC, el sistema pasa a indagación de mercado e invita solo al locador
+            del Anexo 5 (Anexos 3, 6 y 7, más el paquete de integridad). El locador
+            tiene 3 días hábiles para devolver los Anexos 6 y 7 firmados; recién
+            entonces se inician los filtros de idoneidad y la CCP.
           </p>
 
           <!-- Pedidos SIGA -->
@@ -251,9 +267,9 @@
           <ng-container *ngIf="muestraTramiteLocacion">
             <h3 class="det-seccion">Filtros de idoneidad</h3>
             <p class="det-nota">
-              Verifique cada registro y marque <strong>Sí</strong> si el proveedor cumple
-              (sin impedimento) o <strong>No</strong> si no cumple. Adjunte el PDF de
-              sustento de cada portal.
+              La verificación de SUNAT, RNP y los cinco filtros se hace en
+              <b>Iniciar filtros de idoneidad</b> / <b>Confirmar idoneidad y solicitar CCP</b>
+              desde la bandeja. Aquí solo se consulta el resultado registrado.
             </p>
             <div class="table-responsive" *ngIf="filtros.length">
               <table class="table scm-table">

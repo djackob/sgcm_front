@@ -239,6 +239,8 @@ export interface SolicitudDetalleCmn extends RespuestaSigcm {
   Estado: string;
   PuedeEditar?: boolean;
   Responsable: string;
+  /** Jefe titular del área usuaria: es quien firma el Anexo 3. */
+  JefeAreaUsuaria?: string | null;
   Items: ItemSolicitudCmn[];
   DocumentoSistemaAnexo3?: string | null;
   DocumentoSistemaAnexo4?: string | null;

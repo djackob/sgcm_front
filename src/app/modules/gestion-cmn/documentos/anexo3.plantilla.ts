@@ -243,7 +243,9 @@ export function htmlAnexo3(solicitud: SolicitudDetalleCmn, _origen = ''): string
       <div class="bloque">
         <div class="linea"></div>
         Firma: Responsable del Área usuaria
-        ${solicitud.Responsable ? `<div>${esc(solicitud.Responsable)}</div>` : ''}
+        ${solicitud.JefeAreaUsuaria || solicitud.Responsable
+          ? `<div>${esc(solicitud.JefeAreaUsuaria || solicitud.Responsable)}</div>`
+          : ''}
       </div>
     </div>
   </div>

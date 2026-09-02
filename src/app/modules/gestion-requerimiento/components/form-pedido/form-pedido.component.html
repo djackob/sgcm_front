@@ -49,11 +49,12 @@
       <input
         [id]="prefijo + '-actividad'"
         type="text"
-        class="campo-control"
+        class="campo-control campo-control--bloqueado"
         [name]="prefijo + '-actividad'"
         [(ngModel)]="pedido.ActividadOperativa"
-        [readonly]="soloLectura"
-        [class.campo-control--bloqueado]="soloLectura"
+        readonly
+        tabindex="-1"
+        placeholder="Se completa al seleccionar el pedido"
       />
     </div>
 
@@ -62,11 +63,12 @@
       <input
         [id]="prefijo + '-meta'"
         type="text"
-        class="campo-control"
+        class="campo-control campo-control--bloqueado"
         [name]="prefijo + '-meta'"
         [(ngModel)]="pedido.MetaPresupuestaria"
-        [readonly]="soloLectura"
-        [class.campo-control--bloqueado]="soloLectura"
+        readonly
+        tabindex="-1"
+        placeholder="Se completa al seleccionar el pedido"
       />
     </div>
     <div class="campo">
@@ -74,12 +76,13 @@
       <input
         [id]="prefijo + '-ffrr'"
         type="text"
-        class="campo-control"
+        class="campo-control campo-control--bloqueado"
         [name]="prefijo + '-ffrr'"
         maxlength="2"
         [(ngModel)]="pedido.FuenteFinanc"
-        [readonly]="soloLectura"
-        [class.campo-control--bloqueado]="soloLectura"
+        readonly
+        tabindex="-1"
+        placeholder="Se completa al seleccionar el pedido"
       />
     </div>
     <div class="campo">
@@ -87,11 +90,12 @@
       <input
         [id]="prefijo + '-programa'"
         type="text"
-        class="campo-control"
+        class="campo-control campo-control--bloqueado"
         [name]="prefijo + '-programa'"
         [(ngModel)]="pedido.Programa"
-        [readonly]="soloLectura"
-        [class.campo-control--bloqueado]="soloLectura"
+        readonly
+        tabindex="-1"
+        placeholder="Se completa al seleccionar el pedido"
       />
     </div>
     <div class="campo">
@@ -99,11 +103,12 @@
       <input
         [id]="prefijo + '-prod'"
         type="text"
-        class="campo-control"
+        class="campo-control campo-control--bloqueado"
         [name]="prefijo + '-prod'"
         [(ngModel)]="pedido.ProdPy"
-        [readonly]="soloLectura"
-        [class.campo-control--bloqueado]="soloLectura"
+        readonly
+        tabindex="-1"
+        placeholder="Se completa al seleccionar el pedido"
       />
     </div>
     <div class="campo">
@@ -111,11 +116,12 @@
       <input
         [id]="prefijo + '-clasificador'"
         type="text"
-        class="campo-control"
+        class="campo-control campo-control--bloqueado"
         [name]="prefijo + '-clasificador'"
         [(ngModel)]="pedido.Clasificador"
-        [readonly]="soloLectura"
-        [class.campo-control--bloqueado]="soloLectura"
+        readonly
+        tabindex="-1"
+        placeholder="Se completa al seleccionar el pedido"
       />
     </div>
 
@@ -124,11 +130,12 @@
       <input
         [id]="prefijo + '-codigo'"
         type="text"
-        class="campo-control"
+        class="campo-control campo-control--bloqueado"
         [name]="prefijo + '-codigo'"
         [(ngModel)]="pedido.CodigoItemPedido"
-        [readonly]="soloLectura"
-        [class.campo-control--bloqueado]="soloLectura"
+        readonly
+        tabindex="-1"
+        placeholder="Se completa al seleccionar el pedido"
       />
     </div>
     <div class="campo req-grid__nombre">
@@ -136,11 +143,12 @@
       <input
         [id]="prefijo + '-nombre'"
         type="text"
-        class="campo-control"
+        class="campo-control campo-control--bloqueado"
         [name]="prefijo + '-nombre'"
         [(ngModel)]="pedido.NombreItemPedido"
-        [readonly]="soloLectura"
-        [class.campo-control--bloqueado]="soloLectura"
+        readonly
+        tabindex="-1"
+        placeholder="Se completa al seleccionar el pedido"
       />
     </div>
   </div>

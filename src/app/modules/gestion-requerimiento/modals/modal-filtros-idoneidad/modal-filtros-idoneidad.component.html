@@ -1,0 +1,277 @@
+<div class="modal-fondo" *ngIf="abierto" role="presentation">
+  <div
+    class="modal-app-dialog modal-app-dialog--fid"
+    role="dialog"
+    aria-modal="true"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">Iniciar filtros de idoneidad</h2>
+          <p class="modal-subtitulo" *ngIf="fila">
+            EXP. N.º {{ fila.Codigo }} · verificación obligatoria del locador (DEC)
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="cargando">
+        <p class="fid-cargando">
+          <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i>
+          Cargando propuesta económica y filtros…
+        </p>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="!cargando && detalle">
+        <section class="fid-bloque">
+          <h3 class="fid-bloque__titulo">Datos de cabecera del requerimiento</h3>
+          <p class="fid-ayuda">
+            Metadata de la propuesta económica (Anexo 5) y del pedido SIGA. Solo lectura.
+          </p>
+          <dl class="fid-cabecera">
+            <div>
+              <dt>RUC / DNI del locador</dt>
+              <dd>{{ rucLocador }} / {{ dniLocador }}</dd>
+            </div>
+            <div>
+              <dt>Apellidos y nombres</dt>
+              <dd>{{ nombreLocador }}</dd>
+            </div>
+            <div [class.fid-cabecera__alerta]="!correoValido">
+              <dt>Correo electrónico</dt>
+              <dd>
+                {{ correoLocador || 'Sin correo' }}
+                <span class="fid-aviso" *ngIf="!correoValido">
+                  Debe estar completo y ser válido para notificar la orden.
+                </span>
+              </dd>
+            </div>
+            <div class="fid-cabecera__ancho">
+              <dt>Denominación del servicio (TDR)</dt>
+              <dd>{{ denominacion }}</dd>
+            </div>
+            <div>
+              <dt>Pedido SIGA N.º</dt>
+              <dd>{{ numeroPedido }}</dd>
+            </div>
+            <div>
+              <dt>Monto de la contratación</dt>
+              <dd>S/. {{ montoTotal | number: '1.2-2' }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="fid-bloque">
+          <h3 class="fid-bloque__titulo">Verificación SUNAT y RNP</h3>
+          <p class="fid-ayuda">
+            Condición básica de formalidad del proveedor. Si SUNAT no está Activo y Habido, el flujo se bloquea.
+          </p>
+
+          <div class="fid-formales">
+            <article class="fid-formal">
+              <header>
+                <span class="fid-formal__nombre">Filtro SUNAT</span>
+                <span class="fid-badge" [ngClass]="claseSunat()">{{ textoSunat() }}</span>
+              </header>
+              <p class="fid-ayuda" *ngIf="sunatBloquea">
+                La consulta indica No Habido o No Activo. No se puede confirmar la idoneidad.
+              </p>
+              <div class="fid-sino">
+                <label>
+                  <input type="radio" name="sunat" [checked]="esSi(filtroSunat)" (change)="marcar(filtroSunat, true)" />
+                  Activo y Habido
+                </label>
+                <label>
+                  <input type="radio" name="sunat" [checked]="esNo(filtroSunat)" (change)="marcar(filtroSunat, false)" />
+                  No Habido / No Activo
+                </label>
+              </div>
+              <div class="fid-evidencia">
+                <a *ngIf="urlEvidencia(filtroSunat)" [href]="urlEvidencia(filtroSunat)" target="_blank" rel="noopener">
+                  {{ filtroSunat?.NombreDocumentoEvidencia || 'Ver constancia SUNAT' }}
+                </a>
+                <label
+                  class="fid-drop"
+                  [class.fid-drop--over]="arrastreCodigo === 'SUNAT_HABIDO'"
+                  (dragover)="onDragOver($event, 'SUNAT_HABIDO')"
+                  (dragleave)="onDragLeave()"
+                  (drop)="onDrop(filtroSunat, $event)"
+                >
+                  <input type="file" accept="application/pdf,.pdf" (change)="onFile(filtroSunat, $event)" />
+                  <span *ngIf="subiendoCodigo === 'SUNAT_HABIDO'">Subiendo…</span>
+                  <span *ngIf="subiendoCodigo !== 'SUNAT_HABIDO'">
+                    {{ filtroSunat?.NombreDocumentoEvidencia ? 'Reemplazar PDF' : 'Arrastrar o adjuntar constancia SUNAT' }}
+                  </span>
+                </label>
+              </div>
+              <a class="fid-portal" [href]="portal('SUNAT_HABIDO')!.url" target="_blank" rel="noopener">
+                {{ portal('SUNAT_HABIDO')!.etiqueta }}
+              </a>
+            </article>
+
+            <article class="fid-formal">
+              <header>
+                <span class="fid-formal__nombre">Registro Nacional de Proveedores</span>
+                <span class="fid-badge" [ngClass]="claseRnp()">{{ textoRnp() }}</span>
+              </header>
+              <div class="fid-sino">
+                <label>
+                  <input type="radio" name="rnp" [checked]="esSi(filtroRnp)" (change)="marcar(filtroRnp, true)" />
+                  Vigente
+                </label>
+                <label>
+                  <input type="radio" name="rnp" [checked]="esNo(filtroRnp)" (change)="marcar(filtroRnp, false)" />
+                  No vigente
+                </label>
+              </div>
+              <div class="fid-evidencia">
+                <a *ngIf="urlEvidencia(filtroRnp)" [href]="urlEvidencia(filtroRnp)" target="_blank" rel="noopener">
+                  {{ filtroRnp?.NombreDocumentoEvidencia || 'Ver constancia RNP' }}
+                </a>
+                <label
+                  class="fid-drop"
+                  [class.fid-drop--over]="arrastreCodigo === 'RNP'"
+                  (dragover)="onDragOver($event, 'RNP')"
+                  (dragleave)="onDragLeave()"
+                  (drop)="onDrop(filtroRnp, $event)"
+                >
+                  <input type="file" accept="application/pdf,.pdf" (change)="onFile(filtroRnp, $event)" />
+                  <span *ngIf="subiendoCodigo === 'RNP'">Subiendo…</span>
+                  <span *ngIf="subiendoCodigo !== 'RNP'">
+                    {{ filtroRnp?.NombreDocumentoEvidencia ? 'Reemplazar PDF' : 'Arrastrar o adjuntar constancia RNP' }}
+                  </span>
+                </label>
+              </div>
+              <a class="fid-portal" [href]="portal('RNP')!.url" target="_blank" rel="noopener">
+                {{ portal('RNP')!.etiqueta }}
+              </a>
+            </article>
+          </div>
+        </section>
+
+        <section class="fid-bloque">
+          <h3 class="fid-bloque__titulo">Matriz de los 5 filtros de idoneidad</h3>
+          <p class="fid-ayuda">
+            Consulte cada registro en el portal oficial, marque el check y cargue el PDF de sustento.
+          </p>
+
+          <div class="table-responsive fid-tabla-wrap">
+            <table class="table scm-table fid-tabla">
+              <thead>
+                <tr>
+                  <th>Filtro obligatorio (Directiva 7.2.1.10)</th>
+                  <th class="text-center">Resultado (PID)</th>
+                  <th class="text-center">Check del especialista</th>
+                  <th>Evidencia PDF</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let filtro of filtrosMatriz">
+                  <td>
+                    <strong>{{ nombreFiltro(filtro) }}</strong>
+                    <a
+                      class="fid-portal"
+                      *ngIf="portal(filtro.CodigoFiltro)"
+                      [href]="portal(filtro.CodigoFiltro)!.url"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      {{ portal(filtro.CodigoFiltro)!.etiqueta }}
+                    </a>
+                  </td>
+                  <td class="text-center">
+                    <span class="fid-badge" [ngClass]="clasePid(filtro)">{{ etiquetaPid(filtro) }}</span>
+                  </td>
+                  <td>
+                    <div class="fid-sino">
+                      <label>
+                        <input
+                          type="radio"
+                          [name]="'matriz-' + filtro.CodigoFiltro"
+                          [checked]="esSi(filtro)"
+                          (change)="marcar(filtro, true)"
+                        />
+                        Sí cumple
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          [name]="'matriz-' + filtro.CodigoFiltro"
+                          [checked]="esNo(filtro)"
+                          (change)="marcar(filtro, false)"
+                        />
+                        No cumple
+                      </label>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="fid-evidencia">
+                      <a *ngIf="urlEvidencia(filtro)" [href]="urlEvidencia(filtro)" target="_blank" rel="noopener">
+                        {{ filtro.NombreDocumentoEvidencia || 'Ver PDF de consulta' }}
+                      </a>
+                      <label
+                        class="fid-drop"
+                        [class.fid-drop--over]="arrastreCodigo === filtro.CodigoFiltro"
+                        (dragover)="onDragOver($event, filtro.CodigoFiltro)"
+                        (dragleave)="onDragLeave()"
+                        (drop)="onDrop(filtro, $event)"
+                      >
+                        <input type="file" accept="application/pdf,.pdf" (change)="onFile(filtro, $event)" />
+                        <span *ngIf="subiendoCodigo === filtro.CodigoFiltro">Subiendo…</span>
+                        <span *ngIf="subiendoCodigo !== filtro.CodigoFiltro">
+                          {{ filtro.NombreDocumentoEvidencia ? 'Reemplazar PDF' : 'Arrastrar archivo PDF' }}
+                        </span>
+                      </label>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="fid-bloque fid-bloque--observar" *ngIf="mostrarObservar">
+          <h3 class="fid-bloque__titulo">Motivo de devolución al Área usuaria</h3>
+          <textarea
+            class="campo-control"
+            rows="4"
+            [(ngModel)]="motivoObservacion"
+            name="motivoObservacion"
+            placeholder="Motivo técnico de rechazo (obligatorio)"
+          ></textarea>
+        </section>
+      </div>
+
+      <div class="modal-footer fid-footer" *ngIf="!cargando && detalle">
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          [disabled]="!puedeObservar"
+          (click)="mostrarObservar ? confirmarObservar() : pedirObservar()"
+        >
+          <i class="mdi mdi-loading mdi-spin" *ngIf="observando" aria-hidden="true"></i>
+          {{ mostrarObservar ? 'Confirmar devolución' : 'Devolver al AU (Observado)' }}
+        </button>
+        <span class="modal-footer__info" *ngIf="!puedeObservar && !hayImpedimento">
+          La devolución se habilita si algún filtro obligatorio no cumple.
+        </span>
+        <span class="fid-footer__spacer"></span>
+        <button type="button" class="btn btn-app-secundario" [disabled]="guardando" (click)="guardarBorrador()">
+          <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
+          Guardar borrador
+        </button>
+        <button
+          type="button"
+          class="btn btn-app-primary"
+          [disabled]="!puedeConfirmarCcp"
+          (click)="irACcp()"
+        >
+          Confirmar idoneidad y solicitar CCP
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

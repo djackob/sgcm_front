@@ -1,0 +1,106 @@
+<div class="modal-fondo" *ngIf="abierto" role="presentation">
+  <div class="modal-app-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">Respuesta del locador</h2>
+          <p class="modal-subtitulo" *ngIf="fila">
+            {{ fila.Codigo }} · Anexos 6 y 7 firmados (plazo: 3 días hábiles)
+          </p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()" [disabled]="procesando">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo">
+        <p class="ccp-ayuda">
+          En locación la indagación es uno a uno: el locador del Anexo 5 devuelve
+          la cotización (Anexo 6, monto a dos decimales y CCI) y la declaración
+          jurada de prohibiciones (Anexo 7). Recién con ambos firmados se inician
+          los filtros de idoneidad y la CCP.
+        </p>
+
+        <div class="ccp-upload">
+          <p class="ccp-upload__titulo">1. Anexo 6 firmado (cotización y CCI)</p>
+          <div
+            class="ccp-upload__zona"
+            [class.ccp-upload__zona--activa]="arrastrando === 'anexo6'"
+            (dragover)="onDragOver('anexo6', $event)"
+            (dragleave)="onDragLeave('anexo6', $event)"
+            (drop)="onDrop('anexo6', $event)"
+          >
+            <ng-container *ngIf="archivo6; else vacio6">
+              <span class="ccp-upload__archivo">
+                <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+                <a [href]="urlDescarga(archivo6)" target="_blank" rel="noopener">{{ archivo6.nombreOriginal }}</a>
+              </span>
+              <button type="button" class="btn btn-link btn-sm" (click)="quitar('anexo6')" [disabled]="procesando">
+                Eliminar
+              </button>
+            </ng-container>
+            <ng-template #vacio6>
+              <span>Arrastre o examine el PDF firmado por el locador</span>
+              <button
+                type="button"
+                class="btn btn-app-secundario btn-sm"
+                (click)="examinar('anexo6', input6)"
+                [disabled]="procesando || subiendo === 'anexo6'"
+              >
+                {{ subiendo === 'anexo6' ? 'Subiendo…' : 'Examinar' }}
+              </button>
+              <input #input6 type="file" accept=".pdf,application/pdf" hidden (change)="onSeleccionado('anexo6', $event)" />
+            </ng-template>
+          </div>
+        </div>
+
+        <div class="ccp-upload">
+          <p class="ccp-upload__titulo">2. Anexo 7 firmado (prohibiciones e incompatibilidades)</p>
+          <div
+            class="ccp-upload__zona"
+            [class.ccp-upload__zona--activa]="arrastrando === 'anexo7'"
+            (dragover)="onDragOver('anexo7', $event)"
+            (dragleave)="onDragLeave('anexo7', $event)"
+            (drop)="onDrop('anexo7', $event)"
+          >
+            <ng-container *ngIf="archivo7; else vacio7">
+              <span class="ccp-upload__archivo">
+                <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+                <a [href]="urlDescarga(archivo7)" target="_blank" rel="noopener">{{ archivo7.nombreOriginal }}</a>
+              </span>
+              <button type="button" class="btn btn-link btn-sm" (click)="quitar('anexo7')" [disabled]="procesando">
+                Eliminar
+              </button>
+            </ng-container>
+            <ng-template #vacio7>
+              <span>Arrastre o examine el PDF firmado por el locador</span>
+              <button
+                type="button"
+                class="btn btn-app-secundario btn-sm"
+                (click)="examinar('anexo7', input7)"
+                [disabled]="procesando || subiendo === 'anexo7'"
+              >
+                {{ subiendo === 'anexo7' ? 'Subiendo…' : 'Examinar' }}
+              </button>
+              <input #input7 type="file" accept=".pdf,application/pdf" hidden (change)="onSeleccionado('anexo7', $event)" />
+            </ng-template>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-app-secundario" (click)="cerrar()" [disabled]="procesando">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-app-secundario" (click)="solicitarReenvio()" [disabled]="procesando">
+          Reenviar paquete al locador
+        </button>
+        <span class="modal-footer__info" *ngIf="paso">{{ paso }}</span>
+        <button type="button" class="btn btn-app-primary" [disabled]="procesando" (click)="registrar()">
+          <i class="mdi mdi-loading mdi-spin" *ngIf="procesando" aria-hidden="true"></i>
+          Registrar respuesta
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

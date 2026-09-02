@@ -95,6 +95,28 @@ export class MaestraService {
       map((rpta: any) => deserializarRespuestaReniec(rpta))
     );
   }
+
+  listarDepartamento() {
+    return this.metodo.GET('api/General/ListarDepartamento').pipe(
+      map((rpta: any) => listaUbigeo(rpta))
+    );
+  }
+
+  listarProvincia(iddpto: string) {
+    return this.metodo.GET('api/General/ListarProvincia', { iddpto }).pipe(
+      map((rpta: any) => listaUbigeo(rpta))
+    );
+  }
+
+  listarDistrito(idprov: string) {
+    return this.metodo.GET('api/General/ListarDistrito', { idprov }).pipe(
+      map((rpta: any) => listaUbigeo(rpta))
+    );
+  }
+
+  insertarUsuarioExterno(payload: any) {
+    return this.metodo.POST('api/General/InsertarUsuarioExterno', payload);
+  }
 }
 
 /** El endpoint a veces devuelve el JSON ya parseado y a veces como texto
@@ -112,4 +134,33 @@ export function deserializarRespuestaReniec(rpta: any): any {
   } catch {
     return rpta;
   }
+}
+
+function listaUbigeo(rpta: any): any[] {
+  const valor = desempaquetarJson(rpta);
+  if (Array.isArray(valor)) {
+    return valor;
+  }
+  if (Array.isArray(valor?.datos)) {
+    return valor.datos;
+  }
+  if (Array.isArray(valor?.data)) {
+    return valor.data;
+  }
+  return [];
+}
+
+function desempaquetarJson(rpta: any): any {
+  if (typeof rpta === 'string') {
+    const texto = rpta.trim();
+    if (!texto) {
+      return rpta;
+    }
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return rpta;
+    }
+  }
+  return rpta;
 }

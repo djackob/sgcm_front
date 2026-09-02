@@ -111,6 +111,60 @@
       />
     </div>
 
+    <div class="campo req-grid__ancho">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-direccion'">Dirección</label>
+      <input
+        [id]="prefijo + '-direccion'"
+        type="text"
+        class="campo-control"
+        [name]="prefijo + '-direccion'"
+        [(ngModel)]="proveedor.Direccion"
+        placeholder="Se completa al buscar el DNI"
+      />
+    </div>
+
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-dpto'">Departamento</label>
+      <select
+        [id]="prefijo + '-dpto'"
+        class="campo-control"
+        [name]="prefijo + '-dpto'"
+        [(ngModel)]="proveedor.CodDepartamento"
+        (ngModelChange)="onDepartamentoChange()"
+      >
+        <option value="">Seleccione</option>
+        <option *ngFor="let d of departamentos" [value]="d.iddpto">{{ d.departamento }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-prov'">Provincia</label>
+      <select
+        [id]="prefijo + '-prov'"
+        class="campo-control"
+        [name]="prefijo + '-prov'"
+        [(ngModel)]="proveedor.CodProvincia"
+        (ngModelChange)="onProvinciaChange()"
+        [disabled]="!proveedor.CodDepartamento"
+      >
+        <option value="">Seleccione</option>
+        <option *ngFor="let p of provincias" [value]="p.idprov">{{ p.provincia }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-dist'">Distrito</label>
+      <select
+        [id]="prefijo + '-dist'"
+        class="campo-control"
+        [name]="prefijo + '-dist'"
+        [(ngModel)]="proveedor.CodDistrito"
+        (ngModelChange)="onDistritoChange()"
+        [disabled]="!proveedor.CodProvincia"
+      >
+        <option value="">Seleccione</option>
+        <option *ngFor="let d of distritos" [value]="d.iddist">{{ d.distrito }}</option>
+      </select>
+    </div>
+
     <div class="campo">
       <label class="campo-etiqueta" [attr.for]="prefijo + '-celular'">Celular</label>
       <input
@@ -156,10 +210,11 @@
         <input
           [id]="prefijo + '-total'"
           type="text"
-          class="campo-control"
+          class="campo-control campo-control--bloqueado"
           [name]="prefijo + '-total'"
           [value]="montoTotal | number: '1.2-2'"
           readonly
+          tabindex="-1"
         />
       </div>
     </div>

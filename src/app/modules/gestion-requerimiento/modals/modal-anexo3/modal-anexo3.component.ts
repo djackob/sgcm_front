@@ -36,7 +36,6 @@ import {
   TdrLocacion,
   ajustarEntregables,
   crearTdrLocacion,
-  plazoEntregables,
   textoFormaPago,
   validarActividadesTdr,
   validarEntregablesTdr
@@ -48,6 +47,7 @@ import {
   nombreArchivoAnexo3,
   pedidosDesdeDetalle
 } from '../../documentos/anexo3.pdfmake';
+import { proveedoresDelRequerimiento } from '../../documentos/anexo5.pdfmake';
 
 /**
  * TDR de locación (Anexo 3). Se abre después de registrar el Anexo 5.
@@ -111,6 +111,8 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   tdr: TdrLocacion = crearTdrLocacion({});
   pedidos: PedidoFormularioRequerimiento[] = [];
   cantidadEntregables = 1;
+  /** Cantidad de entregables capturada en el Anexo 5. Si es > 0, el TDR no la cambia. */
+  cantidadDesdeAnexo5 = 0;
 
   constructor(
     private requerimientoService: RequerimientoService,
@@ -128,8 +130,17 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
       .join(' — ');
   }
 
+  get plazoContrato(): number {
+    return Number(this.detalle?.PlazoDias) > 0 ? Number(this.detalle?.PlazoDias) : 0;
+  }
+
+  /** Alias: el plazo del Anexo 5 no se recalcula con los entregables. */
   get plazoTotal(): number {
-    return plazoEntregables(this.tdr);
+    return this.plazoContrato;
+  }
+
+  get cantidadFijaAnexo5(): boolean {
+    return this.cantidadDesdeAnexo5 > 0;
   }
 
   get textoRequisitos(): string {
@@ -157,7 +168,7 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   }
 
   get textoPlazo(): string {
-    const plazo = this.plazoTotal;
+    const plazo = this.plazoContrato;
     const linea = plazo
       ? `${plazo} días calendario, contados a partir del día siguiente de la notificación de la orden de servicio o de suscrito el contrato.`
       : PLAZO_NOTA;
@@ -179,6 +190,8 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
     this.detalle = null;
     this.tdr = crearTdrLocacion({});
     this.pedidos = [crearPedidoFormularioRequerimiento()];
+    this.cantidadDesdeAnexo5 = 0;
+    this.cantidadEntregables = 1;
 
     this.requerimientoService.obtenerRequerimiento(idRequerimiento).subscribe({
       next: (detalle: any) => {
@@ -211,11 +224,11 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
               this.tdr = { ...this.tdr, ...previo, Entregables: previo.Entregables?.length ? previo.Entregables : this.tdr.Entregables };
               this.tdr.Capacitacion = this.tdr.Capacitacion || '';
             }
-            this.cantidadEntregables = this.tdr.Entregables.length || 1;
+            this.sincronizarEntregablesConAnexo5();
             this.cargando = false;
           },
           error: () => {
-            this.cantidadEntregables = this.tdr.Entregables.length || 1;
+            this.sincronizarEntregablesConAnexo5();
             this.cargando = false;
           }
         });
@@ -244,8 +257,45 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   }
 
   onCantidadEntregables(): void {
-    ajustarEntregables(this.tdr, this.cantidadEntregables);
-    this.cantidadEntregables = this.tdr.Entregables.length;
+    if (this.cantidadDesdeAnexo5 > 0) {
+      queueMicrotask(() => {
+        this.cantidadEntregables = this.cantidadDesdeAnexo5;
+      });
+      return;
+    }
+    if (!this.tdr.Entregables) {
+      this.tdr.Entregables = [];
+    }
+    ajustarEntregables(this.tdr, this.cantidadEntregables, this.plazoContrato);
+    this.tdr.Entregables = this.tdr.Entregables.slice();
+    const n = this.tdr.Entregables.length;
+    if (Number(this.cantidadEntregables) !== n) {
+      queueMicrotask(() => {
+        this.cantidadEntregables = n;
+      });
+    }
+  }
+
+  private leerCantidadAnexo5(detalle: any): number {
+    const proveedores = proveedoresDelRequerimiento(detalle);
+    for (const proveedor of proveedores) {
+      const n = Math.floor(Number(proveedor?.CantidadEntregables) || 0);
+      if (n > 0) {
+        return Math.min(20, n);
+      }
+    }
+    return 0;
+  }
+
+  private sincronizarEntregablesConAnexo5(): void {
+    this.cantidadDesdeAnexo5 = this.leerCantidadAnexo5(this.detalle);
+    if (this.cantidadDesdeAnexo5 > 0) {
+      ajustarEntregables(this.tdr, this.cantidadDesdeAnexo5, this.plazoContrato);
+      this.tdr.Entregables = (this.tdr.Entregables || []).slice();
+      this.cantidadEntregables = this.cantidadDesdeAnexo5;
+      return;
+    }
+    this.cantidadEntregables = this.tdr.Entregables?.length || 1;
   }
 
   grabar(): void {
@@ -259,14 +309,14 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
       return;
     }
 
-    const errEntregables = validarEntregablesTdr(this.tdr);
+    const errEntregables = validarEntregablesTdr(this.tdr, this.cantidadDesdeAnexo5);
     if (errEntregables) {
       this.funciones.mensaje('info', errEntregables);
       return;
     }
 
     const entregablesValidos = (this.tdr.Entregables || []).filter(e => (e.Nombre || '').trim());
-    if (entregablesValidos.length === 1) {
+    if (entregablesValidos.length === 1 && this.cantidadDesdeAnexo5 !== 1) {
       this.funciones.Mensaje(
         'question',
         'Un solo entregable',
