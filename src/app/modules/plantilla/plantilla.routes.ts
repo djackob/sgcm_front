@@ -30,6 +30,11 @@ export const routes: Routes = [
       .then(m => m.GestionRequerimientoComponent),
   },
   {
+    path: 'gestion-pago',
+    loadComponent: () => import('../gestion-pago/gestion-pago.component')
+      .then(m => m.GestionPagoComponent),
+  },
+  {
     /* Panel de accesos y perfiles. Sólo lo ve ADMIN_SISTEMA, y no porque esta
        ruta lo compruebe: el menú sale de sigcm.RolModulo y la rutina de la base
        vuelve a validar el rol. Aquí no hay ninguna regla que mantener al día. */

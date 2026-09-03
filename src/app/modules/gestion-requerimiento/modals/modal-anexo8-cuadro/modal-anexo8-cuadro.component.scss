@@ -1,0 +1,176 @@
+.modal-app-dialog--a8 {
+  max-width: min(1280px, 96vw);
+  width: 100%;
+}
+
+.modal-app-dialog--a8 .modal-cuerpo {
+  max-height: min(72vh, 820px);
+  overflow: auto;
+}
+
+.a8-cargando,
+.a8-paso {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #64748b;
+}
+
+.a8-bloque {
+  padding: 0.85rem 0 1.05rem;
+  border-bottom: 1px solid #e2e8f0;
+
+  &__titulo {
+    margin: 0 0 0.55rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #1e293b;
+  }
+}
+
+.a8-ayuda {
+  margin: 0 0 0.7rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.a8-cabecera {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+
+  dt {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #94a3b8;
+  }
+
+  dd {
+    margin: 0.15rem 0 0;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  &__ancho {
+    grid-column: 1 / -1;
+  }
+}
+
+.a8-tabla-wrap {
+  overflow-x: auto;
+  margin-bottom: 0.65rem;
+}
+
+.a8-tabla {
+  min-width: 860px;
+
+  th,
+  td {
+    vertical-align: top;
+  }
+}
+
+.a8-col-postor {
+  min-width: 180px;
+}
+
+.a8-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.a8-calc {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.a8-totales td {
+  background: #f8fafc;
+}
+
+.a8-postor-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.a8-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: #f8fafc;
+
+  h4 {
+    margin: 0 0 0.55rem;
+    font-size: 0.84rem;
+  }
+}
+
+.a8-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.55rem;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 0;
+    font-size: 0.75rem;
+    color: #475569;
+  }
+}
+
+.a8-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+  font-size: 0.78rem;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+  }
+}
+
+.a8-ancho {
+  display: block;
+  margin-top: 0.65rem;
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+.campo-control--corto {
+  width: 5rem;
+  display: inline-block;
+  margin-left: 0.35rem;
+}
+
+.a8-firmas {
+  margin: 0.5rem 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.a8-footer {
+  flex-wrap: wrap;
+  gap: 0.45rem;
+
+  &__spacer {
+    flex: 1 1 auto;
+  }
+}

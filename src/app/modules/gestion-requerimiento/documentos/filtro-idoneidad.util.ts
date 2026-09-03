@@ -10,18 +10,68 @@ export interface FiltroIdoneidadVista {
   CodigoFiltro: string;
   Tipo: string;
   Resultado: string;
+  ResultadoPid?: string | null;
   Orden?: number;
+  Origen?: string;
   Observacion?: string | null;
   GeneradoDocumentoEvidencia?: string | null;
   NombreDocumentoEvidencia?: string | null;
 }
 
 export const ETIQUETA_CORTA_FILTRO: Record<string, string> = {
+  SUNAT_HABIDO: 'SUNAT',
+  RNP: 'RNP',
   RNSSC: 'RNSSC',
   REDAM: 'REDAM',
   RPS_TCP: 'OSCE',
   REDJUM: 'REDJUM',
   DEBIDA_DILIGENCIA: 'DEB. DILIG.'
+};
+
+/** Nombres de la matriz (Directiva 7.2.1.10) para la ventana de trabajo DEC. */
+export const ETIQUETA_MATRIZ_FILTRO: Record<string, string> = {
+  RNSSC: 'Servidores sancionados (RNSSC)',
+  REDAM: 'Deudores alimentarios (REDAM)',
+  RPS_TCP: 'Sanciones Tribunal OSCE',
+  REDJUM: 'Deudores judiciales (REDJUM)',
+  DEBIDA_DILIGENCIA: 'Plataforma de Debida Diligencia'
+};
+
+/** Formalidad (bloque 2). No forman parte de la matriz de cinco. */
+export const FILTROS_FORMALES = ['SUNAT_HABIDO', 'RNP'] as const;
+
+/** Directiva 7.2.1.10: los cinco checks de idoneidad legal. */
+export const FILTROS_MATRIZ = ['RNSSC', 'REDAM', 'RPS_TCP', 'REDJUM', 'DEBIDA_DILIGENCIA'] as const;
+
+export const PORTAL_FILTRO: Record<string, { etiqueta: string; url: string }> = {
+  SUNAT_HABIDO: {
+    etiqueta: 'Consulta RUC SUNAT',
+    url: 'https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/FrameCriterioBusquedaModulo.jsp'
+  },
+  RNP: {
+    etiqueta: 'Consulta RNP',
+    url: 'https://www.rnp.gob.pe/'
+  },
+  RNSSC: {
+    etiqueta: 'RNSSC (SERVIR)',
+    url: 'https://www.servir.gob.pe/registro-nacional-de-sanciones-rnssc/'
+  },
+  REDAM: {
+    etiqueta: 'REDAM (Poder Judicial)',
+    url: 'https://casillas.pj.gob.pe/redam/'
+  },
+  RPS_TCP: {
+    etiqueta: 'Proveedores sancionados OSCE',
+    url: 'https://www.gob.pe/institucion/osce'
+  },
+  REDJUM: {
+    etiqueta: 'REDJUM (Poder Judicial)',
+    url: 'https://casillas.pj.gob.pe/redjum/'
+  },
+  DEBIDA_DILIGENCIA: {
+    etiqueta: 'Debida diligencia del sector público',
+    url: 'https://www.gob.pe/872-plataforma-de-debida-diligencia-del-sector-publico'
+  }
 };
 
 export const TIPO_MEMO_CCP = 'REQ_MEMO_CCP';
@@ -32,6 +82,10 @@ export const CARPETA_MEMO_CCP = 'requerimiento';
 
 export function etiquetaCortaFiltro(codigo: string): string {
   return ETIQUETA_CORTA_FILTRO[codigo] || codigo;
+}
+
+export function etiquetaMatrizFiltro(codigo: string, tipoCatalogo?: string | null): string {
+  return ETIQUETA_MATRIZ_FILTRO[codigo] || tipoCatalogo || codigo;
 }
 
 export function esApto(resultado: string): boolean {
@@ -54,6 +108,32 @@ export function etiquetaAptitud(resultado: string): 'Apto' | 'No Apto' | 'Pendie
 
 export function hayImpedimentoIdoneidad(filtros: FiltroIdoneidadVista[]): boolean {
   return filtros.some((filtro) => esNoApto(filtro.Resultado));
+}
+
+export function etiquetaPid(resultadoPid?: string | null): 'Apto' | 'Alerta' | 'Sin PID' | 'Pendiente' {
+  if (resultadoPid === 'APTO') {
+    return 'Apto';
+  }
+  if (resultadoPid === 'ALERTA') {
+    return 'Alerta';
+  }
+  if (resultadoPid === 'SIN_SERVICIO') {
+    return 'Sin PID';
+  }
+  return 'Pendiente';
+}
+
+export function esFiltroMatriz(codigo: string): boolean {
+  return (FILTROS_MATRIZ as readonly string[]).includes(codigo);
+}
+
+export function esFiltroFormal(codigo: string): boolean {
+  return (FILTROS_FORMALES as readonly string[]).includes(codigo);
+}
+
+export function correoLocadorValido(correo?: string | null): boolean {
+  const valor = (correo || '').trim();
+  return !!valor && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
 }
 
 export function proveedorPrincipal(detalle: RequerimientoDetalle | any): ProveedorFormularioRequerimiento | null {
@@ -142,6 +222,18 @@ export function construirTextoMemorando(detalle: RequerimientoDetalle | any, not
   return parrafos.join('\n');
 }
 
-export function nombreArchivoMemoCcp(detalle: { Codigo?: string }): string {
+export function nombreArchivoMemoCcp(detalle: { Codigo?: string }, numeroMemorando?: string | null): string {
+  const numero = (numeroMemorando || '').trim();
+  if (numero) {
+    return `Memorando ${numero} - ${detalle?.Codigo || 'requerimiento'}.pdf`;
+  }
   return `Memorando CCP - ${detalle?.Codigo || 'requerimiento'}.pdf`;
+}
+
+export function encabezadoMemorandoCcp(numeroMemorando?: string | null, anio?: number | string | null): string {
+  const numero = (numeroMemorando || '').trim();
+  if (numero) {
+    return `MEMORANDO N° ${numero}`;
+  }
+  return `MEMORANDO N° _____-${anio || new Date().getFullYear()}-ANIN/OA-UA`;
 }

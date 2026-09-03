@@ -3,15 +3,18 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { map, switchMap } from 'rxjs/operators';
-import { throwError } from 'rxjs';
+import { forkJoin, of, throwError } from 'rxjs';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ModalRegistroRequerimientoComponent } from './modals/modal-registro/modal-registro.component';
 import { ModalDetalleRequerimientoComponent } from './modals/modal-detalle/modal-detalle.component';
 import { ModalAnexo3RequerimientoComponent } from './modals/modal-anexo3/modal-anexo3.component';
 import { ModalSolicitarCcpComponent } from './modals/modal-solicitar-ccp/modal-solicitar-ccp.component';
+import { ModalFiltrosIdoneidadComponent } from './modals/modal-filtros-idoneidad/modal-filtros-idoneidad.component';
 import { ModalCargarCcpComponent } from './modals/modal-cargar-ccp/modal-cargar-ccp.component';
 import { ModalOrdenServicioComponent } from './modals/modal-orden-servicio/modal-orden-servicio.component';
+import { ModalAnexo8CuadroComponent } from './modals/modal-anexo8-cuadro/modal-anexo8-cuadro.component';
+import { ModalRespuestaLocadorComponent } from './modals/modal-respuesta-locador/modal-respuesta-locador.component';
 import { RequerimientoService } from './services/requerimiento.service';
 import { SessionService } from '../../core/services/session.service';
 import { DocumentoService } from '../../core/services/documento.service';
@@ -23,17 +26,39 @@ import {
   CARPETA_ANEXO_5,
   TIPO_ANEXO_5,
   construirAnexo5,
-  nombreArchivoAnexo5
+  nombreArchivoAnexo5,
+  proveedoresDelRequerimiento
 } from './documentos/anexo5.pdfmake';
 import {
   CARPETA_ANEXO_3,
   TIPO_ANEXO_3
 } from './documentos/anexo3.pdfmake';
+import {
+  CARPETA_ANEXO_6,
+  TIPO_ANEXO_6,
+  construirAnexo6Cotizacion,
+  nombreArchivoAnexo6
+} from './documentos/anexo6.pdfmake';
+import {
+  CARPETA_ANEXO_7,
+  TIPO_ANEXO_7,
+  construirAnexo7Dj,
+  nombreArchivoAnexo7
+} from './documentos/anexo7.pdfmake';
+import {
+  CARPETA_INTEGRIDAD,
+  TIPO_PAQUETE_INTEGRIDAD,
+  construirPaqueteIntegridad,
+  nombreArchivoIntegridad
+} from './documentos/paquete-integridad.pdfmake';
 import { ccpTieneDatos, normalizarCcp } from './documentos/ccp-carga.util';
+import { requiereAnexo8CuadroCotizaciones } from './documentos/anexo8.util';
 import {
   DOCUMENTO_TECNICO,
   RequerimientoBandeja,
-  TransicionRequerimiento
+  TransicionRequerimiento,
+  PuestoDerivacionRequerimiento,
+  jsonUsuarioExternoContrataciones
 } from './models/requerimiento.model';
 
 /**
@@ -52,16 +77,14 @@ import {
  * reimplementar la máquina de estados en TypeScript y confiar en que las dos
  * copias no se separen.
  *
- * LA BIFURCACIÓN DE LA DEC (REQ-14) NO SE PROGRAMA AQUÍ
- * Que un requerimiento con DEC = Abastecimiento pase por OA y uno con DEC = DAI
- * no lo haga es una regla del motor: REQ_REMITIR_OA y REQ_REMITIR_DAI salen del
- * mismo estado de origen y la rutina ofrece la que corresponde según
- * Requerimiento.CodigoDec. Aquí sólo se dibujan los botones que llegaron.
+ * Al firmar, el jefe del Área usuaria remite directo a OA. Ya no hay un botón
+ * «Remitir a la Oficina de Administración».
  *
  * ALCANCE
  * Del registro a la notificación de la orden de servicio en locación (ERF
  * contratos menores ≤ 8 UIT): documentos técnicos, circuito AU (Coordinador
- * V.B. y firma del Jefe), OA/DEC, filtros de idoneidad, CCP y O/S.
+ * V.B. y firma del Jefe), OA/DEC, indagación de mercado (invitación uno a uno
+ * con Anexos 3, 6 y 7), filtros de idoneidad, CCP y O/S.
  */
 @Component({
   selector: 'app-gestion-requerimiento',
@@ -74,8 +97,11 @@ import {
     ModalDetalleRequerimientoComponent,
     ModalAnexo3RequerimientoComponent,
     ModalSolicitarCcpComponent,
+    ModalFiltrosIdoneidadComponent,
     ModalCargarCcpComponent,
-    ModalOrdenServicioComponent
+    ModalOrdenServicioComponent,
+    ModalAnexo8CuadroComponent,
+    ModalRespuestaLocadorComponent
   ],
   templateUrl: './gestion-requerimiento.component.html',
   styleUrl: './gestion-requerimiento.component.scss',
@@ -86,8 +112,11 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   @ViewChild(ModalDetalleRequerimientoComponent) modalDetalle!: ModalDetalleRequerimientoComponent;
   @ViewChild(ModalAnexo3RequerimientoComponent) modalAnexo3!: ModalAnexo3RequerimientoComponent;
   @ViewChild(ModalSolicitarCcpComponent) modalSolicitarCcp!: ModalSolicitarCcpComponent;
+  @ViewChild(ModalFiltrosIdoneidadComponent) modalFiltrosIdoneidad!: ModalFiltrosIdoneidadComponent;
   @ViewChild(ModalCargarCcpComponent) modalCargarCcp!: ModalCargarCcpComponent;
   @ViewChild(ModalOrdenServicioComponent) modalOrdenServicio!: ModalOrdenServicioComponent;
+  @ViewChild(ModalAnexo8CuadroComponent) modalAnexo8Cuadro!: ModalAnexo8CuadroComponent;
+  @ViewChild(ModalRespuestaLocadorComponent) modalRespuestaLocador!: ModalRespuestaLocadorComponent;
 
   /* Identidad del actor, para el encabezado y para saber qué ofrecer. */
   breadcrumb: string[] = ['Requerimiento'];
@@ -119,6 +148,15 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   paso = '';
   cargandoPdfId = '';
   cargandoPdf = false;
+
+  /**
+   * Derivación a una persona. Misma lógica que Gestión CMN: la lista sale de
+   * `sigcm.paListarDestinatarioDerivacion` (árbol RolDerivacion × padrón SSO),
+   * acotada al rol destino de la transición. Vacía = no se pregunta.
+   */
+  puestosDerivacion: PuestoDerivacionRequerimiento[] = [];
+  responsableDestino = '';
+  cargandoDestinatarios = false;
 
   visorPdfUrl: SafeResourceUrl | null = null;
   visorPdfObjectUrl = '';
@@ -596,8 +634,18 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
    * otra unidad— y no deben depender de un clic accidental.
    */
   pedirConfirmacion(requerimiento: RequerimientoBandeja, transicion: TransicionRequerimiento): void {
+    if (transicion.CodigoTransicion === 'REQ_INICIAR_INDAGACION') {
+      this.dispararIndagacionMercado(requerimiento);
+      return;
+    }
+
+    if (transicion.CodigoTransicion === 'REQ_INICIAR_FILTROS') {
+      this.iniciarFiltrosTrasCotizacion(requerimiento, transicion);
+      return;
+    }
+
     if (transicion.CodigoTransicion === 'REQ_CONFIRMAR_FILTROS') {
-      this.modalSolicitarCcp.abrir(requerimiento);
+      this.modalFiltrosIdoneidad.abrir(requerimiento);
       return;
     }
 
@@ -606,7 +654,19 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (transicion.CodigoTransicion === 'REQ_GENERAR_CUADRO') {
+      this.abrirGenerarCuadro(requerimiento);
+      return;
+    }
+
     if (transicion.CodigoTransicion === 'REQ_EMITIR_OS') {
+      if (requerimiento.CodigoEstado === 'REQ_CCP_CARGADA') {
+        this.funciones.mensaje(
+          'info',
+          'Desde CCP cargada el siguiente paso es Generar cuadro de adquisición. La orden de servicio se emite después, cuando el cuadro ya existe en SIGA.'
+        );
+        return;
+      }
       this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento).subscribe({
         next: (detalle: any) => {
           const ccp = normalizarCcp(detalle);
@@ -635,10 +695,53 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     this.accionEnCurso = { requerimiento, transicion };
     this.comentario = '';
     this.paso = '';
+    this.cargarDestinatarios(requerimiento, transicion);
 
     if (transicion.RequiereFirma) {
       this.prepararDocumentoParaFirmar();
     }
+  }
+
+  /**
+   * Pregunta a la base a quién se le puede pasar el expediente con esta acción.
+   *
+   * Se consulta SIEMPRE, no sólo para las que "parecen" derivaciones: reconocerlas
+   * por código en TypeScript habría que mantenerlo al día con la semilla. La
+   * base ya sabe y devuelve vacío cuando no aplica (p. ej. emitir O/S).
+   *
+   * Un fallo no bloquea la acción: sin lista el expediente queda a nombre del
+   * puesto, como hasta ahora.
+   */
+  private cargarDestinatarios(requerimiento: RequerimientoBandeja,
+                              transicion: TransicionRequerimiento): void {
+    this.puestosDerivacion = [];
+    this.responsableDestino = '';
+    this.cargandoDestinatarios = true;
+
+    this.requerimientoService.listarDestinatarioDerivacion(
+      requerimiento.IdExpediente, transicion.CodigoTransicion
+    ).subscribe({
+      next: (respuesta: any) => {
+        this.cargandoDestinatarios = false;
+
+        if (respuesta?.estado !== 1) {
+          return;
+        }
+
+        this.puestosDerivacion = respuesta.Puestos || [];
+
+        if (this.puestosDerivacion.length === 1 && this.puestosDerivacion[0].Personas?.length === 1) {
+          this.responsableDestino = this.puestosDerivacion[0].Personas[0].IdUsuario;
+        }
+      },
+      error: () => {
+        this.cargandoDestinatarios = false;
+      }
+    });
+  }
+
+  get ofreceDestinatarios(): boolean {
+    return this.puestosDerivacion.length > 0;
   }
 
   cancelarAccion(): void {
@@ -648,6 +751,9 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     this.documentoPendienteFirma = null;
     this.secuenciaPendienteFirma = [];
     this.accionEnCurso = null;
+    this.puestosDerivacion = [];
+    this.responsableDestino = '';
+    this.cargandoDestinatarios = false;
     this.comentario = '';
     this.paso = '';
     this.ejecutando = false;
@@ -693,8 +799,16 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
 
     if (transicion.CodigoTransicion === 'REQ_NOTIFICAR_OS') {
       this.paso = 'Enviando la notificación…';
-      this.requerimientoService.notificarOrdenServicio(
-        requerimiento.IdRequerimiento, requerimiento.Version
+      this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento).pipe(
+        switchMap((detalle: any) => {
+          const version = detalle?.Version ?? requerimiento.Version;
+          const proveedor = proveedoresDelRequerimiento(detalle)[0];
+          return this.requerimientoService.notificarOrdenServicio(
+            requerimiento.IdRequerimiento,
+            version,
+            jsonUsuarioExternoContrataciones(proveedor)
+          );
+        })
       ).subscribe({
         next: (respuesta: any) => this.terminarAccion(respuesta, transicion),
         error: () => this.fallar('No fue posible notificar la orden de servicio.')
@@ -1126,7 +1240,8 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       requerimiento.IdExpediente,
       transicion.CodigoTransicion,
       requerimiento.Version,
-      this.comentario.trim() || null
+      this.comentario.trim() || null,
+      this.ofreceDestinatarios && this.responsableDestino ? this.responsableDestino : null
     ).subscribe({
       next: (respuesta: any) => this.terminarAccion(respuesta, transicion),
       error: () => this.fallar('No fue posible comunicarse con el servicio.')
@@ -1150,15 +1265,32 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       _transicion?.CodigoTransicion === 'REQ_SUBSANAR'
         ? this.accionEnCurso?.requerimiento.IdRequerimiento
         : null;
+    const filaOrigen = this.accionEnCurso?.requerimiento || null;
 
     this.cerrarPopupFirma();
     this.limpiarEstadoFirma();
     this.cerrarVisorPdf();
     this.documentoPendienteFirma = null;
     this.accionEnCurso = null;
+    this.puestosDerivacion = [];
+    this.responsableDestino = '';
+    this.cargandoDestinatarios = false;
     this.comentario = '';
-    this.funciones.mensaje('success', respuesta.mensaje || 'Se registró la acción.');
+    const encadenaIndagacion = !!(filaOrigen && this.esLocacion(filaOrigen)
+      && this.esHitoIndagacion(_transicion?.CodigoTransicion));
+    if (!encadenaIndagacion) {
+      this.funciones.mensaje('success', respuesta.mensaje || 'Se registró la acción.');
+    }
     this.cargarBandeja();
+
+    if (encadenaIndagacion && filaOrigen) {
+      this.dispararIndagacionMercado({
+        ...filaOrigen,
+        Version: respuesta.Version ?? filaOrigen.Version + 1,
+        CodigoEstado: respuesta.CodigoEstado || 'REQ_CONFORME',
+        IdExpediente: respuesta.IdExpediente || filaOrigen.IdExpediente
+      });
+    }
 
     if (idParaEditar) {
       this.editarRequerimiento({ IdRequerimiento: idParaEditar } as RequerimientoBandeja);
@@ -1169,6 +1301,171 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     this.ejecutando = false;
     this.paso = '';
     this.funciones.mensaje('error', mensaje);
+  }
+
+  private esLocacion(item: { CodigoTipoContratacion?: string } | null | undefined): boolean {
+    return item?.CodigoTipoContratacion === 'LOCACION';
+  }
+
+  private esHitoIndagacion(codigo: string | undefined): boolean {
+    return codigo === 'REQ_CONFORMIDAD_DEC'
+      || codigo === 'REQ_ACEPTAR_NO_OBJECION'
+      || codigo === 'REQ_CONFORMIDAD_DAI';
+  }
+
+  /**
+   * Hito de indagación de mercado (locación uno a uno): genera A6, A7 e
+   * integridad, pasa a REQ_INDAGACION_MERCADO si aún está conforme, y envía
+   * el paquete al correo del Anexo 5.
+   */
+  reenviarInvitacionLocador(requerimiento: RequerimientoBandeja): void {
+    this.dispararIndagacionMercado(requerimiento);
+  }
+
+  private dispararIndagacionMercado(requerimiento: RequerimientoBandeja): void {
+    this.ejecutando = true;
+    this.paso = 'Preparando la invitación al locador…';
+
+    this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento).pipe(
+      switchMap((detalle: any) => {
+        if (detalle?.estado === 0) {
+          return throwError(() => new Error(detalle?.mensaje || 'No fue posible leer el requerimiento.'));
+        }
+        return this.requerimientoService.listarDocumento(requerimiento.IdExpediente).pipe(
+          map((docsResp: any) => ({ detalle, documentos: this.documentosDeRespuesta(docsResp) }))
+        );
+      }),
+      switchMap(({ detalle, documentos }) => {
+        const anexo3 = documentos.find((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_3);
+        const idAnexo3 = idDocumentoSistema(anexo3?.GeneradoDocumento);
+        if (!idAnexo3) {
+          return throwError(() => new Error(
+            'Falta el Anexo 3 (TDR) aprobado en el expediente. No se puede invitar al locador.'
+          ));
+        }
+        this.paso = 'Generando Anexo 6, Anexo 7 y el paquete de integridad…';
+        return forkJoin({
+          a6: this.documentoService.generarYSubir(
+            construirAnexo6Cotizacion(detalle), nombreArchivoAnexo6(detalle), CARPETA_ANEXO_6),
+          a7: this.documentoService.generarYSubir(
+            construirAnexo7Dj(detalle), nombreArchivoAnexo7(detalle), CARPETA_ANEXO_7),
+          integridad: this.documentoService.generarYSubir(
+            construirPaqueteIntegridad(detalle), nombreArchivoIntegridad(detalle), CARPETA_INTEGRIDAD)
+        }).pipe(map((archivos) => ({ detalle, idAnexo3, nombreAnexo3: anexo3?.NombreDocumento || 'Anexo 3.pdf', archivos })));
+      }),
+      switchMap(({ detalle, idAnexo3, nombreAnexo3, archivos }) => {
+        const id6 = idDocumentoSistema(archivos.a6?.documento_sistema);
+        const id7 = idDocumentoSistema(archivos.a7?.documento_sistema);
+        const idI = idDocumentoSistema(archivos.integridad?.documento_sistema);
+        if (archivos.a6?.estado !== 1 || !id6 || archivos.a7?.estado !== 1 || !id7
+          || archivos.integridad?.estado !== 1 || !idI) {
+          return throwError(() => new Error('No se pudieron generar los anexos de la invitación.'));
+        }
+        this.paso = 'Registrando el paquete de integridad en el expediente…';
+        return this.requerimientoService.registrarDocumento(
+          requerimiento.IdExpediente, TIPO_PAQUETE_INTEGRIDAD, idI,
+          archivos.integridad.documento_original || nombreArchivoIntegridad(detalle)
+        ).pipe(map(() => ({
+          detalle,
+          adjuntos: [
+            { DocumentoSistema: idAnexo3, Nombre: nombreAnexo3, Carpeta: CARPETA_ANEXO_3, CodigoTipoDocumento: TIPO_ANEXO_3 },
+            { DocumentoSistema: id6, Nombre: archivos.a6.documento_original || nombreArchivoAnexo6(detalle), Carpeta: CARPETA_ANEXO_6, CodigoTipoDocumento: TIPO_ANEXO_6 },
+            { DocumentoSistema: id7, Nombre: archivos.a7.documento_original || nombreArchivoAnexo7(detalle), Carpeta: CARPETA_ANEXO_7, CodigoTipoDocumento: TIPO_ANEXO_7 },
+            { DocumentoSistema: idI, Nombre: archivos.integridad.documento_original || nombreArchivoIntegridad(detalle), Carpeta: CARPETA_INTEGRIDAD, CodigoTipoDocumento: TIPO_PAQUETE_INTEGRIDAD }
+          ]
+        })));
+      }),
+      switchMap(({ detalle, adjuntos }) => {
+        const estado = detalle?.CodigoEstado || requerimiento.CodigoEstado;
+        const version = detalle?.Version ?? requerimiento.Version;
+        if (estado === 'REQ_CONFORME') {
+          this.paso = 'Cambiando el expediente a indagación de mercado…';
+          return this.requerimientoService.ejecutarTransicion(
+            requerimiento.IdExpediente, 'REQ_INICIAR_INDAGACION', version
+          ).pipe(
+            switchMap((transicion: any) => {
+              if (transicion?.estado !== 1) {
+                return throwError(() => new Error(transicion?.mensaje || 'No se inició la indagación de mercado.'));
+              }
+              return of({ adjuntos, version: transicion.Version ?? version + 1 });
+            })
+          );
+        }
+        return of({ adjuntos, version });
+      }),
+      switchMap(({ adjuntos }) => {
+        this.paso = 'Enviando la solicitud de cotización al locador…';
+        return this.requerimientoService.invitacionCotizacionLocador(
+          requerimiento.IdRequerimiento, adjuntos);
+      })
+    ).subscribe({
+      next: (respuesta: any) => {
+        this.ejecutando = false;
+        this.paso = '';
+        if (respuesta?.estado !== 1) {
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible invitar al locador.');
+          this.cargarBandeja();
+          return;
+        }
+        if (respuesta.CorreoEnviado === false || respuesta.CorreoEnviado === 0) {
+          this.funciones.mensaje(
+            'info',
+            respuesta.mensaje || 'Se inició la indagación. El correo institucional no se envió; reintente cuando SMTP esté disponible.'
+          );
+        } else {
+          const hasta = respuesta.PlazoHasta
+            ? ` Plazo de respuesta: ${respuesta.PlazoHasta} (3 días hábiles).`
+            : ' Plazo de respuesta: 3 días hábiles.';
+          this.funciones.mensaje(
+            'success',
+            (respuesta.mensaje || 'Se envió la solicitud de cotización al locador del Anexo 5.') + hasta
+          );
+        }
+        this.cargarBandeja();
+      },
+      error: (err) => this.fallar(err?.message || 'No fue posible iniciar la indagación de mercado.')
+    });
+  }
+
+  private iniciarFiltrosTrasCotizacion(
+    requerimiento: RequerimientoBandeja,
+    transicion: TransicionRequerimiento
+  ): void {
+    this.requerimientoService.listarDocumento(requerimiento.IdExpediente).subscribe({
+      next: (respuesta: any) => {
+        const docs = this.documentosDeRespuesta(respuesta);
+        const hay6 = docs.some((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_6);
+        const hay7 = docs.some((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_7);
+        if (!hay6 || !hay7) {
+          this.funciones.mensaje(
+            'info',
+            'Registre primero la cotización (Anexo 6) y la declaración jurada (Anexo 7) firmadas por el locador. El plazo es de 3 días hábiles.'
+          );
+          this.modalRespuestaLocador.abrir(requerimiento);
+          return;
+        }
+        this.requerimientoService.ejecutarTransicion(
+          requerimiento.IdExpediente,
+          transicion.CodigoTransicion,
+          requerimiento.Version
+        ).subscribe({
+          next: (rpta: any) => {
+            if (rpta?.estado !== 1) {
+              this.funciones.mensaje('error', rpta?.mensaje || 'No fue posible iniciar los filtros.');
+              return;
+            }
+            this.modalFiltrosIdoneidad.abrir({
+              ...requerimiento,
+              Version: rpta.Version ?? requerimiento.Version + 1,
+              CodigoEstado: 'REQ_FILTROS'
+            });
+            this.cargarBandeja();
+          },
+          error: () => this.funciones.mensaje('error', 'No fue posible iniciar los filtros de idoneidad.')
+        });
+      },
+      error: () => this.funciones.mensaje('error', 'No fue posible verificar los Anexos 6 y 7.')
+    });
   }
 
   private abrirPdfEnVisor(
@@ -1613,6 +1910,52 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     this.modalCargarCcp.abrir(fila, { completarCcp: true });
   }
 
+  abrirSolicitudCcp(fila: RequerimientoBandeja): void {
+    this.modalSolicitarCcp.abrir(fila);
+  }
+
+  private abrirGenerarCuadro(requerimiento: RequerimientoBandeja): void {
+    this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento).subscribe({
+      next: (detalle: any) => {
+        if (detalle?.estado === 0) {
+          this.funciones.mensaje('error', detalle?.mensaje || 'No fue posible leer el expediente.');
+          return;
+        }
+        if (!requiereAnexo8CuadroCotizaciones(detalle, requerimiento.CodigoTipoContratacion)) {
+          this.ejecutarCuadroSigaLocacion(requerimiento);
+          return;
+        }
+        this.modalAnexo8Cuadro.abrir({
+          ...requerimiento,
+          Version: detalle.Version ?? requerimiento.Version,
+          CodigoEstado: detalle.CodigoEstado || requerimiento.CodigoEstado
+        });
+      },
+      error: () => this.funciones.mensaje('error', 'No fue posible abrir el cuadro de adquisición.')
+    });
+  }
+
+  private ejecutarCuadroSigaLocacion(requerimiento: RequerimientoBandeja): void {
+    this.requerimientoService.ejecutarTransicion(
+      requerimiento.IdExpediente,
+      'REQ_GENERAR_CUADRO',
+      requerimiento.Version
+    ).subscribe({
+      next: (respuesta: any) => {
+        if (respuesta?.estado !== 1) {
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible generar el cuadro en SIGA.');
+          return;
+        }
+        this.funciones.mensaje(
+          'success',
+          'Locación con una sola cotización: no se elabora el Anexo 8. El cuadro de adquisición se generó en SIGA.'
+        );
+        this.cargarBandeja();
+      },
+      error: () => this.funciones.mensaje('error', 'No fue posible generar el cuadro de adquisición en SIGA.')
+    });
+  }
+
   /** El registro y las acciones cambian la bandeja: se recarga entera. */
   alRegistrar(): void {
     this.cargarBandeja();
@@ -1620,7 +1963,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
 
   /**
    * Tras guardar Anexo 5 y Anexo 3: pasa a documento pendiente (si aplica) y
-   * abre el flujo «Firmar anexos» (firma digital de Anexo 5 y Anexo 3).
+   * abre el flujo «Firma especialista» (firma digital de Anexo 5 y Anexo 3).
    */
   iniciarFirmaAnexos(payload: { IdRequerimiento: string; IdExpediente: string; Version: number }): void {
     this.requerimientoService.listarTransicionDisponible(payload.IdExpediente).subscribe({
@@ -1640,7 +1983,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
               if (!fila) {
                 this.cargarBandeja();
                 this.funciones.mensaje('info',
-                  'Los anexos quedaron guardados. Use «Firmar anexos» en la bandeja cuando el expediente aparezca.');
+                  'Los anexos quedaron guardados. Use «Firma especialista» en la bandeja cuando el expediente aparezca.');
                 return;
               }
               const transicionFirma = this.transicionesDeFila(fila)
@@ -1648,7 +1991,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
               if (!transicionFirma) {
                 this.cargarBandeja();
                 this.funciones.mensaje('info',
-                  'Los anexos quedaron guardados. La acción «Firmar anexos» no está disponible en este momento.');
+                  'Los anexos quedaron guardados. La acción «Firma especialista» no está disponible en este momento.');
                 return;
               }
               this.requerimientos = bandeja?.Requerimientos || bandeja?.requerimientos || [];
@@ -1658,7 +2001,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
             error: () => {
               this.cargarBandeja();
               this.funciones.mensaje('info',
-                'Los anexos quedaron guardados. Use «Firmar anexos» en la bandeja.');
+                'Los anexos quedaron guardados. Use «Firma especialista» en la bandeja.');
             }
           });
         };
@@ -1692,12 +2035,12 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
 
         this.cargarBandeja();
         this.funciones.mensaje('info',
-          'Los anexos quedaron guardados. Use «Firmar anexos» en la bandeja cuando corresponda.');
+          'Los anexos quedaron guardados. Use «Firma especialista» en la bandeja cuando corresponda.');
       },
       error: () => {
         this.cargarBandeja();
         this.funciones.mensaje('info',
-          'Los anexos quedaron guardados. Use «Firmar anexos» en la bandeja.');
+          'Los anexos quedaron guardados. Use «Firma especialista» en la bandeja.');
       }
     });
   }

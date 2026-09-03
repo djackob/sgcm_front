@@ -157,7 +157,9 @@
                 [anoEje]="anoEje"
                 [secEjec]="secEjec"
                 [centroCosto]="centroCosto"
+                [codigoTipoContratacion]="codigoTipoContratacion"
                 (quitar)="quitarPedido(i)"
+                (pedidoSeleccionado)="alSeleccionarPedidoSiga($event)"
               />
             </div>
           </accordion-group>
@@ -196,10 +198,10 @@
         </accordion>
 
         <div class="req-tdr-embebido" *ngIf="idRequerimientoEdicion" [hidden]="cargandoEdicion || pestanaTrabajo !== 'anexo3'">
-          <p class="req-travel">
+          <!-- <p class="req-travel">
             Los datos críticos del Anexo 5 (denominación, plazo, pedido SIGA y monto)
             viajan al TDR y quedan congelados. Complete cláusulas, actividades y entregables.
-          </p>
+          </p> -->
           <app-modal-anexo3-requerimiento
             #tdrEmbebido
             [embebido]="true"

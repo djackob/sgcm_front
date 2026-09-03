@@ -111,7 +111,7 @@
         <section class="ccp-bloque">
           <h3 class="ccp-bloque__titulo">Vista previa del memorando de solicitud a OPP</h3>
           <div class="ccp-memorando">
-            <p class="ccp-memorando__encabezado">MEMORANDO N° _____-{{ detalle.AnoEje || '2026' }}-ANIN/OA-UA</p>
+            <p class="ccp-memorando__encabezado">{{ encabezadoMemorando }}</p>
             <p><strong>A:</strong> Oficina de Planeamiento y Presupuesto (OPP)</p>
             <p><strong>Asunto:</strong> Solicitud de Certificación de Crédito Presupuestario (CCP)</p>
             <textarea
@@ -135,6 +135,9 @@
             <i class="mdi mdi-check-circle text-success" aria-hidden="true"></i>
             Memorando firmado digitalmente.
           </p>
+          <p class="ccp-firma-estado" *ngIf="!documentoMemoFirmado">
+            Por ahora puede confirmar y enviar a OPP sin firma digital. El PDF se genera con el número del memorando.
+          </p>
         </section>
       </div>
 
@@ -150,15 +153,6 @@
           [disabled]="bloqueado || procesando || !cuerpoMemorando.trim()"
         >
           Firmar digitalmente
-        </button>
-        <button
-          type="button"
-          class="btn btn-app-secundario"
-          (click)="enviarSinFirma()"
-          [disabled]="!puedeEnviarSinFirma"
-          title="Solo para pruebas del flujo, sin firma digital"
-        >
-          Enviar sin firma (pruebas)
         </button>
         <button
           type="button"

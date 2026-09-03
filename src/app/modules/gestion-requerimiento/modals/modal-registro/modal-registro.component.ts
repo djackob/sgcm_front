@@ -72,7 +72,7 @@ import {
 export class ModalRegistroRequerimientoComponent {
 
   @Output() registrado = new EventEmitter<void>();
-  /** Anexo 5 y Anexo 3 guardados; listo para iniciar «Firmar anexos». */
+  /** Anexo 5 y Anexo 3 guardados; listo para iniciar «Firma especialista». */
   @Output() anexosCompletados = new EventEmitter<{
     IdRequerimiento: string;
     IdExpediente: string;
@@ -364,7 +364,9 @@ export class ModalRegistroRequerimientoComponent {
     }
 
     this.cargandoPedidosSiga = true;
-    this.requerimientoService.listarPedidosSiga(this.anoEje, this.centroCosto, this.secEjec).subscribe({
+    this.requerimientoService.listarPedidosSiga(
+      this.anoEje, this.centroCosto, this.secEjec, this.codigoTipoContratacion
+    ).subscribe({
       next: (filas) => {
         this.cargandoPedidosSiga = false;
         this.pedidosSiga = filas || [];
@@ -431,7 +433,14 @@ export class ModalRegistroRequerimientoComponent {
       CantidadEntregables: prov?.CantidadEntregables ?? null,
       MontoMensual: prov?.MontoMensual ?? null,
       Email: prov?.Email || '',
-      NumeroPedido: prov?.NumeroPedido || ''
+      NumeroPedido: prov?.NumeroPedido || '',
+      Direccion: prov?.Direccion || '',
+      CodDepartamento: prov?.CodDepartamento || '',
+      Departamento: prov?.Departamento || '',
+      CodProvincia: prov?.CodProvincia || '',
+      Provincia: prov?.Provincia || '',
+      CodDistrito: prov?.CodDistrito || '',
+      Distrito: prov?.Distrito || ''
     };
   }
 
@@ -479,6 +488,28 @@ export class ModalRegistroRequerimientoComponent {
     const nuevo = crearPedidoFormularioRequerimiento();
     nuevo.AnoPedido = this.anoEje;
     this.pedidos = [...this.pedidos, nuevo];
+  }
+
+  /**
+   * El N.° Pedido SIGA del proveedor es el mismo combo de Pedidos: si hay uno
+   * solo, se copia a todos; si hay varios, solo rellena los que aún están vacíos.
+   */
+  alSeleccionarPedidoSiga(numero: string): void {
+    const elegido = (numero || '').trim();
+    const unicos = this.pedidos
+      .map(p => (p.NumeroPedido || '').trim())
+      .filter(n => !!n);
+
+    this.proveedores.forEach(proveedor => {
+      const actual = (proveedor.NumeroPedido || '').trim();
+      if (unicos.length === 1) {
+        proveedor.NumeroPedido = unicos[0];
+        return;
+      }
+      if (!actual && elegido) {
+        proveedor.NumeroPedido = elegido;
+      }
+    });
   }
 
   quitarPedido(indice: number): void {

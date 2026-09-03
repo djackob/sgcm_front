@@ -22,6 +22,7 @@ export interface PerfilSso {
   CentroCosto: string;
   EsAreaUsuaria: boolean;
   EsTitular: boolean;
+  Modulos?: Array<{ CodigoModulo: string; Nombre: string; Ruta: string }>;
 }
 
 /**

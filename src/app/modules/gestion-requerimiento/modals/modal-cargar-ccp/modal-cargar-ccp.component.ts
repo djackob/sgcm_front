@@ -22,12 +22,13 @@ import {
 } from '../../documentos/filtro-idoneidad.util';
 import {
   ArchivoCcpCarga,
-  ccpDesdeFormulario,
+  correlativoHomologacionCcp,
   fechaSolicitudCcpTexto,
   formularioCcpVacio,
   metaClasificadorTexto,
   montoContratoAnexo5,
   nombreSugeridoCcp,
+  normalizarCcp,
   requierePrevisionPresupuestal,
   validarFormularioCcp
 } from '../../documentos/ccp-carga.util';
@@ -147,8 +148,8 @@ export class ModalCargarCcpComponent {
 
   get etiquetaBotonPrincipal(): string {
     return this.modoCompletar
-      ? 'Guardar CCP y continuar'
-      : 'Registrar CCP y continuar';
+      ? 'Guardar CCP y generar cuadro'
+      : 'Registrar CCP y generar cuadro';
   }
 
   get puedeRegistrar(): boolean {
@@ -224,7 +225,6 @@ export class ModalCargarCcpComponent {
     this.paso = 'Registrando la certificación presupuestaria…';
 
     const payload = this.armarPayloadCcp();
-    const ccpSnapshot = ccpDesdeFormulario(this.formulario);
     const yaEnEstadoCargada = this.detalle?.CodigoEstado === 'REQ_CCP_CARGADA';
 
     this.requerimientoService.registrarCcp(this.fila.IdRequerimiento, payload).pipe(
@@ -248,20 +248,21 @@ export class ModalCargarCcpComponent {
             return this.requerimientoService.obtenerRequerimiento(this.fila!.IdRequerimiento);
           })
         );
-      })
+      }),
+      switchMap((detalle: any) => this.generarCuadroSiCorresponde(detalle))
     ).subscribe({
       next: (detalleActualizado: any) => {
         this.procesando = false;
         this.paso = '';
-        this.funciones.mensaje('success', 'CCP registrada. Revise y genere la orden de servicio.');
-        const filaActualizada: RequerimientoBandeja = {
-          ...this.fila!,
-          Version: detalleActualizado?.Version ?? this.fila!.Version,
-          CodigoEstado: detalleActualizado?.CodigoEstado ?? this.fila!.CodigoEstado
-        };
+        const estado = detalleActualizado?.CodigoEstado || '';
+        this.funciones.mensaje(
+          'success',
+          estado === 'REQ_CUADRO_GENERADO'
+            ? 'CCP registrada y cuadro de adquisición generado. En SIGA busque el cuadro del pedido. Después use Emitir orden de servicio.'
+            : 'CCP registrada. Use «Generar cuadro de adquisición» en la bandeja; la orden se emite después.'
+        );
         this.abierto = false;
         this.completado.emit();
-        this.ccpRegistrada.emit({ fila: filaActualizada, ccp: ccpSnapshot });
       },
       error: (err) => {
         this.procesando = false;
@@ -274,32 +275,56 @@ export class ModalCargarCcpComponent {
     });
   }
 
-  private aplicarCcpExistente(detalle: RequerimientoDetalle | any): void {
-    const ccp = detalle?.Ccp;
-    if (!ccp) {
-      return;
+  private generarCuadroSiCorresponde(detalle: any) {
+    if (detalle?.estado === 0) {
+      throw new Error(detalle?.mensaje || 'No se pudo leer el expediente.');
     }
-    this.formulario.NumeroCcp = ccp.NumeroCcp || '';
-    this.formulario.NumeroExpedienteSiaf = ccp.NumeroExpedienteSiaf || '';
-    this.formulario.MontoCertificado = ccp.MontoCertificado != null
+    if (detalle?.CodigoEstado !== 'REQ_CCP_CARGADA' || !this.fila) {
+      return of(detalle);
+    }
+    this.paso = 'Generando el cuadro de adquisición en SIGA…';
+    return this.requerimientoService.ejecutarTransicion(
+      this.fila.IdExpediente,
+      'REQ_GENERAR_CUADRO',
+      detalle.Version ?? this.fila.Version
+    ).pipe(
+      switchMap((transicion: any) => {
+        if (transicion?.estado !== 1) {
+          throw new Error(transicion?.mensaje || 'No fue posible generar el cuadro de adquisición.');
+        }
+        return this.requerimientoService.obtenerRequerimiento(this.fila!.IdRequerimiento);
+      })
+    );
+  }
+
+  private aplicarCcpExistente(detalle: RequerimientoDetalle | any): void {
+    const ccp = normalizarCcp(detalle);
+    const sugerido = correlativoHomologacionCcp(ccp, detalle);
+
+    this.formulario.NumeroCcp = String(ccp?.NumeroCcp || '').trim() || sugerido.numeroCcp;
+    this.formulario.NumeroExpedienteSiaf = String(ccp?.NumeroExpedienteSiaf || '').trim() || sugerido.numeroSiaf;
+    this.formulario.MontoCertificado = ccp?.MontoCertificado != null
       ? Number(ccp.MontoCertificado)
       : montoContratoAnexo5(detalle);
-    this.formulario.FechaEmision = (ccp.FechaEmision || '').substring(0, 10)
+    this.formulario.FechaEmision = (ccp?.FechaEmision || '').substring(0, 10)
       || this.formulario.FechaEmision;
-    this.formulario.Observacion = ccp.Observacion || '';
-    if (ccp.GeneradoDocumentoCcp) {
+    this.formulario.Observacion = ccp?.Observacion || '';
+
+    if (ccp?.GeneradoDocumentoCcp) {
       this.formulario.archivoCcp = {
         documentoSistema: idDocumentoSistema(ccp.GeneradoDocumentoCcp) || ccp.GeneradoDocumentoCcp,
-        nombreOriginal: ccp.NombreDocumentoCcp || nombreSugeridoCcp(ccp.NumeroCcp)
+        nombreOriginal: ccp.NombreDocumentoCcp || nombreSugeridoCcp(this.formulario.NumeroCcp)
       };
     }
-    if (ccp.GeneradoDocumentoMemoUp) {
+
+    if (ccp?.GeneradoDocumentoMemoUp) {
       this.formulario.archivoMemoUp = {
         documentoSistema: idDocumentoSistema(ccp.GeneradoDocumentoMemoUp) || ccp.GeneradoDocumentoMemoUp,
         nombreOriginal: ccp.NombreDocumentoMemoUp || 'Memorando UP.pdf'
       };
     }
-    if (ccp.GeneradoDocumentoPrevision) {
+
+    if (ccp?.GeneradoDocumentoPrevision) {
       this.formulario.archivoPrevision = {
         documentoSistema: idDocumentoSistema(ccp.GeneradoDocumentoPrevision) || ccp.GeneradoDocumentoPrevision,
         nombreOriginal: ccp.NombreDocumentoPrevision || 'Prevision presupuestal.pdf'

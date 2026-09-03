@@ -1,0 +1,106 @@
+.req-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: flex-end;
+  padding: 0.9rem 0 1.1rem;
+
+  &__campo {
+    display: flex;
+    flex: 1 1 200px;
+    flex-direction: column;
+    min-width: 0;
+
+    &--corto {
+      flex: 0 0 110px;
+    }
+  }
+}
+
+.req-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.req-cargando,
+.req-vacio {
+  padding: 1.5rem 0;
+  text-align: center;
+  color: #64748b;
+}
+
+.pago-orden {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+}
+
+.pago-detalle {
+  margin-top: 1.2rem;
+}
+
+.pago-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem 1.2rem;
+  margin: 0 0 1rem;
+
+  dt {
+    font-size: 0.72rem;
+    color: #64748b;
+  }
+
+  dd {
+    margin: 0.15rem 0 0;
+    font-size: 0.9rem;
+  }
+}
+
+.pago-obs,
+.pago-alerta {
+  padding: 0.7rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.pago-obs {
+  background: #fff7ed;
+}
+
+.pago-alerta {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.pago-carga {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 1rem 0;
+
+  h3 {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  label {
+    font-size: 0.82rem;
+  }
+}
+
+.pago-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

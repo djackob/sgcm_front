@@ -25,10 +25,13 @@ export class FormPedidoComponent {
   @Input() anoEje = 0;
   @Input() secEjec = 1750;
   @Input() centroCosto = '';
+  /** Locación / servicio / consultoría: pedidos SIGA de servicios. Bien: compras. */
+  @Input() codigoTipoContratacion = 'LOCACION';
   /** Pedidos ya capturados en el requerimiento: el TDR solo los muestra (REQ-09). */
   @Input() soloLectura = false;
 
   @Output() quitar = new EventEmitter<void>();
+  @Output() pedidoSeleccionado = new EventEmitter<string>();
 
   cargandoDetalle = false;
   private detalleSeq = 0;
@@ -68,6 +71,7 @@ export class FormPedidoComponent {
     if (!fila) {
       this.pedido.NumeroPedido = nroPedido || '';
       this.limpiarDetallePedido();
+      this.pedidoSeleccionado.emit(this.pedido.NumeroPedido);
       return;
     }
 
@@ -92,6 +96,7 @@ export class FormPedidoComponent {
     this.pedido.Clasificador = '';
     this.pedido.CodigoItemPedido = '';
     this.pedido.NombreItemPedido = '';
+    this.pedidoSeleccionado.emit(this.pedido.NumeroPedido);
     this.cargarDetallePedido(fila.NumeroPedido, fila.AnoEje || this.anoEje, seq);
   }
 
@@ -116,7 +121,8 @@ export class FormPedidoComponent {
       anoEje,
       numeroPedido,
       this.centroCosto,
-      this.secEjec
+      this.secEjec,
+      this.codigoTipoContratacion
     ).subscribe({
       next: (detalle) => {
         if (seq !== this.detalleSeq) {
@@ -144,6 +150,7 @@ export class FormPedidoComponent {
         this.pedido.Clasificador = detalle.Clasificador || '';
         this.pedido.CodigoItemPedido = detalle.CodigoItem || '';
         this.pedido.NombreItemPedido = detalle.NombreItem || '';
+        this.pedidoSeleccionado.emit(this.pedido.NumeroPedido);
       },
       error: () => {
         if (seq !== this.detalleSeq) {

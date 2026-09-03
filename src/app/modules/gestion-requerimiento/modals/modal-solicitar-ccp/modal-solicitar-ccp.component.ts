@@ -18,6 +18,7 @@ import {
   TIPO_MEMO_CCP,
   construirTextoMemorando,
   documentoLocador,
+  encabezadoMemorandoCcp,
   etiquetaAptitud,
   etiquetaCortaFiltro,
   hayImpedimentoIdoneidad,
@@ -51,6 +52,7 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
 
   cuerpoMemorando = '';
   notasMemorando = '';
+  numeroMemorando = '';
   /** PDF subido al file server (sin firmar). */
   documentoMemoSubido = '';
   /** PDF firmado por sfirma. */
@@ -82,6 +84,7 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
     this.filtros = [];
     this.cuerpoMemorando = '';
     this.notasMemorando = '';
+    this.numeroMemorando = '';
     this.documentoMemoSubido = '';
     this.documentoMemoFirmado = '';
     this.nombreDocumentoMemo = '';
@@ -92,12 +95,17 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
 
     forkJoin({
       detalle: this.requerimientoService.obtenerRequerimiento(fila.IdRequerimiento),
-      filtros: this.requerimientoService.listarFiltroIdoneidad(fila.IdRequerimiento)
+      filtros: this.requerimientoService.listarFiltroIdoneidad(fila.IdRequerimiento, {
+        ReservarNumeroMemo: 1
+      })
     }).subscribe({
       next: (respuesta) => {
         this.cargando = false;
         this.detalle = respuesta.detalle;
         this.filtros = this.normalizarFiltros(respuesta.filtros?.Filtros);
+        this.numeroMemorando = respuesta.filtros?.NumeroMemorando
+          || respuesta.detalle?.Ccp?.NumeroMemorando
+          || '';
         this.cuerpoMemorando = construirTextoMemorando(this.detalle);
       },
       error: () => {
@@ -124,14 +132,11 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
   get puedeConfirmar(): boolean {
     return !this.bloqueado
       && !!this.cuerpoMemorando.trim()
-      && !!this.documentoMemoFirmado
       && !this.procesando;
   }
 
-  get puedeEnviarSinFirma(): boolean {
-    return !this.bloqueado
-      && !!this.cuerpoMemorando.trim()
-      && !this.procesando;
+  get encabezadoMemorando(): string {
+    return encabezadoMemorandoCcp(this.numeroMemorando, this.detalle?.AnoEje);
   }
 
   get proveedor() {
@@ -217,80 +222,68 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
     });
   }
 
-  enviarSinFirma(): void {
-    if (!this.puedeEnviarSinFirma || !this.fila || !this.detalle) {
+  confirmarSolicitud(): void {
+    if (!this.puedeConfirmar || !this.fila || !this.detalle) {
       return;
     }
 
-    const enviar = (documentoSistema: string) => {
-      this.documentoMemoSubido = documentoSistema;
-      this.confirmarSolicitud(documentoSistema, true);
+    const enviar = (memo: string, sinFirma: boolean) => {
+      this.procesando = true;
+      this.paso = 'Enviando la solicitud a OPP…';
+      this.requerimientoService.confirmarFiltrosIdoneidad(
+        this.fila!.IdRequerimiento,
+        this.detalle!.Version ?? this.fila!.Version,
+        {
+          CuerpoMemorando: this.cuerpoMemorando,
+          NotasMemorando: this.notasMemorando,
+          GeneradoDocumentoMemo: memo,
+          NombreDocumentoMemo: this.nombreDocumentoMemo || nombreArchivoMemoCcp(this.detalle!, this.numeroMemorando),
+          NumeroMemorando: this.numeroMemorando,
+          EnviarSinFirma: sinFirma ? 1 : 0
+        }
+      ).subscribe({
+        next: (respuesta: any) => {
+          this.procesando = false;
+          this.paso = '';
+          if (respuesta?.estado !== 1) {
+            this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible solicitar la CCP.');
+            return;
+          }
+          this.funciones.mensaje('success', respuesta.mensaje || 'Se solicitó la CCP a OPP.');
+          this.abierto = false;
+          this.completado.emit();
+        },
+        error: (err) => {
+          this.procesando = false;
+          this.paso = '';
+          this.funciones.mensaje(
+            'error',
+            err?.error?.mensaje || err?.mensaje || 'No fue posible solicitar la CCP.'
+          );
+        }
+      });
     };
 
+    if (this.documentoMemoFirmado) {
+      enviar(this.documentoMemoFirmado, false);
+      return;
+    }
     if (this.documentoMemoSubido) {
-      enviar(this.documentoMemoSubido);
+      enviar(this.documentoMemoSubido, true);
       return;
     }
 
     this.procesando = true;
     this.paso = 'Generando el memorando…';
     this.generarYRegistrarMemorando().subscribe({
-      next: (documentoSistema) => enviar(documentoSistema),
-      error: (err) => {
-        this.procesando = false;
-        this.paso = '';
-        this.funciones.mensaje('error', err?.message || 'No fue posible generar el memorando.');
-      }
-    });
-  }
-
-  confirmarSolicitud(documentoMemo?: string, enviarSinFirma = false): void {
-    const memo = documentoMemo || this.documentoMemoFirmado;
-    if (!memo && !enviarSinFirma) {
-      return;
-    }
-    if (!enviarSinFirma && !this.puedeConfirmar) {
-      return;
-    }
-    if (enviarSinFirma && (this.bloqueado || !this.cuerpoMemorando.trim())) {
-      return;
-    }
-    if (!this.fila || !this.detalle) {
-      return;
-    }
-
-    this.procesando = true;
-    this.paso = 'Enviando la solicitud a OPP…';
-
-    this.requerimientoService.confirmarFiltrosIdoneidad(
-      this.fila.IdRequerimiento,
-      this.detalle.Version ?? this.fila.Version,
-      {
-        CuerpoMemorando: this.cuerpoMemorando,
-        NotasMemorando: this.notasMemorando,
-        GeneradoDocumentoMemo: memo,
-        NombreDocumentoMemo: this.nombreDocumentoMemo || nombreArchivoMemoCcp(this.detalle),
-        EnviarSinFirma: enviarSinFirma ? 1 : 0
-      }
-    ).subscribe({
-      next: (respuesta: any) => {
-        this.procesando = false;
-        this.paso = '';
-        if (respuesta?.estado !== 1) {
-          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible solicitar la CCP.');
-          return;
-        }
-        this.funciones.mensaje('success', respuesta.mensaje || 'Se solicitó la CCP a OPP.');
-        this.abierto = false;
-        this.completado.emit();
+      next: (documentoSistema) => {
+        this.documentoMemoSubido = documentoSistema;
+        enviar(documentoSistema, true);
       },
       error: (err) => {
         this.procesando = false;
         this.paso = '';
-        this.funciones.mensaje(
-          'error',
-          err?.error?.mensaje || err?.mensaje || 'No fue posible solicitar la CCP.'
-        );
+        this.funciones.mensaje('error', err?.message || 'No fue posible generar el memorando.');
       }
     });
   }
@@ -315,8 +308,8 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
       throw new Error('No hay expediente cargado.');
     }
 
-    const definicion = construirMemorandoCcp(this.detalle, this.cuerpoMemorando);
-    const nombre = nombreArchivoMemoCcp(this.detalle);
+    const definicion = construirMemorandoCcp(this.detalle, this.cuerpoMemorando, this.numeroMemorando);
+    const nombre = nombreArchivoMemoCcp(this.detalle, this.numeroMemorando);
 
     return this.documentoService.generarYSubir(definicion, nombre, CARPETA_MEMO_CCP).pipe(
       switchMap((archivo: any) => {
@@ -330,7 +323,7 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
           TIPO_MEMO_CCP,
           documentoSistema,
           this.nombreDocumentoMemo,
-          { CuerpoMemorando: this.cuerpoMemorando, NotasMemorando: this.notasMemorando }
+          { CuerpoMemorando: this.cuerpoMemorando, NotasMemorando: this.notasMemorando, NumeroMemorando: this.numeroMemorando }
         ).pipe(
           switchMap((respuesta: any) => {
             if (respuesta?.estado !== 1) {

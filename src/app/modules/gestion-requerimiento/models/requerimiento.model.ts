@@ -7,7 +7,10 @@
  * tabla.
  */
 
-import { RespuestaSigcm, TransicionCmn, HistorialCmn, CatalogoSiga } from '../../gestion-cmn/models/cmn.model';
+import {
+  RespuestaSigcm, TransicionCmn, HistorialCmn, CatalogoSiga,
+  PuestoDerivacionCmn, PersonaDerivacionCmn
+} from '../../gestion-cmn/models/cmn.model';
 
 /**
  * El sobre común, la transición y el historial son del motor, no del CMN: los
@@ -21,6 +24,8 @@ import { RespuestaSigcm, TransicionCmn, HistorialCmn, CatalogoSiga } from '../..
 export type { RespuestaSigcm, CatalogoSiga };
 export type TransicionRequerimiento = TransicionCmn;
 export type HistorialRequerimiento = HistorialCmn;
+export type PuestoDerivacionRequerimiento = PuestoDerivacionCmn;
+export type PersonaDerivacionRequerimiento = PersonaDerivacionCmn;
 
 /** Los cuatro objetos de prestación (REQ-07). Gobiernan qué documento toca. */
 export type TipoContratacionRequerimiento = 'BIEN' | 'SERVICIO' | 'CONSULTORIA' | 'LOCACION';
@@ -218,6 +223,7 @@ export interface PedidoSiga {
   NumeroPedido: string;
   MotivoPedido: string;
   AnoEje: number;
+  TipoBien?: string;
   TipoPedido: string;
   ActProy: string;
   FuenteFinanc: string;
@@ -309,6 +315,13 @@ export interface ProveedorFormularioRequerimiento {
   Email: string;
   /** Pedido SIGA de esta fila del Anexo 5 (una propuesta = un pedido). */
   NumeroPedido: string;
+  Direccion: string;
+  CodDepartamento: string;
+  Departamento: string;
+  CodProvincia: string;
+  Provincia: string;
+  CodDistrito: string;
+  Distrito: string;
 }
 
 export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequerimiento {
@@ -324,13 +337,56 @@ export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequ
     CantidadEntregables: null,
     MontoMensual: null,
     Email: '',
-    NumeroPedido: ''
+    NumeroPedido: '',
+    Direccion: '',
+    CodDepartamento: '',
+    Departamento: '',
+    CodProvincia: '',
+    Provincia: '',
+    CodDistrito: '',
+    Distrito: ''
   };
 }
 
 export function montoTotalProveedor(proveedor: ProveedorFormularioRequerimiento): number {
   return (Number(proveedor.CantidadEntregables) || 0)
     * (Number(proveedor.MontoMensual) || 0);
+}
+
+/**
+ * JSON que espera login.fn_insertar_tm_login_usuario_externo_contrataciones.
+ * Lo arma el front y el backend lo reenvia tal cual.
+ */
+export function jsonUsuarioExternoContrataciones(proveedor: any): Record<string, unknown> {
+  const nro = String(proveedor?.Dni || proveedor?.nro_documento || proveedor?.Ruc || '').trim();
+  const tipo = String(proveedor?.TipoDocumento || 'DNI').toUpperCase();
+  const email = String(proveedor?.Email || proveedor?.correo_electronico || '').trim();
+  const celular = String(proveedor?.Celular || proveedor?.numero_telefono || '').trim();
+  const payload: Record<string, unknown> = {
+    nro_documento: nro,
+    usuario: nro,
+    id_tipo_persona: 1,
+    id_tipo_documento: tipo === 'CE' ? 2 : tipo === 'RUC' ? 3 : 1,
+    nombre: proveedor?.Nombres || proveedor?.nombre || '',
+    apellido_paterno: proveedor?.ApellidoPaterno || proveedor?.apellido_paterno || '',
+    apellido_materno: proveedor?.ApellidoMaterno || proveedor?.apellido_materno || '',
+    direccion: proveedor?.Direccion || proveedor?.direccion || '',
+    ruc: proveedor?.Ruc || proveedor?.ruc || '',
+    acepta_termino: true,
+    coddepa: proveedor?.CodDepartamento || proveedor?.coddepa || '',
+    nomdepa: proveedor?.Departamento || proveedor?.nomdepa || '',
+    codprov: proveedor?.CodProvincia || proveedor?.codprov || '',
+    nomprov: proveedor?.Provincia || proveedor?.nomprov || '',
+    coddist: proveedor?.CodDistrito || proveedor?.coddist || '',
+    nomdist: proveedor?.Distrito || proveedor?.nomdist || ''
+  };
+  if (email) {
+    payload['correo'] = [{ correo_electronico: email }];
+  }
+  if (celular) {
+    payload['telefono'] = [{ numero_telefono: celular }];
+  }
+  return payload;
 }
 
 /* -------------------------------------------------------------------------- */

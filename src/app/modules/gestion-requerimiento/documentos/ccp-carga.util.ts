@@ -131,6 +131,23 @@ export function validarFormularioCcp(
   return null;
 }
 
+export function correlativoHomologacionCcp(ccp: any, detalle: any): { numeroCcp: string; numeroSiaf: string } {
+  const anio = Number(detalle?.AnoEje) || new Date().getFullYear();
+  const memo = String(ccp?.NumeroMemorando || ccp?.NombreDocumentoMemo || '').trim();
+  const desdeMemo = memo.match(/(\d{1,6})-(\d{4})/);
+  let correlativo = '001';
+  if (desdeMemo) {
+    correlativo = desdeMemo[1].padStart(3, '0').slice(-3);
+  } else {
+    const cola = String(detalle?.Codigo || '').replace(/\D/g, '').slice(-3) || '001';
+    correlativo = cola.padStart(3, '0');
+  }
+  return {
+    numeroCcp: `${correlativo}-${anio}`,
+    numeroSiaf: `${anio}${correlativo}`
+  };
+}
+
 export function nombreSugeridoCcp(numeroCcp: string): string {
   const limpio = (numeroCcp || 'CCP').replace(/[^\w\-]+/g, '_');
   return `CCP_${limpio}.pdf`;

@@ -67,8 +67,7 @@ const ESTADOS_CON_ANEXO4 = new Set([
  * demás quedarían atrás.
  */
 const ACCIONES_DEL_PAQUETE = new Set([
-  'CMN_ABAST_JEFE_FIRMAR_A4',
-  'CMN_ABAST_JEFE_DERIVAR'
+  'CMN_ABAST_JEFE_FIRMAR_A4'
 ]);
 
 /**
@@ -1265,7 +1264,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
         this.responsableDestino = '';
 
         const extra = this.documentoGenerado
-          ? '<br><br>Ábralo con el icono del Anexo en la bandeja.'
+          ? ''
           : '';
         this.documentoGenerado = '';
 

@@ -259,9 +259,7 @@ export class ModalDetalleRequerimientoComponent {
   }
 
   get puedeEditarFiltros(): boolean {
-    return this.esLocacion
-      && this.detalle?.CodigoEstado === 'REQ_FILTROS'
-      && this.codigoRol === 'ABAST_ESPECIALISTA';
+    return false;
   }
 
   get puedeEditarCcp(): boolean {
@@ -280,7 +278,7 @@ export class ModalDetalleRequerimientoComponent {
       this.filtros.length > 0
       || !!this.detalle?.Ccp
       || !!this.detalle?.OrdenServicio
-      || ['REQ_FILTROS', 'REQ_FILTROS_COORD', 'REQ_FILTROS_JEFE', 'REQ_CCP_SOLICITADO', 'REQ_CCP_CARGADA', 'REQ_CUADRO_GENERADO', 'REQ_OS_EMITIDA', 'REQ_NOTIFICADO', 'REQ_CONFORME']
+      || ['REQ_INDAGACION_MERCADO', 'REQ_FILTROS', 'REQ_FILTROS_COORD', 'REQ_FILTROS_JEFE', 'REQ_CCP_SOLICITADO', 'REQ_CCP_CARGADA', 'REQ_CUADRO_GENERADO', 'REQ_OS_EMITIDA', 'REQ_NOTIFICADO', 'REQ_CONFORME']
         .includes(this.detalle?.CodigoEstado || '')
     );
   }

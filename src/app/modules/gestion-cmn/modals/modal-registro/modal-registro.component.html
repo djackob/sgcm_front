@@ -13,10 +13,6 @@
           <h2 id="tituloModalSolicitud" class="modal-titulo">
             Anexo N.º 03 · Solicitud de modificación del CMN
           </h2>
-          <p class="modal-subtitulo" *ngIf="!modoEdicion">
-            Registre el sustento y los ítems. Al guardar, el expediente queda
-            pendiente de la firma del Jefe del área usuaria.
-          </p>
           <p class="modal-subtitulo" *ngIf="modoEdicion && codigoEdicion">
             {{ codigoEdicion }}
           </p>
