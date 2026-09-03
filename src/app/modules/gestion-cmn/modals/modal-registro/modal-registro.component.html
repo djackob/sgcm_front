@@ -126,15 +126,10 @@
         </ng-container>
 
         <!-- Ítems -->
-        <section class="seccion">
+        <section class="seccion registro-items">
           <div class="contenido-cabecera">
             <div>
               <h3 class="contenido-titulo">Ítems de la modificación</h3>
-            </div>
-            <div class="cabecera-opciones">
-              <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarItem()">
-                <i class="mdi mdi-plus" aria-hidden="true"></i> Agregar ítem
-              </button>
             </div>
           </div>
 
@@ -346,6 +341,15 @@
                 />
               </div>
             </div>
+          </div>
+
+          <!-- El boton cierra la lista: se agrega debajo del ultimo item, que es
+               donde queda la vista despues de llenarlo. Arriba obligaba a subir
+               para repetir la accion. -->
+          <div class="registro-items__pie">
+            <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarItem()">
+              <i class="mdi mdi-plus" aria-hidden="true"></i> Agregar ítem
+            </button>
           </div>
         </section>
       </div>
