@@ -427,6 +427,7 @@ export class ModalRegistroRequerimientoComponent {
       Ruc: prov?.Ruc || this.rucSugerido || '',
       TipoRegistro: prov?.TipoRegistro || 'NUEVO',
       Nombres: prov?.Nombres || '',
+      RazonSocial: prov?.RazonSocial || '',
       ApellidoPaterno: prov?.ApellidoPaterno || '',
       ApellidoMaterno: prov?.ApellidoMaterno || '',
       Celular: prov?.Celular || '',

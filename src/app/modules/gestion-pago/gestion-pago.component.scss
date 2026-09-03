@@ -45,8 +45,44 @@
   }
 }
 
-.pago-detalle {
-  margin-top: 1.2rem;
+/* Lo que le toca a este perfil, marcado como un correo sin leer. Mismo
+   tratamiento que en la bandeja de CMN: la base lo devuelve ordenado primero y
+   aqui solo se distingue. */
+.fila-pendiente {
+  background: #f8fbff;
+  box-shadow: inset 3px 0 0 #2563eb;
+
+  .cell-link {
+    font-weight: 700;
+  }
+}
+
+.pago-punto-pendiente {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  background: #2563eb;
+  vertical-align: middle;
+}
+
+/* Boton cuadrado de accion en la tabla, igual que en CMN. `.btn-icon-outline`
+   y `.action-cell` son globales; esto solo pone el azul que los distingue de
+   una accion de solo lectura. */
+.btn-accion {
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+
+  &:hover:not(:disabled) {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1e3a8a;
+  }
+}
+
+.text-end {
+  text-align: right;
 }
 
 .pago-datos {
@@ -98,9 +134,5 @@
   }
 }
 
-.pago-acciones {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
+/* .pago-acciones se retiro: las acciones pasaron al pie del modal, que ya trae
+   su disposicion de _modals.scss. */

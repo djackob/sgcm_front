@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
@@ -71,6 +72,63 @@ const ACCIONES_DEL_PAQUETE = new Set([
 ]);
 
 /**
+ * Icono de cada acción del flujo en la columna «Acción del perfil».
+ *
+ * Las acciones se pintaban con su NombreAccion completo, que va de «Generar
+ * Anexo 3» a «Firmar el Anexo 4, aprobar en SIGA y remitir al area usuaria».
+ * Con dos o tres acciones disponibles la celda quedaba con botones de anchos
+ * muy distintos y la tabla se descuadraba fila a fila. Ahora todas las acciones
+ * son botones cuadrados de 34px —los mismos que ya usaban «Ver expediente» y
+ * los PDF— y el nombre completo viaja en el `title`.
+ *
+ * El mapa se indexa por CodigoTransicion y no por estado: el código es estable
+ * y es lo único que la bandeja recibe de la máquina de estados. Una transición
+ * que no esté aquí cae en ICONO_ACCION_POR_DEFECTO y sigue funcionando; el
+ * icono es presentación, nunca una regla.
+ */
+const ICONO_ACCION: { [codigoTransicion: string]: string } = {
+  /* Anexo 3 */
+  CMN_GENERAR_A3:           'mdi-file-document-plus-outline',
+  CMN_FIRMAR_A3:            'mdi-draw-pen',
+  CMN_ABAST_ESP_FIRMAR_A3:  'mdi-draw-pen',
+  CMN_ABAST_JEFE_FIRMAR_A3: 'mdi-draw-pen',
+
+  /* Anexo 4 */
+  CMN_GENERAR_A4:           'mdi-file-sign',
+  CMN_ABAST_JEFE_FIRMAR_A4: 'mdi-draw-pen',
+  CMN_RECEPCIONAR_A4:       'mdi-inbox-arrow-down-outline',
+
+  /* Derivaciones: siempre la misma flecha, el title dice a quién */
+  CMN_OA_DERIVAR:            'mdi-arrow-right-circle-outline',
+  CMN_ABAST_JEFE_DERIVAR:    'mdi-arrow-right-circle-outline',
+  CMN_ABAST_COORD_DERIVAR:   'mdi-arrow-right-circle-outline',
+  CMN_OBS_COORD_DERIVAR:     'mdi-arrow-right-circle-outline',
+  CMN_OBS_AU_JEFE_DERIVAR:   'mdi-arrow-right-circle-outline',
+  CMN_OBS_AU_COORD_DERIVAR:  'mdi-arrow-right-circle-outline',
+  CMN_SUBS_COORD_DERIVAR:    'mdi-arrow-right-circle-outline',
+  CMN_SUBS_JEFE_ENVIAR:      'mdi-send-outline',
+
+  /* Observación y devolución */
+  CMN_OA_OBSERVAR:         'mdi-alert-outline',
+  CMN_ABAST_ESP_OBSERVAR:  'mdi-alert-outline',
+  CMN_OBS_JEFE_DEVOLVER:   'mdi-undo-variant',
+  CMN_AU_JEFE_DEVOLVER:    'mdi-undo-variant',
+  CMN_SUBSANAR:            'mdi-clipboard-edit-outline',
+
+  /* Anulación */
+  CMN_ANULAR_BORRADOR:   'mdi-close-circle-outline',
+  CMN_ANULAR_FIRMA_PEND: 'mdi-close-circle-outline'
+};
+
+const ICONO_ACCION_POR_DEFECTO = 'mdi-play-circle-outline';
+
+/** Acciones que no se deshacen; se pintan en rojo para que no se pulsen de paso. */
+const ACCIONES_DESTRUCTIVAS = new Set([
+  'CMN_ANULAR_BORRADOR',
+  'CMN_ANULAR_FIRMA_PEND'
+]);
+
+/**
  * Bandeja de Gestión CMN.
  *
  * DE DÓNDE SALE CADA COSA
@@ -110,6 +168,11 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   cargando = false;
 
   filtro = {
+    /* Acota a la unidad del actor, no a su rol: la bandeja muestra todo lo de
+       la oficina y marca lo pendiente para este perfil (`MeToca`), que la base
+       ya devuelve ordenado primero. Ya no es un check de la pantalla —dejaba
+       elegir entre «solo lo mío» y «todo el sistema», y con lo mío marcado el
+       jefe no veía en qué andaba su equipo—, y por eso queda fijo en `true`. */
     SoloMiBandeja: true,
     Texto: '',
     CodigoEstado: '',
@@ -310,6 +373,24 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     return acciones.filter(t => !ACCIONES_DEL_PAQUETE.has(t.CodigoTransicion));
   }
 
+  /* ---------------------------------------------------------------------- */
+  /* Presentación de las acciones                                           */
+  /* ---------------------------------------------------------------------- */
+
+  /** Icono de la acción. Si la transición no está mapeada, uno genérico. */
+  iconoAccion(transicion: TransicionCmn): string {
+    return ICONO_ACCION[transicion.CodigoTransicion] || ICONO_ACCION_POR_DEFECTO;
+  }
+
+  /** Rótulo del botón: el nombre del flujo más el estado al que lleva. */
+  tituloAccion(transicion: TransicionCmn): string {
+    return `${transicion.NombreAccion} (pasa a: ${transicion.EstadoDestino})`;
+  }
+
+  esAccionDestructiva(transicion: TransicionCmn): boolean {
+    return ACCIONES_DESTRUCTIVAS.has(transicion.CodigoTransicion);
+  }
+
   /**
    * Si esta fila se puede corregir con este perfil.
    *
@@ -416,7 +497,6 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   limpiarFiltros(): void {
     this.filtro.Texto = '';
     this.filtro.CodigoEstado = '';
-    this.filtro.SoloMiBandeja = true;
     this.filtro.Desplazamiento = 0;
     this.cargarBandeja();
   }
@@ -1068,6 +1148,14 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
+    /* Si hay a quién derivar, hay que decir a quién. El combo solo se muestra
+       cuando la base devolvió destinatarios, así que exigirlo aquí no bloquea
+       las acciones que no son derivaciones. */
+    if (this.ofreceDestinatarios && !this.responsableDestino) {
+      this.funciones.mensaje('info', 'Seleccione a quién deriva el expediente.');
+      return;
+    }
+
     this.comentarioPendiente = this.comentario.trim() || null;
 
     this.iniciarEjecucion(solicitud, transicion);
@@ -1233,6 +1321,12 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
    */
   private enviarTransicion(): void {
     const { transicion } = this.accionEnCurso!;
+
+    /* A quién habrá que avisar cuando esto salga bien. Se toma AHORA porque el
+       bloque de éxito limpia `accionEnCurso` y `paqueteEnCurso` antes de que
+       haya ocasión de leerlos. */
+    const solicitudesANotificar = this.solicitudesDelAvisoAnexo4(transicion);
+
     this.paso = this.loteEnCurso.length > 1
       ? `Registrando la acción sobre ${this.loteEnCurso.length} expedientes…`
       : 'Registrando la acción…';
@@ -1270,8 +1364,72 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
 
         this.funciones.mensaje('success', (respuesta.mensaje || 'Se registró la acción.') + extra);
         this.cargarBandeja();
+        this.avisarAnexo4(solicitudesANotificar);
       },
       error: () => this.fallar('No fue posible comunicarse con el servicio.')
+    });
+  }
+
+  /**
+   * Las solicitudes a las que hay que avisar por correo, si esta acción es la
+   * firma del Anexo 4 por el Jefe de Abastecimiento.
+   *
+   * Es esa transición y no otra porque es la que aprueba la modificación en
+   * SIGA: recién ahí es cierto que el ítem quedó pedible, que es lo que el
+   * correo va a decir. Un Anexo 4 puede agrupar Anexos 3 de varias áreas
+   * usuarias, y cada una recibe el suyo.
+   */
+  private solicitudesDelAvisoAnexo4(transicion: TransicionCmn): string[] {
+    if (transicion.CodigoTransicion !== 'CMN_ABAST_JEFE_FIRMAR_A4') {
+      return [];
+    }
+
+    const delPaquete = (this.paqueteEnCurso?.Solicitudes || [])
+      .map(s => s.IdSolicitud)
+      .filter(id => !!id);
+
+    if (delPaquete.length > 0) {
+      return delPaquete;
+    }
+
+    const suelta = this.accionEnCurso?.solicitud.IdSolicitud;
+    return suelta ? [suelta] : [];
+  }
+
+  /**
+   * Avisa por correo a cada área usuaria que su modificación ya se hizo.
+   *
+   * Va después de la transición y NO la condiciona: para cuando esto corre, el
+   * expediente ya está en la bandeja del área usuaria y la aprobación en SIGA ya
+   * ocurrió. Si el SMTP institucional no responde, lo que falta es el aviso, no
+   * el trámite, y decirlo como un error haría pensar que la firma no se
+   * registró. Por eso el fallo se informa como advertencia y la constancia queda
+   * en `cmn.NotificacionAnexo4` para reintentar.
+   */
+  private avisarAnexo4(idsSolicitud: string[]): void {
+    if (idsSolicitud.length === 0) {
+      return;
+    }
+
+    forkJoin(
+      idsSolicitud.map(id => this.cmnService.notificarAnexo4(id).pipe(
+        catchError(() => of({ estado: 0, CorreoEnviado: false }))
+      ))
+    ).subscribe({
+      next: (respuestas: any[]) => {
+        const fallidos = respuestas.filter(r => r?.CorreoEnviado !== true).length;
+        if (fallidos === 0) {
+          this.funciones.mensaje('success',
+            idsSolicitud.length > 1
+              ? `Se avisó por correo a las ${idsSolicitud.length} áreas usuarias.`
+              : 'Se avisó por correo al área usuaria.');
+          return;
+        }
+        this.funciones.mensaje('info',
+          `El Anexo 4 quedó en la bandeja del área usuaria, pero ${fallidos} de ${idsSolicitud.length} correo(s) no salieron. Puede reintentar el aviso.`);
+      },
+      error: () => this.funciones.mensaje('info',
+        'El Anexo 4 quedó en la bandeja del área usuaria, pero no fue posible enviar el aviso por correo.')
     });
   }
 

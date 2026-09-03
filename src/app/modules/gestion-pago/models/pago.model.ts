@@ -56,6 +56,10 @@ export interface ExpedientePagoBandeja {
   ExpedienteSiaf: string | null;
   NotaPagoSiaf: string | null;
   NumeroOperacion?: string | null;
+  /** Si la acción está pendiente para ESTE perfil. La bandeja muestra todo lo
+   *  de la unidad y esto es lo que distingue lo propio, como un correo sin leer;
+   *  es además la primera clave del orden que manda la base. */
+  MeToca?: boolean;
   Transiciones?: TransicionPago[];
   ActualizadoEn?: string;
 }

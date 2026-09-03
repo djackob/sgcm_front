@@ -37,15 +37,6 @@
   }
 }
 
-.cmn-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  color: #334155;
-  cursor: pointer;
-}
-
 .cmn-cargando {
   display: flex;
   align-items: center;
@@ -158,6 +149,53 @@
 
 .btn-icon-outline .mdi-file-pdf-box {
   color: #c0392b;
+}
+
+/* Lo que este perfil tiene sin atender, marcado como un correo sin leer: la
+   bandeja ya no oculta el resto del trabajo de la unidad, asi que lo propio
+   tiene que distinguirse de un vistazo. La base ya lo trae ordenado arriba. */
+.fila-pendiente {
+  background: #f8fbff;
+  box-shadow: inset 3px 0 0 #2563eb;
+
+  .cell-link {
+    font-weight: 700;
+  }
+}
+
+.cmn-punto-pendiente {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  background: #2563eb;
+  vertical-align: middle;
+}
+
+/* Acciones del flujo: mismo cuadrado que los botones de PDF y de detalle, para
+   que la columna no cambie de ancho segun cuantas acciones ofrezca el estado.
+   El azul las distingue de las acciones de solo lectura, que quedan en gris. */
+.btn-accion {
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+
+  &:hover:not(:disabled) {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1e3a8a;
+  }
+
+  &--peligro {
+    border-color: #fecaca;
+    color: #b91c1c;
+
+    &:hover:not(:disabled) {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      color: #991b1b;
+    }
+  }
 }
 
 .btn-anexo {

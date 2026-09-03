@@ -137,6 +137,22 @@ export class CmnService {
     });
   }
 
+  /**
+   * Avisa al área usuaria que su modificación del CMN ya se hizo.
+   *
+   * Se llama después de que la firma del Anexo 4 movió el expediente, y una vez
+   * por SOLICITUD: un Anexo 4 puede agrupar Anexos 3 de varias áreas usuarias y
+   * cada una recibe su propio correo, con su propio código de expediente.
+   *
+   * La derivación no se pide aquí: la hace la transición. Esto es solo el
+   * correo, y por eso su fallo no invalida nada de lo anterior.
+   */
+  notificarAnexo4(idSolicitud: string): Observable<any> {
+    return this.apiService.POST('api/cmn/notificarAnexo4', {
+      IdSolicitud: idSolicitud
+    });
+  }
+
   /* ---------------------------------------------------------------------- */
   /* Documentos                                                             */
   /* ---------------------------------------------------------------------- */

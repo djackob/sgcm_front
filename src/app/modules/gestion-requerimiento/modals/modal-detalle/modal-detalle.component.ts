@@ -11,6 +11,7 @@ import { SessionService } from '../../../../core/services/session.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import { esPdfDelFileServer, idDocumentoSistema } from '../../../../shared/funciones/archivo';
 import { CARPETA_MEMO_CCP } from '../../documentos/filtro-idoneidad.util';
+import { nombreProveedor, numeroDocumentoProveedor } from '../../models/requerimiento.model';
 import { CARPETA_ANEXO_5 } from '../../documentos/anexo5.pdfmake';
 import { CARPETA_ANEXO_3, TIPO_ANEXO_3 } from '../../documentos/anexo3.pdfmake';
 import {
@@ -61,6 +62,12 @@ interface DocumentoExpediente {
   styleUrl: './modal-detalle.component.scss',
 })
 export class ModalDetalleRequerimientoComponent {
+
+  /* La plantilla no compone el nombre ni elige entre DNI y RUC: lo resuelven
+     estas dos, que son las mismas que usan el Anexo 5 y el Anexo 8. Un proveedor
+     identificado por RUC no tiene apellidos y salía en blanco. */
+  readonly nombreDelProveedor = nombreProveedor;
+  readonly documentoDelProveedor = numeroDocumentoProveedor;
 
   @Output() editar = new EventEmitter<RequerimientoBandeja>();
   @Output() elaborarAnexo3 = new EventEmitter<string>();

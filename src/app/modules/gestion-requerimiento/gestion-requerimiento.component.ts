@@ -772,6 +772,14 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       return;
     }
 
+    /* Si hay a quién derivar, hay que decir a quién. El combo solo se muestra
+       cuando la base devolvió destinatarios, así que exigirlo aquí no bloquea
+       las acciones que no son derivaciones. */
+    if (this.ofreceDestinatarios && !this.responsableDestino) {
+      this.funciones.mensaje('info', 'Seleccione a quién deriva el expediente.');
+      return;
+    }
+
     this.ejecutando = true;
 
     if (transicion.CodigoTransicion === 'REQ_ENVIAR_FILTROS_COORD'

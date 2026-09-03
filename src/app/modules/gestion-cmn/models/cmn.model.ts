@@ -35,6 +35,12 @@ export interface SolicitudCmn {
    *  `cmn.fnPuedeEditar` en la base, con la misma regla que aplica la rutina al
    *  guardar; la pantalla no lo deduce del estado. */
   PuedeEditar?: boolean;
+  /** Si la acción está pendiente para ESTE perfil. La bandeja muestra todo lo
+   *  de la unidad; esto es lo que la distingue como «no atendido», igual que un
+   *  correo sin leer, y es también la primera clave del orden que manda la
+   *  base. No se deduce de `RolResponsable` en el cliente porque la condición
+   *  incluye la unidad, que la pantalla no conoce. */
+  MeToca?: boolean;
   /** Área usuaria que originó el expediente. En la bandeja de Abastecimiento
    *  conviven varias y sin esto la fila no dice de quién es. */
   AreaUsuaria?: string;

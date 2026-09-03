@@ -91,15 +91,15 @@
               </div>
               <div>
                 <dt>Documento</dt>
-                <dd>{{ proveedor.TipoDocumento }} {{ proveedor.Dni || proveedor.Ruc }}</dd>
+                <dd>{{ proveedor.TipoDocumento }} {{ documentoDelProveedor(proveedor) }}</dd>
               </div>
               <div>
-                <dt>Nombre</dt>
-                <dd>
-                  {{ proveedor.Nombres }}
-                  {{ proveedor.ApellidoPaterno }}
-                  {{ proveedor.ApellidoMaterno }}
-                </dd>
+                <dt>{{ proveedor.RazonSocial ? 'Razón social' : 'Nombre' }}</dt>
+                <dd>{{ nombreDelProveedor(proveedor) }}</dd>
+              </div>
+              <div *ngIf="proveedor.Ruc">
+                <dt>RUC</dt>
+                <dd>{{ proveedor.Ruc }}</dd>
               </div>
               <div *ngIf="proveedor.Celular">
                 <dt>Celular</dt>

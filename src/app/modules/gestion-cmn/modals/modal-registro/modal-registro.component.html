@@ -45,27 +45,18 @@
             <label class="campo-etiqueta" for="anoEje">Año de ejecución</label>
             <input id="anoEje" type="number" class="campo-control" [(ngModel)]="anoEje" name="anoEje" [readonly]="modoEdicion" />
           </div>
-        </div>
 
-        <div class="campo">
-          <label class="campo-etiqueta" for="sustento">Sustento de la solicitud</label>
-          <textarea
-            id="sustento"
-            class="campo-control"
-            rows="3"
-            name="sustento"
-            [(ngModel)]="sustento"
-            placeholder="Justifique la modificación del Cuadro Multianual de Necesidades"
-          ></textarea>
-        </div>
+          <!-- Tipificación de la solicitud.
+               La declara el área usuaria aquí, al registrar, porque de ella
+               depende el plazo: lo ordinario se aprueba en el Anexo 4 de los
+               viernes y lo extraordinario cualquier día. Antes la marcaba
+               Abastecimiento al evaluar, que es después de que el área ya sabía
+               si podía esperar.
 
-        <!-- Tipificación de la solicitud.
-             La declara el área usuaria aquí, al registrar, porque de ella
-             depende el plazo: lo ordinario se aprueba en el Anexo 4 de los
-             viernes y lo extraordinario cualquier día. Antes la marcaba
-             Abastecimiento al evaluar, que es después de que el área ya sabía
-             si podía esperar. -->
-        <div class="formulario-grilla">
+               Va al costado del año porque los dos definen el encuadre de la
+               solicitud —cuándo se ejecuta y por qué vía— y se responden de
+               corrido; separados por el sustento, el tipo quedaba después de un
+               textarea largo y se pasaba por alto pese a ser obligatorio. -->
           <div class="campo">
             <label class="campo-etiqueta" for="tipoInclusion">
               Tipo de solicitud <span>(obligatorio)</span>
@@ -81,6 +72,18 @@
               <option value="EXTRAORDINARIA">Extraordinaria</option>
             </select>
           </div>
+        </div>
+
+        <div class="campo">
+          <label class="campo-etiqueta" for="sustento">Sustento de la solicitud</label>
+          <textarea
+            id="sustento"
+            class="campo-control"
+            rows="3"
+            name="sustento"
+            [(ngModel)]="sustento"
+            placeholder="Justifique la modificación del Cuadro Multianual de Necesidades"
+          ></textarea>
         </div>
 
         <ng-container *ngIf="esExtraordinaria">

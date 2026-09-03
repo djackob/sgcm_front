@@ -96,6 +96,18 @@ export class MaestraService {
     );
   }
 
+  /**
+   * Consulta contribuyente en SUNAT. Mismo contrato que RENIEC: el backend
+   * espera el RUC en `ipInput` como texto, no como JSON, y reenvía al bus de
+   * servicios institucional. La respuesta llega igual de irregular —a veces
+   * objeto, a veces texto—, así que se normaliza con el mismo deserializador.
+   */
+  consultarInformacionSunat(strRuc: string) {
+    return this.metodo.GET_PALOTES('api/General/ConsultaRucSunat', strRuc.trim()).pipe(
+      map((rpta: any) => deserializarRespuestaReniec(rpta))
+    );
+  }
+
   listarDepartamento() {
     return this.metodo.GET('api/General/ListarDepartamento').pipe(
       map((rpta: any) => listaUbigeo(rpta))

@@ -110,8 +110,7 @@ export function postoresIniciales(detalle: RequerimientoDetalle | any, items: It
   const proveedores = proveedoresDelRequerimiento(detalle);
   const mapeados = proveedores.map((proveedor, indice) => {
     const postor = postorVacio(items, `prov-${indice}`);
-    postor.RazonSocial = nombreCompletoLocador(proveedor)
-      || [proveedor.Nombres, proveedor.ApellidoPaterno].filter(Boolean).join(' ');
+    postor.RazonSocial = nombreCompletoLocador(proveedor);
     postor.Ruc = proveedor.Ruc || proveedor.Dni || '';
     postor.Contacto = postor.RazonSocial;
     postor.Telefono = proveedor.Celular || '';

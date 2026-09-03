@@ -312,8 +312,12 @@
         </ul>
 
         <div class="campo" *ngIf="ofreceDestinatarios">
+          <!-- Obligatorio: derivar es entregarle el trabajo a alguien. Con
+               «sin asignar» el expediente quedaba a nombre del puesto y se
+               detenía en una bandeja que todos ven y nadie da por suya. Si el
+               combo aparece es porque hay a quién elegir. -->
           <label class="campo-etiqueta" for="responsableDestino">
-            Derivar a (opcional)
+            Derivar a <span>(obligatorio)</span>
           </label>
           <select
             id="responsableDestino"
@@ -321,7 +325,7 @@
             [(ngModel)]="responsableDestino"
             name="responsableDestino"
           >
-            <option value="">Sin asignar — lo toma quien corresponda</option>
+            <option value="">Seleccione…</option>
             <optgroup *ngFor="let puesto of puestosDerivacion" [label]="puesto.Rol + ' · ' + puesto.Unidad">
               <option *ngFor="let persona of puesto.Personas" [value]="persona.IdUsuario">
                 {{ persona.NombreCompleto }}

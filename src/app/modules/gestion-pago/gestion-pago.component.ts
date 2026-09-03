@@ -42,6 +42,10 @@ export class GestionPagoComponent implements OnInit {
   codigoRol = '';
   esLocador = false;
 
+  /* SoloMiBandeja acota a la UNIDAD del actor, no a su rol: la bandeja muestra
+     todo lo de la oficina y marca con `MeToca` lo que le toca a este perfil, que
+     la base devuelve ordenado primero. Ya no es un check de la pantalla —el
+     mismo criterio que se aplicó en la bandeja de CMN—, y por eso queda fijo. */
   filtro = { SoloMiBandeja: true, Texto: '', Limite: 50, Desplazamiento: 0 };
   cargando = false;
   total = 0;
@@ -166,6 +170,23 @@ export class GestionPagoComponent implements OnInit {
 
   cerrarDetalle(): void {
     this.seleccionado = null;
+  }
+
+  /**
+   * Color de la píldora de estado, con la misma paleta que CMN y Requerimiento.
+   *
+   * Sin esto la píldora salía sin modificador y el estado se leía como texto
+   * gris: el usuario tenía que leer la frase entera para saber si el expediente
+   * iba bien, estaba observado o ya estaba cerrado.
+   */
+  tonoEstado(codigoEstado: string): string {
+    if (codigoEstado === 'PAG_PAGO_EFECTUADO') return 'success';
+    /* Toda observación se pinta igual —de Contabilidad o del área usuaria—:
+       para quien mira la bandeja lo que cambia es a quién responder, no la
+       gravedad. La alerta de resolución va aparte, dentro del expediente. */
+    if (codigoEstado.startsWith('PAG_OBS')) return 'warning';
+    if (codigoEstado === 'PAG_PENDIENTE') return 'neutral';
+    return 'info';
   }
 
   monto(valor: number | null | undefined): string {

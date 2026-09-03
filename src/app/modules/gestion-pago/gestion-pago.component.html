@@ -25,30 +25,50 @@
         <span class="cell-muted">O/S {{ orden.NumeroOrdenSiga || '—' }}</span>
         <span>{{ orden.Denominacion }}</span>
       </header>
-      <table class="tabla-app">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Entregable</th>
-            <th>Límite</th>
-            <th>Monto</th>
-            <th>Estado</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let ent of orden.Entregables">
-            <td>{{ ent.NumeroEntregable }}</td>
-            <td>{{ ent.NombreEntregable }}</td>
-            <td>{{ fecha(ent.FechaLimiteCronograma) }}</td>
-            <td>S/ {{ monto(ent.MontoEntregable) }}</td>
-            <td><span class="status-pill">{{ ent.Estado }}</span></td>
-            <td>
-              <button type="button" class="btn btn-app-primary btn-sm" (click)="abrir(ent)">Abrir</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-responsive">
+        <table class="table scm-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Entregable</th>
+              <th>Límite</th>
+              <th class="text-end">Monto</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let ent of orden.Entregables">
+              <td data-column-name="#">{{ ent.NumeroEntregable }}</td>
+              <td data-column-name="Entregable">
+                <span class="cell-title">{{ ent.NombreEntregable }}</span>
+              </td>
+              <td data-column-name="Límite">{{ fecha(ent.FechaLimiteCronograma) }}</td>
+              <td data-column-name="Monto" class="cell-muted text-end">
+                S/ {{ monto(ent.MontoEntregable) }}
+              </td>
+              <td data-column-name="Estado">
+                <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(ent.CodigoEstado)">
+                  {{ ent.Estado }}
+                </span>
+              </td>
+              <td data-column-name="Acción" class="td-acciones">
+                <div class="action-cell">
+                  <button
+                    type="button"
+                    class="btn-icon-outline btn-accion"
+                    title="Abrir el entregable"
+                    aria-label="Abrir el entregable"
+                    (click)="abrir(ent)"
+                  >
+                    <i class="mdi mdi-folder-open-outline" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </article>
   </section>
 
@@ -63,43 +83,71 @@
         <input id="filtroTexto" type="text" class="campo-control" placeholder="Código, O/S o locador"
                [(ngModel)]="filtro.Texto" (keyup.enter)="buscar()" />
       </div>
-      <label class="req-check">
-        <input type="checkbox" [(ngModel)]="filtro.SoloMiBandeja" (change)="buscar()" />
-        Solo mi bandeja
-      </label>
-      <button type="button" class="btn btn-app-secundario btn-sm" (click)="buscar()">Buscar</button>
+      <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
+        <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
+      </button>
     </div>
     <div class="req-cargando" *ngIf="cargando">
       <i class="mdi mdi-loading mdi-spin"></i> Cargando…
     </div>
-    <div class="tabla-responsive" *ngIf="!cargando">
-      <table class="tabla-app">
+    <div class="table-responsive" *ngIf="!cargando">
+      <table class="table scm-table">
         <thead>
           <tr>
-            <th>Código</th>
+            <th>Expediente</th>
             <th>O/S</th>
             <th>Entregable</th>
             <th>Locador</th>
             <th>Estado</th>
-            <th></th>
+            <th>Acción</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of expedientes">
-            <td>{{ item.Codigo }}</td>
-            <td>{{ item.NumeroOrdenSiga || '—' }}</td>
-            <td>{{ item.NumeroEntregable }}. {{ item.NombreEntregable }}</td>
-            <td>{{ item.NombreLocador }}</td>
-            <td><span class="status-pill">{{ item.Estado }}</span></td>
-            <td>
-              <button type="button" class="btn-icon-outline" title="Ver" (click)="abrir(item)">
-                <i class="mdi mdi-magnify"></i>
-              </button>
+          <!-- fila-pendiente marca lo que le toca a este perfil, igual que en la
+               bandeja de CMN. La base ya lo devuelve ordenado primero. -->
+          <tr *ngFor="let item of expedientes" [class.fila-pendiente]="item.MeToca">
+            <td data-column-name="Expediente">
+              <a href="javascript:void(0)" class="cell-link" (click)="abrir(item)">
+                <span class="pago-punto-pendiente" *ngIf="item.MeToca"
+                      title="Pendiente de atención por su perfil"></span>
+                {{ item.Codigo }}
+              </a>
+              <span class="cell-subtitle">{{ item.CodigoRequerimiento }}</span>
+            </td>
+            <td data-column-name="O/S">{{ item.NumeroOrdenSiga || '—' }}</td>
+            <td data-column-name="Entregable">
+              <span class="cell-title">{{ item.NombreEntregable }}</span>
+              <span class="cell-subtitle">
+                N.° {{ item.NumeroEntregable }} · S/ {{ monto(item.MontoEntregable) }}
+              </span>
+            </td>
+            <td data-column-name="Locador">
+              <span class="cell-title">{{ item.NombreLocador }}</span>
+              <span class="cell-subtitle" *ngIf="item.RucLocador">RUC {{ item.RucLocador }}</span>
+            </td>
+            <td data-column-name="Estado">
+              <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">
+                {{ item.Estado }}
+              </span>
+            </td>
+            <td data-column-name="Acción" class="td-acciones">
+              <div class="action-cell">
+                <button
+                  type="button"
+                  class="btn-icon-outline btn-accion"
+                  title="Abrir el expediente de pago"
+                  aria-label="Abrir el expediente de pago"
+                  (click)="abrir(item)"
+                >
+                  <i class="mdi mdi-folder-open-outline" aria-hidden="true"></i>
+                </button>
+              </div>
             </td>
           </tr>
           <tr *ngIf="expedientes.length === 0">
             <td colspan="6">
               <div class="req-vacio">
+                <i class="mdi mdi-inbox-outline" aria-hidden="true"></i>
                 <h3>Sin expedientes</h3>
                 <p class="cell-muted">No hay entregables pendientes para este perfil.</p>
               </div>
@@ -110,14 +158,35 @@
     </div>
   </section>
 
-  <section class="content-card pago-detalle" *ngIf="seleccionado">
-    <div class="contenido-cabecera">
-      <div>
-        <h2 class="contenido-titulo">{{ seleccionado.Codigo }} · entregable {{ seleccionado.NumeroEntregable }}</h2>
-        <p class="cell-muted">{{ seleccionado.Denominacion }} · {{ seleccionado.Estado }}</p>
-      </div>
-      <button type="button" class="btn btn-app-secundario btn-sm" (click)="cerrarDetalle()">Cerrar</button>
-    </div>
+  <!-- El detalle es un modal y no un panel bajo la tabla.
+       Aqui no se viene a mirar: se viene a TRABAJAR -subir el entregable, marcar
+       el checklist, registrar el devengado- y despues ejecutar la accion. Un
+       panel empotrado dejaba la tabla compitiendo por la atencion y, con la
+       bandeja larga, el formulario quedaba fuera de pantalla al abrirlo. Ademas
+       es el mismo gesto que en CMN y en Requerimiento: abrir un expediente abre
+       una ventana. -->
+  <div class="modal-fondo" *ngIf="seleccionado" role="presentation">
+    <div class="modal-app-dialog modal-app-dialog--ancho" role="dialog" aria-modal="true"
+         (click)="$event.stopPropagation()">
+      <div class="modal-app">
+        <div class="modal-cabecera">
+          <div class="modal-cabecera-info">
+            <h2 class="modal-titulo">
+              {{ seleccionado.Codigo }} · entregable {{ seleccionado.NumeroEntregable }}
+            </h2>
+            <p class="modal-subtitulo">
+              {{ seleccionado.Denominacion }} ·
+              <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(seleccionado.CodigoEstado)">
+                {{ seleccionado.Estado }}
+              </span>
+            </p>
+          </div>
+          <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarDetalle()">
+            <i class="mdi mdi-close" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="modal-cuerpo">
 
     <dl class="pago-datos">
       <div><dt>Requerimiento</dt><dd>{{ seleccionado.CodigoRequerimiento }}</dd></div>
@@ -177,24 +246,28 @@
 
     <div class="pago-carga" *ngIf="codigoRol === 'ABAST_ESPECIALISTA' || codigoRol === 'ABAST_COORDINADOR'">
       <h3>Anexo 9 — Checklist de control de pagos</h3>
-      <table class="tabla-app" *ngIf="seleccionado.Checklist?.length">
-        <thead>
-          <tr><th>Verificación</th><th>Marca</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of seleccionado.Checklist">
-            <td>{{ item.Nombre }} <span class="cell-muted" *ngIf="item.Obligatorio">*</span></td>
-            <td>
-              <select class="campo-control" [(ngModel)]="item.Valor">
-                <option value="">—</option>
-                <option value="SI">Sí</option>
-                <option value="NO_APLICA">No aplica</option>
-                <option value="NO">No</option>
-              </select>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-responsive" *ngIf="seleccionado.Checklist?.length">
+        <table class="table scm-table">
+          <thead>
+            <tr><th>Verificación</th><th>Marca</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of seleccionado.Checklist">
+              <td data-column-name="Verificación">
+                {{ item.Nombre }} <span class="cell-muted" *ngIf="item.Obligatorio">*</span>
+              </td>
+              <td data-column-name="Marca">
+                <select class="campo-control" [(ngModel)]="item.Valor">
+                  <option value="">—</option>
+                  <option value="SI">Sí</option>
+                  <option value="NO_APLICA">No aplica</option>
+                  <option value="NO">No</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <label class="req-check" *ngIf="seleccionado.AlertaResolucion || confirmarAlerta">
         <input type="checkbox" [(ngModel)]="confirmarAlerta" />
         Confirmo la alerta de resolución contractual (penalidades &gt; 10%)
@@ -237,21 +310,33 @@
       </div>
     </div>
 
-    <div class="pago-acciones" *ngIf="seleccionado.Transiciones?.length">
-      <button
-        type="button"
-        class="btn btn-app-primary"
-        *ngFor="let t of seleccionado.Transiciones"
-        [disabled]="ejecutando"
-        (click)="ejecutar(t)"
-      >
-        {{ t.NombreAccion }}
-      </button>
-    </div>
-
     <p class="cell-muted" *ngIf="seleccionado.CodigoEstado === 'PAG_PAGO_EFECTUADO'">
       Expediente cerrado. Neto abonado: S/ {{ monto(seleccionado.MontoNeto) }}
       · SIAF {{ seleccionado.NotaPagoSiaf || '—' }}
     </p>
-  </section>
+
+        </div>
+
+        <!-- Las acciones van al pie y CON SU NOMBRE, no como iconos. En la
+             bandeja de CMN se volvieron iconos porque competian por el ancho de
+             una celda; aqui hay sitio de sobra y el nombre es lo que dice que
+             va a pasar al pulsar. -->
+        <div class="modal-footer" *ngIf="seleccionado.Transiciones?.length">
+          <button type="button" class="btn btn-app-secundario" (click)="cerrarDetalle()">
+            Cerrar
+          </button>
+          <button
+            type="button"
+            class="btn btn-app-primary"
+            *ngFor="let t of seleccionado.Transiciones"
+            [disabled]="ejecutando"
+            (click)="ejecutar(t)"
+          >
+            <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i>
+            {{ t.NombreAccion }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

@@ -2,7 +2,9 @@ import {
   PedidoRequerimiento,
   ProveedorFormularioRequerimiento,
   RequerimientoDetalle,
-  montoTotalProveedor
+  montoTotalProveedor,
+  nombreProveedor,
+  numeroDocumentoProveedor
 } from '../models/requerimiento.model';
 import { extraDatosAdicionales, proveedoresDelRequerimiento } from './anexo5.pdfmake';
 
@@ -161,24 +163,18 @@ export function pedidoExtra(detalle: RequerimientoDetalle | any, numeroPedido: s
   return lista.find((pedido: any) => (pedido?.NumeroPedido || '').trim() === (numeroPedido || '').trim()) || lista[0] || {};
 }
 
+/**
+ * Delega en `nombreProveedor`, que es el único sitio que sabe si el nombre sale
+ * de la razón social o de los tres campos de persona natural. Antes componía
+ * aquí los apellidos, y con un proveedor identificado por RUC —que no tiene
+ * apellidos— devolvía cadena vacía justo donde va el nombre del contratista.
+ */
 export function nombreCompletoLocador(proveedor: ProveedorFormularioRequerimiento | null): string {
-  if (!proveedor) {
-    return '';
-  }
-  return [proveedor.ApellidoPaterno, proveedor.ApellidoMaterno, proveedor.Nombres]
-    .filter((parte) => !!parte)
-    .join(' ')
-    .trim();
+  return nombreProveedor(proveedor);
 }
 
 export function documentoLocador(proveedor: ProveedorFormularioRequerimiento | null): string {
-  if (!proveedor) {
-    return '';
-  }
-  if (proveedor.Ruc) {
-    return proveedor.Ruc;
-  }
-  return proveedor.Dni || '';
+  return numeroDocumentoProveedor(proveedor);
 }
 
 export function montoTotalLocacion(detalle: RequerimientoDetalle | any, proveedor: ProveedorFormularioRequerimiento | null): number {

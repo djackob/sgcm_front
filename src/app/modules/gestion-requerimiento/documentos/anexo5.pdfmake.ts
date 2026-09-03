@@ -2,7 +2,8 @@ import {
   PedidoRequerimiento,
   ProveedorFormularioRequerimiento,
   RequerimientoDetalle,
-  montoTotalProveedor
+  montoTotalProveedor,
+  nombreProveedor
 } from '../models/requerimiento.model';
 
 /**
@@ -198,10 +199,10 @@ function filaPropuesta(
   pedidoExtra: any,
   comunes: { area: string; denominacion: string; plazo: string }
 ): any[] {
-  const nombre = [proveedor.ApellidoPaterno, proveedor.ApellidoMaterno, proveedor.Nombres]
-    .filter(x => !!x)
-    .join(' ')
-    .trim();
+  /* Razón social si el proveedor es una empresa, apellidos y nombres si es
+     persona natural. Lo decide `nombreProveedor`; aquí componer los tres campos
+     dejaba el Anexo 5 sin nombre cuando el locador se identificaba por RUC. */
+  const nombre = nombreProveedor(proveedor);
   const mensual = Number(proveedor.MontoMensual);
   const total = montoTotalProveedor(proveedor);
   const nroPedido = proveedor.NumeroPedido

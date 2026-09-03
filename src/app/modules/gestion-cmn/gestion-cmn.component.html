@@ -56,13 +56,6 @@
         />
       </div>
 
-      <div class="cmn-filtros__campo cmn-filtros__campo--check">
-        <label class="cmn-check">
-          <input type="checkbox" [(ngModel)]="filtro.SoloMiBandeja" (change)="buscar()" />
-          <span>Solo mi bandeja</span>
-        </label>
-      </div>
-
       <div class="cmn-filtros__acciones">
         <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
           <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
@@ -188,12 +181,14 @@
 
                   <button
                     type="button"
-                    class="btn btn-app-primary btn-sm"
+                    class="btn-icon-outline btn-accion"
+                    [class.btn-accion--peligro]="esAccionDestructiva(transicion)"
                     *ngFor="let transicion of accionesDelPaquete(item)"
-                    [title]="'Pasa a: ' + transicion.EstadoDestino"
+                    [title]="tituloAccion(transicion)"
+                    [attr.aria-label]="transicion.NombreAccion"
                     (click)="pedirConfirmacion(item, transicion)"
                   >
-                    {{ transicion.NombreAccion }}
+                    <i class="mdi" [ngClass]="iconoAccion(transicion)" aria-hidden="true"></i>
                   </button>
 
                   <button
@@ -214,6 +209,7 @@
             <tr
               [class.fila-marcada]="estaSeleccionada(item)"
               [class.fila-miembro]="agrupaPaquete(item)"
+              [class.fila-pendiente]="item.MeToca"
             >
               <td class="td-check" *ngIf="haySeleccionables" data-column-name="Anexo 4">
                 <input
@@ -228,6 +224,12 @@
 
               <td data-column-name="Expediente">
                 <a href="javascript:void(0)" class="cell-link" (click)="verDetalle(item)">
+                  <span
+                    class="cmn-punto-pendiente"
+                    *ngIf="item.MeToca"
+                    title="Pendiente de atención por su perfil"
+                    aria-label="Pendiente de atención"
+                  ></span>
                   {{ item.Codigo }}
                 </a>
                 <span class="cell-subtitle">v{{ item.Version }} · {{ item.FechaSolicitud }}</span>
@@ -267,21 +269,25 @@
 
                   <button
                     type="button"
-                    class="btn btn-app-primary btn-sm"
+                    class="btn-icon-outline btn-accion"
                     *ngIf="puedeEditar(item)"
+                    title="Modificar Anexo 3"
+                    aria-label="Modificar Anexo 3"
                     (click)="editarSolicitud(item)"
                   >
-                    Modificar Anexo 3
+                    <i class="mdi mdi-pencil-outline" aria-hidden="true"></i>
                   </button>
 
                   <button
                     type="button"
-                    class="btn btn-app-primary btn-sm"
+                    class="btn-icon-outline btn-accion"
+                    [class.btn-accion--peligro]="esAccionDestructiva(transicion)"
                     *ngFor="let transicion of accionesVisiblesDe(item)"
-                    [title]="'Pasa a: ' + transicion.EstadoDestino"
+                    [title]="tituloAccion(transicion)"
+                    [attr.aria-label]="transicion.NombreAccion"
                     (click)="pedirConfirmacion(item, transicion)"
                   >
-                    {{ transicion.NombreAccion }}
+                    <i class="mdi" [ngClass]="iconoAccion(transicion)" aria-hidden="true"></i>
                   </button>
 
                   <button
@@ -511,20 +517,22 @@
           lista la arma la base a partir del árbol de perfiles y del padrón del
           SSO, y llega vacía cuando no hay nada que preguntar.
 
-          Es opcional. Sin elegir a nadie el expediente queda a nombre del
-          puesto, que es como funcionó siempre: la bandeja se resuelve por unidad
-          y rol, no por persona.
+          Es obligatorio. Antes admitía «sin asignar» y el expediente quedaba a
+          nombre del puesto, pero derivar es entregarle el trabajo a alguien: sin
+          destinatario nadie se da por aludido y el expediente se queda esperando
+          en una bandeja que todos ven y nadie atiende. Si el combo se muestra es
+          porque hay a quién elegir.
         -->
         <div class="campo" *ngIf="ofreceDestinatarios">
           <label class="campo-etiqueta" for="responsableDestino">
-            Derivar a (opcional)
+            Derivar a <span>(obligatorio)</span>
           </label>
           <select
             id="responsableDestino"
             class="campo-control"
             [(ngModel)]="responsableDestino"
           >
-            <option value="">Sin asignar — lo toma quien corresponda</option>
+            <option value="">Seleccione…</option>
             <optgroup *ngFor="let puesto of puestosDerivacion" [label]="puesto.Rol + ' · ' + puesto.Unidad">
               <option *ngFor="let persona of puesto.Personas" [value]="persona.IdUsuario">
                 {{ persona.NombreCompleto }}

@@ -303,9 +303,26 @@ export interface CentroCostoSiga {
 /** Datos del proveedor capturados en el registro (van en DatosAdicionales). */
 export interface ProveedorFormularioRequerimiento {
   TipoDocumento: 'DNI' | 'CE' | 'RUC';
+  /** DNI o carné de extranjería, según TipoDocumento. */
   Dni: string;
+  /**
+   * SIEMPRE se captura, sea cual sea el tipo de documento.
+   *
+   * No es un dato del formulario sino un requisito del flujo: F004 rechaza
+   * generar la orden de servicio en SIGA si `Proveedores[0].Ruc` viene vacío
+   * (`VALIDACION_PROVEEDOR`, error 51227), porque SIGA identifica al contratista
+   * por RUC y no por DNI. Por eso, cuando el tipo de documento es DNI o CE, la
+   * pantalla pide el RUC en un campo aparte.
+   */
   Ruc: string;
   TipoRegistro: 'NUEVO' | 'EXISTENTE';
+  /**
+   * Nombre de la persona jurídica. Sustituye a los tres campos de persona
+   * natural cuando el proveedor se identifica por RUC: una empresa no tiene
+   * apellidos, y partir su nombre produce disparates —«CONSTRUCTORA» como
+   * apellido paterno—. Es lo que devuelve SUNAT en `strnombres`.
+   */
+  RazonSocial: string;
   Nombres: string;
   ApellidoPaterno: string;
   ApellidoMaterno: string;
@@ -330,6 +347,7 @@ export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequ
     Dni: '',
     Ruc: '',
     TipoRegistro: 'NUEVO',
+    RazonSocial: '',
     Nombres: '',
     ApellidoPaterno: '',
     ApellidoMaterno: '',
@@ -346,6 +364,66 @@ export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequ
     CodDistrito: '',
     Distrito: ''
   };
+}
+
+/**
+ * Cómo se llama el proveedor, sea persona natural o jurídica.
+ *
+ * UN SOLO SITIO, y no cuatro. El Anexo 5, el Anexo 8, el filtro de idoneidad y
+ * el detalle del expediente componían cada uno su versión con
+ * `ApellidoPaterno + ApellidoMaterno + Nombres`. Con un proveedor identificado
+ * por RUC esos tres campos están vacíos y los cuatro habrían impreso una cadena
+ * en blanco donde va el nombre del contratista.
+ *
+ * Acepta `any` porque lo llaman tanto con el formulario como con el JSON que
+ * vuelve de `DatosAdicionales`, que no está tipado.
+ */
+export function nombreProveedor(proveedor: any): string {
+  if (!proveedor) {
+    return '';
+  }
+
+  /* Manda la razón social cuando existe. No se mira TipoDocumento: el RUC dejó
+     de ser un tipo de documento —tiene campo propio— y ese combo hoy solo dice
+     si la persona se identifica con DNI o con carné. Tener razón social es
+     justamente lo que significa «este proveedor es un contribuyente
+     consultado», y es la misma condición con la que la pantalla decide qué
+     campos mostrar. */
+  const razonSocial = String(proveedor.RazonSocial || '').trim();
+  if (razonSocial) {
+    return razonSocial;
+  }
+
+  /* Sin ella queda el nombre de persona natural, que además cubre lo registrado
+     antes de que este campo existiera. */
+  return nombrePersonaNatural(proveedor);
+}
+
+/** «PATERNO MATERNO NOMBRES», el orden en que lo piden los formatos. */
+function nombrePersonaNatural(proveedor: any): string {
+  return [proveedor.ApellidoPaterno, proveedor.ApellidoMaterno, proveedor.Nombres]
+    .map((x: any) => String(x || '').trim())
+    .filter((x: string) => !!x)
+    .join(' ')
+    .trim();
+}
+
+/**
+ * El documento con el que se identifica al proveedor.
+ *
+ * El DNI o carné manda, y el RUC queda de respaldo: una persona jurídica no
+ * tiene documento de identidad y solo trae RUC. El caso `TipoDocumento = 'RUC'`
+ * sigue contemplado porque hay requerimientos guardados con ese valor, de cuando
+ * el RUC era una opción del combo.
+ */
+export function numeroDocumentoProveedor(proveedor: any): string {
+  if (!proveedor) {
+    return '';
+  }
+  if (String(proveedor.TipoDocumento || '').toUpperCase() === 'RUC') {
+    return String(proveedor.Ruc || '').trim();
+  }
+  return String(proveedor.Dni || '').trim() || String(proveedor.Ruc || '').trim();
 }
 
 export function montoTotalProveedor(proveedor: ProveedorFormularioRequerimiento): number {

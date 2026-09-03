@@ -20,21 +20,26 @@
         class="campo-control"
         [name]="prefijo + '-tipoDoc'"
         [(ngModel)]="proveedor.TipoDocumento"
+        (ngModelChange)="onTipoDocumentoChange()"
       >
         <option *ngFor="let t of tiposDocumento" [value]="t.valor">{{ t.nombre }}</option>
       </select>
     </div>
 
+    <!-- Documento de identidad de la persona: DNI o carne de extranjeria. El
+         label y la longitud salen del tipo; solo el DNI tiene servicio detras. -->
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-dni'">DNI</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-numDoc'">
+        {{ etiquetaDocumento }}
+      </label>
       <div class="campo-con-boton">
         <input
-          [id]="prefijo + '-dni'"
+          [id]="prefijo + '-numDoc'"
           type="text"
           class="campo-control"
-          [name]="prefijo + '-dni'"
-          maxlength="8"
-          inputmode="numeric"
+          [name]="prefijo + '-numDoc'"
+          [attr.maxlength]="longitudDocumento"
+          [attr.inputmode]="esCarneExtranjeria ? 'text' : 'numeric'"
           [(ngModel)]="proveedor.Dni"
           (blur)="onDniChange()"
           (keyup.enter)="buscarPersonaReniec()"
@@ -42,6 +47,7 @@
         <button
           type="button"
           class="btn btn-app-secundario btn-sm"
+          *ngIf="!esCarneExtranjeria"
           title="Consultar RENIEC"
           [disabled]="buscandoPersona"
           (click)="buscarPersonaReniec()"
@@ -55,17 +61,39 @@
       </div>
     </div>
 
+    <!-- El RUC es campo propio y no una opcion del tipo de documento: SIGA
+         identifica al contratista por RUC y F004 rechaza emitir la orden de
+         servicio sin el (error 51227), asi que se pide siempre, sea el
+         proveedor persona natural o juridica. Consultarlo trae la razon social
+         y con ella la pantalla cambia de forma. -->
     <div class="campo">
       <label class="campo-etiqueta" [attr.for]="prefijo + '-ruc'">RUC</label>
-      <input
-        [id]="prefijo + '-ruc'"
-        type="text"
-        class="campo-control"
-        [name]="prefijo + '-ruc'"
-        maxlength="11"
-        inputmode="numeric"
-        [(ngModel)]="proveedor.Ruc"
-      />
+      <div class="campo-con-boton">
+        <input
+          [id]="prefijo + '-ruc'"
+          type="text"
+          class="campo-control"
+          [name]="prefijo + '-ruc'"
+          maxlength="11"
+          inputmode="numeric"
+          [(ngModel)]="proveedor.Ruc"
+          (blur)="onRucChange()"
+          (keyup.enter)="buscarEmpresaSunat()"
+        />
+        <button
+          type="button"
+          class="btn btn-app-secundario btn-sm"
+          title="Consultar SUNAT"
+          [disabled]="buscandoEmpresa"
+          (click)="buscarEmpresaSunat()"
+        >
+          <i
+            class="mdi"
+            [ngClass]="buscandoEmpresa ? 'mdi-loading mdi-spin' : 'mdi-magnify'"
+            aria-hidden="true"
+          ></i>
+        </button>
+      </div>
     </div>
 
     <div class="campo">
@@ -80,36 +108,55 @@
       </select>
     </div>
 
-    <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-nombres'">Nombres</label>
+    <!-- Razon social: aparece cuando la consulta a SUNAT devolvio un
+         contribuyente, y entonces reemplaza a los tres campos de persona
+         natural. SUNAT entrega el nombre en una sola cadena y una empresa no
+         tiene apellidos, asi que repartirlo en tres seria inventar. -->
+    <div class="campo req-grid__ancho" *ngIf="modoRazonSocial">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-razonSocial'">Razón social</label>
       <input
-        [id]="prefijo + '-nombres'"
+        [id]="prefijo + '-razonSocial'"
         type="text"
         class="campo-control"
-        [name]="prefijo + '-nombres'"
-        [(ngModel)]="proveedor.Nombres"
+        [name]="prefijo + '-razonSocial'"
+        maxlength="250"
+        [(ngModel)]="proveedor.RazonSocial"
       />
     </div>
-    <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-apePat'">Apellido Paterno</label>
-      <input
-        [id]="prefijo + '-apePat'"
-        type="text"
-        class="campo-control"
-        [name]="prefijo + '-apePat'"
-        [(ngModel)]="proveedor.ApellidoPaterno"
-      />
-    </div>
-    <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-apeMat'">Apellido Materno</label>
-      <input
-        [id]="prefijo + '-apeMat'"
-        type="text"
-        class="campo-control"
-        [name]="prefijo + '-apeMat'"
-        [(ngModel)]="proveedor.ApellidoMaterno"
-      />
-    </div>
+
+    <!-- Persona natural: los tres campos, tal como los devuelve RENIEC. -->
+    <ng-container *ngIf="!modoRazonSocial">
+      <div class="campo">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-nombres'">Nombres</label>
+        <input
+          [id]="prefijo + '-nombres'"
+          type="text"
+          class="campo-control"
+          [name]="prefijo + '-nombres'"
+          [(ngModel)]="proveedor.Nombres"
+        />
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-apePat'">Apellido Paterno</label>
+        <input
+          [id]="prefijo + '-apePat'"
+          type="text"
+          class="campo-control"
+          [name]="prefijo + '-apePat'"
+          [(ngModel)]="proveedor.ApellidoPaterno"
+        />
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-apeMat'">Apellido Materno</label>
+        <input
+          [id]="prefijo + '-apeMat'"
+          type="text"
+          class="campo-control"
+          [name]="prefijo + '-apeMat'"
+          [(ngModel)]="proveedor.ApellidoMaterno"
+        />
+      </div>
+    </ng-container>
 
     <div class="campo req-grid__ancho">
       <label class="campo-etiqueta" [attr.for]="prefijo + '-direccion'">Dirección</label>
