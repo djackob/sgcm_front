@@ -11,6 +11,7 @@ import { ModalDetalleComponent } from './modals/modal-detalle/modal-detalle.comp
 import { CmnService } from './services/cmn.service';
 import { SessionService } from '../../core/services/session.service';
 import { DocumentoService } from '../../core/services/documento.service';
+import { FirmaDigitalService } from '../../core/services/firma-digital.service';
 import { Funciones } from '../../shared/funciones/funciones';
 import {
   ExpedienteLoteCmn,
@@ -243,6 +244,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     private cmnService: CmnService,
     private sesion: SessionService,
     private documentoService: DocumentoService,
+    private firmaDigital: FirmaDigitalService,
     private maestraService: MaestraService,
     private funciones: Funciones,
     private sanitizer: DomSanitizer
@@ -1539,6 +1541,18 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     descripcionDocumentoFirma = '',
     nombreSistema = 'SCM'
   ): void {
+    /* Equipo sin el dispositivo de firma (firma.omitir_dispositivo en
+       config.json): no se abre el firmador y se sigue con el PDF sin firmar.
+       La firma igual queda registrada por sigcm.paFirmarDocumento al confirmar,
+       que anota quién firmó y no valida contra ONPE. */
+    if (this.firmaDigital.omitirDispositivo) {
+      this.documentoSistemaParaFirmar = documentoSistema;
+      this.nombreDocumentoFirmado = documentoSistema;
+      this.funciones.mensaje('success', 'Confirme la acción para registrar la firma.');
+      this.mostrarPdfFirmado(documentoSistema);
+      return;
+    }
+
     const firma = ConfigService.settings?.firma;
     if (!firma?.ruta_iframe || !firma.ruta_archivo) {
       this.funciones.mensaje(

@@ -18,6 +18,7 @@ import { ModalRespuestaLocadorComponent } from './modals/modal-respuesta-locador
 import { RequerimientoService } from './services/requerimiento.service';
 import { SessionService } from '../../core/services/session.service';
 import { DocumentoService } from '../../core/services/documento.service';
+import { FirmaDigitalService } from '../../core/services/firma-digital.service';
 import { MaestraService } from '../../shared/services/maestra.service';
 import { ConfigService } from '../../core/services/config.service';
 import { Funciones } from '../../shared/funciones/funciones';
@@ -179,6 +180,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     private requerimientoService: RequerimientoService,
     private sesion: SessionService,
     private documentoService: DocumentoService,
+    private firmaDigital: FirmaDigitalService,
     private maestraService: MaestraService,
     private funciones: Funciones,
     private sanitizer: DomSanitizer
@@ -1791,6 +1793,15 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     descripcionDocumentoFirma = '',
     nombreSistema = 'SCM'
   ): void {
+    /* Equipo sin el dispositivo de firma (firma.omitir_dispositivo en
+       config.json): no se abre el firmador y se sigue con el PDF sin firmar.
+       sigcm.paFirmarDocumento igual registra quién firmó; no valida contra ONPE. */
+    if (this.firmaDigital.omitirDispositivo) {
+      this.documentoSistemaParaFirmar = documentoSistema;
+      this.alCompletarFirmaDigital(idDocumentoSistema(documentoSistema) || documentoSistema);
+      return;
+    }
+
     const firma = ConfigService.settings?.firma;
     if (!firma?.ruta_iframe || !firma.ruta_archivo) {
       this.funciones.mensaje(

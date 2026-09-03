@@ -2,12 +2,13 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { PagoService } from './services/pago.service';
 import { SessionService } from '../../core/services/session.service';
 import { DocumentoService } from '../../core/services/documento.service';
+import { FirmaDigitalService } from '../../core/services/firma-digital.service';
 import { MaestraService } from '../../shared/services/maestra.service';
 import { Funciones } from '../../shared/funciones/funciones';
 import { idDocumentoSistema } from '../../shared/funciones/archivo';
@@ -78,6 +79,7 @@ export class GestionPagoComponent implements OnInit {
     private pago: PagoService,
     private sesion: SessionService,
     private documentos: DocumentoService,
+    private firma: FirmaDigitalService,
     private maestra: MaestraService,
     private funciones: Funciones
   ) { }
@@ -342,6 +344,15 @@ export class GestionPagoComponent implements OnInit {
     });
   }
 
+  /**
+   * Igual que en CMN y Requerimiento: se genera el Anexo 11, se sube, se abre
+   * el firmador y recién con el PDF firmado se registra la firma y se mueve el
+   * expediente. `GeneradoDocumento` reemplaza en DocumentoVersion el PDF sin
+   * firma por el que devolvió sfirma.
+   *
+   * Si el usuario cancela la ventana de firma, la secuencia termina sin emitir
+   * y el expediente se queda donde estaba.
+   */
   private firmarAnexo11(): void {
     if (!this.seleccionado) {
       return;
@@ -349,17 +360,37 @@ export class GestionPagoComponent implements OnInit {
     this.ejecutando = true;
     const det = this.seleccionado;
     const nombre = nombreArchivoAnexo11(det);
+    let firmado = false;
     this.documentos.generarPdf(construirAnexo11(det)).then(blob => {
       const archivo = new File([blob], nombre, { type: 'application/pdf' });
       this.documentos.subirArchivo(archivo, CARPETA_PAGO).pipe(
         switchMap((sub: any) => this.pago.registrarDocumento(
           det.IdExpediente, TIPO_ANEXO_11, sub.documento_sistema, nombre, det
-        )),
-        switchMap(() => this.pago.firmarDocumento(det.IdExpediente, TIPO_ANEXO_11)),
+        ).pipe(map(() => String(sub.documento_sistema)))),
+        switchMap((documentoSistema: string) => this.firma.abrir({
+          documentoSistema: idDocumentoSistema(documentoSistema) || documentoSistema,
+          subcarpeta: CARPETA_PAGO,
+          descripcion: 'Acta de Conformidad (Anexo 11)'
+        })),
+        switchMap((idFirmado: string) => {
+          firmado = true;
+          return this.pago.firmarDocumento(det.IdExpediente, TIPO_ANEXO_11,
+            { GeneradoDocumento: idFirmado });
+        }),
         switchMap(() => this.pago.marcarConformidadFirmada(det.IdExpediente, det.Version))
       ).subscribe({
         next: (r: any) => this.terminar(r),
-        error: () => this.fallar()
+        error: (e: any) => {
+          this.ejecutando = false;
+          this.funciones.mensaje('error',
+            typeof e === 'string' ? e : 'No fue posible comunicarse con el servicio.');
+        },
+        complete: () => {
+          if (!firmado) {
+            this.ejecutando = false;
+            this.funciones.mensaje('info', 'Proceso de firma digital cancelado.');
+          }
+        }
       });
     }).catch(() => this.fallar());
   }
