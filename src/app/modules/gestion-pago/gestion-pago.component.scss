@@ -136,3 +136,21 @@
 
 /* .pago-acciones se retiro: las acciones pasaron al pie del modal, que ya trae
    su disposicion de _modals.scss. */
+
+/* Marco del visor del Anexo 11. Mismo tamaño y trato que el de Requerimiento:
+   el PDF se lee dentro del modal, no se descarga para mirarlo. */
+.pago-pdf-marco {
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e2e8f0;
+
+  iframe {
+    display: block;
+    width: 100%;
+    height: min(72vh, 740px);
+    border: 0;
+    background: #e2e8f0;
+  }
+}

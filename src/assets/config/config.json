@@ -19,7 +19,7 @@
     "ruta_carpeta": "DESARROLLO/cmn",
     "ruta_respuesta": "",
     "ruta_archivo": "https://vasg.anin.gob.pe/",
-    "omitir_dispositivo": false
+    "omitir_dispositivo": true
   },
 
   "MAX_SIZE_UPLOAD": 1073741824

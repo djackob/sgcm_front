@@ -22,6 +22,11 @@ export class PagoService {
     return this.api.GET('api/pago/listarPortalLocador', {});
   }
 
+  /** Estado real de la O/S en SIGA: emitida, comprometida en SIAF y su expediente. */
+  sincronizarOrdenSiga(idExpediente: string): Observable<any> {
+    return this.api.GET('api/pago/sincronizarOrdenSiga', { IdExpediente: idExpediente });
+  }
+
   presentarEntregable(payload: any): Observable<any> {
     return this.api.POST('api/pago/presentarEntregable', payload);
   }
@@ -80,6 +85,14 @@ export class PagoService {
       Version: version,
       Comentario: comentario
     });
+  }
+
+  listarDocumento(idExpediente: string): Observable<any> {
+    return this.api.GET('api/sigcm/listarDocumento', { IdExpediente: idExpediente });
+  }
+
+  obtenerTrazabilidad(idExpediente: string): Observable<any> {
+    return this.api.GET('api/sigcm/obtenerTrazabilidad', { IdExpediente: idExpediente });
   }
 
   registrarDocumento(idExpediente: string, codigoTipoDocumento: string,
