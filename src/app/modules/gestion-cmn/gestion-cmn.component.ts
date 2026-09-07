@@ -102,6 +102,7 @@ const ICONO_ACCION: { [codigoTransicion: string]: string } = {
   /* Derivaciones: siempre la misma flecha, el title dice a quién */
   CMN_OA_DERIVAR:            'mdi-arrow-right-circle-outline',
   CMN_ABAST_JEFE_DERIVAR:    'mdi-arrow-right-circle-outline',
+  CMN_ABAST_JEFE_OBSERVAR:   'mdi-alert-outline',
   CMN_ABAST_COORD_DERIVAR:   'mdi-arrow-right-circle-outline',
   CMN_OBS_COORD_DERIVAR:     'mdi-arrow-right-circle-outline',
   CMN_OBS_AU_JEFE_DERIVAR:   'mdi-arrow-right-circle-outline',
@@ -1079,7 +1080,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     }
 
     const archivo = idDocumentoSistema(
-      this.documentoSistemaParaFirmar
+      this.nombreDocumentoFirmado
+      || this.documentoSistemaParaFirmar
       || (this.muestraPdfAnexo4
         ? solicitud.DocumentoSistemaAnexo4
         : solicitud.DocumentoSistemaAnexo3)
@@ -1402,11 +1404,11 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
    * Avisa por correo a cada área usuaria que su modificación ya se hizo.
    *
    * Va después de la transición y NO la condiciona: para cuando esto corre, el
-   * expediente ya está en la bandeja del área usuaria y la aprobación en SIGA ya
-   * ocurrió. Si el SMTP institucional no responde, lo que falta es el aviso, no
-   * el trámite, y decirlo como un error haría pensar que la firma no se
-   * registró. Por eso el fallo se informa como advertencia y la constancia queda
-   * en `cmn.NotificacionAnexo4` para reintentar.
+   * expediente ya quedó finalizado y la aprobación en SIGA ya se encoló. Si el
+   * SMTP institucional no responde, lo que falta es el aviso, no el trámite, y
+   * decirlo como un error haría pensar que la firma no se registró. Por eso el
+   * fallo se informa como advertencia y la constancia queda en
+   * `cmn.NotificacionAnexo4` para reintentar.
    */
   private avisarAnexo4(idsSolicitud: string[]): void {
     if (idsSolicitud.length === 0) {
@@ -1428,10 +1430,10 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
           return;
         }
         this.funciones.mensaje('info',
-          `El Anexo 4 quedó en la bandeja del área usuaria, pero ${fallidos} de ${idsSolicitud.length} correo(s) no salieron. Puede reintentar el aviso.`);
+          `El Anexo 4 quedó firmado y el expediente finalizado, pero ${fallidos} de ${idsSolicitud.length} correo(s) no salieron. Puede reintentar el aviso.`);
       },
       error: () => this.funciones.mensaje('info',
-        'El Anexo 4 quedó en la bandeja del área usuaria, pero no fue posible enviar el aviso por correo.')
+        'El Anexo 4 quedó firmado y el expediente finalizado, pero no fue posible enviar el aviso por correo.')
     });
   }
 
@@ -1471,16 +1473,71 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     }
 
     if (rpta.estado == 1) {
-      this.nombreDocumentoFirmado = rpta.documento_sistema;
-      this.funciones.mensaje(
-        'success',
-        'La firma digital se completó. Confirme la acción para registrar el documento firmado.'
-      );
-      this.mostrarPdfFirmado(rpta.documento_sistema);
+      const idFirmado = idDocumentoSistema(rpta.documento_sistema) || String(rpta.documento_sistema || '');
+      if (!idFirmado) {
+        this.funciones.mensaje('error', 'sfirma no devolvió el identificador del PDF firmado.');
+        return;
+      }
+      this.cerrarPopupFirma();
+      this.alCompletarFirmaDigital(idFirmado);
       return;
     }
 
     this.funciones.mensaje('info', 'Proceso de firma digital cancelado.');
+  }
+
+  /**
+   * Cada sello de sfirma produce un PDF nuevo. Se anota de inmediato en
+   * DocumentoVersion para que el siguiente sello parta del archivo ya firmado
+   * y para que, si el usuario cierra el panel, el servidor conserve el último.
+   */
+  private alCompletarFirmaDigital(idFirmado: string): void {
+    const solicitud = this.accionEnCurso?.solicitud;
+    const transicion = this.accionEnCurso?.transicion;
+    const tipo = transicion?.DocumentoRequerido
+      || (this.muestraPdfAnexo4 ? TIPO_ANEXO_4 : TIPO_ANEXO_3);
+
+    this.nombreDocumentoFirmado = idFirmado;
+    this.documentoSistemaParaFirmar = idFirmado;
+
+    if (!solicitud || !tipo) {
+      this.mostrarPdfFirmado(idFirmado);
+      return;
+    }
+
+    this.paso = 'Registrando el PDF firmado en el servidor…';
+    this.cmnService.firmarDocumento(
+      solicitud.IdExpediente,
+      tipo,
+      { GeneradoDocumento: idFirmado }
+    ).subscribe({
+      next: (respuesta: any) => {
+        this.paso = '';
+        const ok = respuesta?.estado === 1 || respuesta?.codigo === 51616;
+        if (ok) {
+          this.actualizarDocumentoSistemaEnMemoria(solicitud, tipo, idFirmado);
+          this.funciones.mensaje(
+            'success',
+            'El PDF firmado quedó en el servidor. Puede firmar de nuevo o confirmar la acción.'
+          );
+        } else {
+          this.funciones.mensaje(
+            'info',
+            respuesta?.mensaje
+              || 'El PDF firmado quedó en el file server, pero no se ligó al expediente. Confirme la acción para reintentar.'
+          );
+        }
+        this.mostrarPdfFirmado(idFirmado);
+      },
+      error: () => {
+        this.paso = '';
+        this.funciones.mensaje(
+          'info',
+          'El PDF firmado quedó en el file server, pero no se ligó al expediente. Confirme la acción para reintentar.'
+        );
+        this.mostrarPdfFirmado(idFirmado);
+      }
+    });
   }
 
   private origenNormalizado(valor: string | undefined | null): string {
@@ -1547,9 +1604,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
        que anota quién firmó y no valida contra ONPE. */
     if (this.firmaDigital.omitirDispositivo) {
       this.documentoSistemaParaFirmar = documentoSistema;
-      this.nombreDocumentoFirmado = documentoSistema;
-      this.funciones.mensaje('success', 'Confirme la acción para registrar la firma.');
-      this.mostrarPdfFirmado(documentoSistema);
+      this.alCompletarFirmaDigital(idDocumentoSistema(documentoSistema) || documentoSistema);
       return;
     }
 
@@ -1563,12 +1618,10 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     }
 
     if (this.popupFirma && !this.popupFirma.closed) {
-      this.popupFirma.focus();
-      return;
+      this.cerrarPopupFirma();
     }
 
     this.documentoSistemaParaFirmar = documentoSistema;
-    this.nombreDocumentoFirmado = '';
 
     const origenApp = window.location.origin.replace(/\/+$/, '');
     const rutaRespuesta =

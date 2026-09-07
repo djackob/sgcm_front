@@ -10,6 +10,7 @@ import { SessionService } from './session.service';
   providedIn: 'root'
 })
 export class SsoLoginService {
+  private redirigiendoLogin = false;
 
   constructor(
     private http: HttpClient,
@@ -70,13 +71,13 @@ export class SsoLoginService {
   loginOut(): Observable<any> {
     if (this.esSesionLocal()) {
       return this.apiService.GET('api/acceso/loginOut').pipe(
-        // Si el backend no responde, igual hay que poder salir: se devuelve la
-        // ruta de ingreso local y el navegador limpia la sesión.
-        catchError(() => of({ estado: 'OK', mensaje: '/acceso-local' }))
+        catchError(() => of({ estado: 'OK', mensaje: this.urlLoginLocal() }))
       );
     }
 
-    return this.apiService.GET('api/token/LoginOut');
+    return this.apiService.GET('api/token/LoginOut').pipe(
+      catchError(() => of({ estado: 'OK', mensaje: this.urlLoginSso() }))
+    );
   }
 
   iniciarSesionSsoExterno(token: string): Observable<any> {
@@ -93,8 +94,42 @@ export class SsoLoginService {
     return this.http.post(ConfigService.settings.apiUrl + 'api/Token/tksistemaexterno', body, httpOptions);
   }
 
+  /** Portal SSO del ambiente (config.json → ssoLoginUrl). */
+  urlLoginSso(): string {
+    return (ConfigService.settings?.ssoLoginUrl || '').trim()
+      || 'https://dsso.anin.gob.pe/login';
+  }
+
+  urlLoginLocal(): string {
+    return (ConfigService.settings?.accesoLocalUrl || '').trim() || '/acceso-local';
+  }
+
+  /**
+   * Token vencido o sesión inválida: sin mensaje, limpia el navegador y va al
+   * login del ambiente (SSO o ingreso local según el origen de la sesión).
+   */
+  redirigirLoginPorExpiracion(): void {
+    if (this.redirigiendoLogin) {
+      return;
+    }
+    this.redirigiendoLogin = true;
+    const local = this.esSesionLocal();
+    sessionStorage.clear();
+    window.location.href = local ? this.urlLoginLocal() : this.urlLoginSso();
+  }
+
+  /** /sso-acceso sin token del portal: va directo al login SSO del ambiente. */
+  redirigirLoginSso(): void {
+    if (this.redirigiendoLogin) {
+      return;
+    }
+    this.redirigiendoLogin = true;
+    sessionStorage.clear();
+    window.location.href = this.urlLoginSso();
+  }
+
   /** La sesión local la marca sigcm.paObtenerSesion con origen = 'LOCAL'. */
-  private esSesionLocal(): boolean {
+  esSesionLocal(): boolean {
     return this.sesion.getInfoUsuario()?.origen === 'LOCAL';
   }
 }

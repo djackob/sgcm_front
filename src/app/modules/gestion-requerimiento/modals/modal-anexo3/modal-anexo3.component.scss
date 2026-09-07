@@ -97,6 +97,30 @@
   line-height: 1.4;
 }
 
+.req-campo-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #b91c1c;
+}
+
+.tdr-label-fijo {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.campo-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+}
+
 .req-check {
   display: inline-flex;
   align-items: center;
@@ -136,6 +160,12 @@
   gap: 0.5rem;
   margin-bottom: 0.65rem;
 
+  & + & {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed #e2e8f0;
+  }
+
   &__nro {
     flex: 0 0 1.6rem;
     margin-top: 0.55rem;
@@ -161,7 +191,7 @@
 
 .tdr-acordeones {
   display: block;
-  margin-top: 0;
+  margin-top: 0.25rem;
 
   accordion-group + accordion-group {
     margin-top: 0.75rem;

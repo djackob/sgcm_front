@@ -49,10 +49,8 @@
           </button>
         </div>
 
-        <p class="req-alerta" *ngIf="esLocacion && excedeTope">
-          El cálculo monto mensual × entregables (S/ {{ montoProveedorTotal | number: '1.2-2' }})
-          supera el tope de ocho UIT (S/ {{ montoTope | number: '1.2-2' }}).
-          No se puede continuar el flujo de contratos menores.
+        <p class="req-campo-error" *ngIf="errorGuardadoVisible && !esErrorMontoUit(errorGuardadoVisible)">
+          {{ errorGuardadoVisible }}
         </p>
 
         <accordion
@@ -87,16 +85,20 @@
               </div>
 
               <div class="campo campo--corto">
-                <label class="campo-etiqueta" for="anoEje">Año</label>
+                <label class="campo-etiqueta" for="anoEje">
+                  Año<span class="campo-req" aria-hidden="true">*</span>
+                </label>
                 <input
                   id="anoEje"
                   type="number"
                   class="campo-control"
+                  [class.campo-control--invalido]="!!errorCampo['anoEje']"
                   name="anoEje"
                   [(ngModel)]="anoEje"
-                  (ngModelChange)="cargarPedidosSiga()"
+                  (ngModelChange)="cargarPedidosSiga(); limpiarErrorCampo('anoEje')"
                   [readonly]="modoEdicion"
                 />
+                <p class="req-campo-error" *ngIf="errorCampo['anoEje']">{{ errorCampo['anoEje'] }}</p>
               </div>
 
               <div class="campo req-grid__ancho">
@@ -112,38 +114,29 @@
                 />
               </div>
 
-              <div class="campo req-grid__ancho">
-                <label class="campo-etiqueta" for="denominacion">Denominación de la contratación</label>
-                <textarea
-                  id="denominacion"
-                  class="campo-control"
-                  name="denominacion"
-                  rows="3"
-                  maxlength="500"
-                  [(ngModel)]="denominacion"
-                ></textarea>
-              </div>
-
               <div class="campo campo--corto">
-                <label class="campo-etiqueta" for="plazo">Plazo (días calendario)</label>
+                <label class="campo-etiqueta" for="plazo">
+                  Plazo (días calendario)<span class="campo-req" aria-hidden="true">*</span>
+                </label>
                 <input
                   id="plazo"
                   type="number"
                   min="1"
                   class="campo-control"
+                  [class.campo-control--invalido]="!!errorCampo['plazo']"
                   name="plazo"
                   [(ngModel)]="plazoDias"
+                  (ngModelChange)="limpiarErrorCampo('plazo')"
                 />
+                <p class="req-campo-error" *ngIf="errorCampo['plazo']">{{ errorCampo['plazo'] }}</p>
               </div>
             </div>
 
             <div class="req-bloque">
               <div class="req-bloque__cabecera">
-                <h4 class="req-bloque__titulo">Pedidos</h4>
-                <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarPedido(); $event.stopPropagation()">
-                  <i class="mdi mdi-plus" aria-hidden="true"></i>
-                  Pedidos +
-                </button>
+                <h4 class="req-bloque__titulo">
+                  Pedidos<span class="campo-req" aria-hidden="true">*</span>
+                </h4>
               </div>
 
               <app-form-pedido
@@ -161,6 +154,30 @@
                 (quitar)="quitarPedido(i)"
                 (pedidoSeleccionado)="alSeleccionarPedidoSiga($event)"
               />
+
+              <div class="req-bloque__acciones">
+                <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarPedido(); $event.stopPropagation()">
+                  <i class="mdi mdi-plus" aria-hidden="true"></i>
+                  Pedidos +
+                </button>
+              </div>
+
+              <div class="campo req-grid__ancho req-bloque__denominacion">
+                <label class="campo-etiqueta" for="denominacion">
+                  Denominación de la contratación<span class="campo-req" aria-hidden="true">*</span>
+                </label>
+                <textarea
+                  id="denominacion"
+                  class="campo-control"
+                  [class.campo-control--invalido]="!!errorCampo['denominacion']"
+                  name="denominacion"
+                  rows="3"
+                  maxlength="500"
+                  [(ngModel)]="denominacion"
+                  (ngModelChange)="limpiarErrorCampo('denominacion')"
+                ></textarea>
+                <p class="req-campo-error" *ngIf="errorCampo['denominacion']">{{ errorCampo['denominacion'] }}</p>
+              </div>
             </div>
           </accordion-group>
 
@@ -177,10 +194,6 @@
             <div class="req-bloque req-bloque--sin-borde">
               <div class="req-bloque__cabecera">
                 <span class="req-bloque__ayuda">Puede registrar uno o varios proveedores.</span>
-                <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarProveedor(); $event.stopPropagation()">
-                  <i class="mdi mdi-plus" aria-hidden="true"></i>
-                  Agregar proveedor +
-                </button>
               </div>
 
               <app-form-proveedor
@@ -190,8 +203,19 @@
                 [total]="proveedores.length"
                 [puedeQuitar]="proveedores.length > 1"
                 [pedidos]="pedidos"
+                [montoTope]="esLocacion ? montoTope : null"
+                [montoTotalLocacion]="montoProveedorTotal"
+                [avisoMontoExterno]="i === 0 ? avisoMontoCampo : null"
                 (quitar)="quitarProveedor(i)"
+                (montoCambiado)="onMontoProveedorCambiado()"
               />
+
+              <div class="req-bloque__acciones">
+                <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarProveedor(); $event.stopPropagation()">
+                  <i class="mdi mdi-plus" aria-hidden="true"></i>
+                  Agregar proveedor +
+                </button>
+              </div>
             </div>
           </accordion-group>
 
@@ -207,6 +231,7 @@
             [embebido]="true"
             [idParaAbrir]="pestanaTrabajo === 'anexo3' ? idRequerimientoEdicion : null"
             (registrado)="alRegistrarTdr()"
+            (completado)="alCompletarTdr($event)"
           />
         </div>
       </div>
@@ -214,8 +239,8 @@
       <div class="modal-footer" *ngIf="pestanaTrabajo === 'anexo5'">
         <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cerrar</button>
         <span class="req-monto" [class.req-monto--excede]="excedeTope" *ngIf="montoTope != null">
-          Total S/ {{ montoTotal | number: '1.2-2' }}
-          · tope 8 UIT S/ {{ montoTope | number: '1.2-2' }}
+          Total S/ {{ montoTotal | number: '1.2-2':'en-US' }}
+          · tope 8 UIT S/ {{ montoTope | number: '1.2-2':'en-US' }}
         </span>
         <button
           type="button"

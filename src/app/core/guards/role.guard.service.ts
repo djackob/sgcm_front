@@ -14,14 +14,7 @@ export class RoleGuardService {
     if (this.sesion.getUsuario().id_usuario != null && this.sesion.getUsuario().id_usuario != undefined) {
       // sesión válida
     } else {
-      this.ssoService.loginOut().subscribe(
-        data => {
-          if (data.estado == 'OK') {
-            sessionStorage.clear();
-            window.location.href = data.mensaje;
-          }
-        }
-      );
+      this.ssoService.redirigirLoginPorExpiracion();
       return false;
     }
     return true;

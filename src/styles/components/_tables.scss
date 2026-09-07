@@ -159,8 +159,9 @@ table td,
   white-space: nowrap;
   //display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 6px;
+  text-align: left;
 }
 
 .table .td-texto {

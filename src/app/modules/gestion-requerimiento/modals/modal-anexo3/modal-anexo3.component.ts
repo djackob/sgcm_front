@@ -22,13 +22,13 @@ import {
   CONFORMIDAD_FIJA,
   FINALIDAD_COMPLEMENTO,
   FORMA_PAGO_DOCUMENTOS,
+  INTRO_ACTIVIDADES,
   INTRO_ENTREGABLES,
   JUSTIFICACION_COMPLEMENTO,
   MARCO_LEGAL,
   MESA_PARTES,
   OBSERVACION_ENTREGABLES,
   OTRAS_CONSIDERACIONES,
-  PENALIDAD_MORA,
   PLAZO_NOTA,
   RECURSOS_PROVEEDOR,
   RESOLUCION_CONTRACTUAL,
@@ -36,6 +36,9 @@ import {
   TdrLocacion,
   ajustarEntregables,
   crearTdrLocacion,
+  diasAcumuladosEntregable,
+  plazoEntregables,
+  recalcularNombresEntregables,
   textoFormaPago,
   validarActividadesTdr,
   validarEntregablesTdr
@@ -48,6 +51,7 @@ import {
   pedidosDesdeDetalle
 } from '../../documentos/anexo3.pdfmake';
 import { proveedoresDelRequerimiento } from '../../documentos/anexo5.pdfmake';
+import { combinarTdr, leerTdrDesdePayload } from '../../documentos/orden-servicio.util';
 
 /**
  * TDR de locación (Anexo 3). Se abre después de registrar el Anexo 5.
@@ -79,9 +83,9 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   readonly marcoLegal = MARCO_LEGAL;
   readonly finalidadComplemento = FINALIDAD_COMPLEMENTO;
   readonly justificacionComplemento = JUSTIFICACION_COMPLEMENTO;
+  readonly introActividades = INTRO_ACTIVIDADES;
   readonly introEntregables = INTRO_ENTREGABLES;
   readonly observacionEntregables = OBSERVACION_ENTREGABLES;
-  readonly penalidadMora = PENALIDAD_MORA;
   readonly otrasConsideraciones = OTRAS_CONSIDERACIONES;
   readonly resolucionContractual = RESOLUCION_CONTRACTUAL;
   readonly solucionControversias = SOLUCION_CONTROVERSIAS;
@@ -102,7 +106,7 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   acordeonConformidad = false;
   acordeonFormaPago = false;
   acordeonLugar = false;
-  acordeonPenalidades = false;
+  acordeonOtrasPenalidades = false;
   acordeonOtras = false;
   acordeonResolucion = false;
   acordeonControversias = false;
@@ -144,23 +148,39 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   }
 
   get textoRequisitos(): string {
-    return [
+    const lineas = [
       '7.1.1. Registro Nacional de Proveedores vigente.',
       '7.1.2. No contar con impedimento para contratar con el Estado, según el artículo 30 de la Ley General de Contrataciones Públicas.',
       `7.1.3. Grado de instrucción: ${this.tdr.PerfilProveedor || ''}`,
       `7.1.4. Capacitación requerida: ${this.tdr.Capacitacion || ''}`,
-      `7.1.5. Experiencia general mínima: ${this.tdr.ExperienciaGeneral || ''}`,
-      `7.1.6. Experiencia específica mínima: ${this.tdr.ExperienciaEspecifica || ''}`,
-      '',
-      ACREDITACION_ESTUDIOS,
-      '',
-      '7.2. Recursos a ser provistos por el/la proveedora',
-      RECURSOS_PROVEEDOR
-    ].join('\n');
+      `7.1.5. Experiencia general mínima: ${this.tdr.ExperienciaGeneral || ''}`
+    ];
+    if (this.tdr.ExigeExperienciaEspecifica) {
+      lineas.push(`7.1.6. Experiencia específica mínima: ${this.tdr.ExperienciaEspecifica || ''}`);
+    }
+    lineas.push('', ACREDITACION_ESTUDIOS, '', '7.2. Recursos a ser provistos por el/la proveedora', RECURSOS_PROVEEDOR);
+    return lineas.join('\n');
   }
 
   get textoConformidad(): string {
-    return CONFORMIDAD_FIJA;
+    const base = CONFORMIDAD_FIJA;
+    if (!this.tdr.ExigeInformePrevio) {
+      return base;
+    }
+    const quien = (this.tdr.UnidadInforme || '').trim() || '[indicar área o especialista]';
+    return `${base}\n\nPrevio a la emisión de la conformidad, se requiere informe técnico / visto bueno de: ${quien}.`;
+  }
+
+  onExigeExperienciaEspecifica(): void {
+    if (!this.tdr.ExigeExperienciaEspecifica) {
+      this.tdr.ExperienciaEspecifica = '';
+    }
+  }
+
+  onExigeInformePrevio(): void {
+    if (!this.tdr.ExigeInformePrevio) {
+      this.tdr.UnidadInforme = '';
+    }
   }
 
   get textoFormaPagoVista(): string {
@@ -210,24 +230,29 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
           this.pedidos = [vacio];
         }
 
-        this.tdr = crearTdrLocacion({
-          plazoDias: detalle.PlazoDias,
-          unidad: detalle.CentroCostoNombre
-        });
-
         this.requerimientoService.listarDocumento(detalle.IdExpediente).subscribe({
           next: (docs: any) => {
-            const tdrDoc = (docs?.Documentos || [])
-              .find((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_3);
-            const previo = this.leerTdr(tdrDoc?.Payload);
-            if (previo) {
-              this.tdr = { ...this.tdr, ...previo, Entregables: previo.Entregables?.length ? previo.Entregables : this.tdr.Entregables };
-              this.tdr.Capacitacion = this.tdr.Capacitacion || '';
+            const lista = this.listaDocumentos(docs);
+            const tdrDoc = lista.find((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_3);
+            const previo = leerTdrDesdePayload(tdrDoc?.Payload);
+            /* combinarTdr conserva Actividades y Entregables del Payload; el
+               merge suelto solo cuidaba Entregables y las actividades
+               guardadas no reaparecian al reeditar. */
+            this.tdr = combinarTdr(detalle, previo);
+            this.tdr.Capacitacion = this.tdr.Capacitacion || '';
+            if (this.tdr.ExigeExperienciaEspecifica == null) {
+              this.tdr.ExigeExperienciaEspecifica = !!(this.tdr.ExperienciaEspecifica || '').trim();
             }
+            if (this.tdr.ExigeInformePrevio == null) {
+              this.tdr.ExigeInformePrevio = !!(this.tdr.UnidadInforme || '').trim();
+            }
+            this.tdr.UnidadConformidad = (detalle.CentroCostoNombre || this.tdr.UnidadConformidad || '').trim();
+            this.tdr.Actividades = [...(this.tdr.Actividades || [])];
             this.sincronizarEntregablesConAnexo5();
             this.cargando = false;
           },
           error: () => {
+            this.tdr = combinarTdr(detalle, null);
             this.sincronizarEntregablesConAnexo5();
             this.cargando = false;
           }
@@ -276,6 +301,71 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
     }
   }
 
+  /**
+   * Días Calendario = día límite acumulativo (30, 50, 120…), no tramo a sumar.
+   * Al editar uno intermedio, el último se fija al plazo del Anexo 5.
+   */
+  onDiasEntregable(indice: number): void {
+    const filas = this.tdr.Entregables || [];
+    const n = filas.length;
+    if (!n || indice < 0 || indice >= n) {
+      return;
+    }
+
+    const dia = Math.floor(Number(filas[indice].Dias) || 0);
+    filas[indice].Dias = dia > 0 ? dia : 1;
+
+    const plazo = this.plazoContrato;
+    if (plazo > 0 && n === 1) {
+      filas[0].Dias = plazo;
+    } else if (plazo > 0 && n > 1 && indice < n - 1) {
+      filas[n - 1].Dias = plazo;
+    }
+
+    recalcularNombresEntregables(this.tdr);
+    this.tdr.Entregables = filas.slice();
+    this.errorCampo['entregables'] = null;
+  }
+
+  diasAcumulados(indice: number): number {
+    return diasAcumuladosEntregable(this.tdr, indice);
+  }
+
+  get sumaDiasEntregables(): number {
+    return plazoEntregables(this.tdr);
+  }
+
+  get diasEntregablesCuadran(): boolean {
+    const plazo = this.plazoContrato;
+    return plazo <= 0 || this.sumaDiasEntregables === plazo;
+  }
+
+  /** Errores por campo / sección (texto rojo bajo la caja). */
+  errorCampo: { [clave: string]: string | null } = {};
+
+  private limpiarErroresCampo(): void {
+    this.errorCampo = {};
+  }
+
+  private marcarError(clave: string, mensaje: string): void {
+    this.errorCampo = { ...this.errorCampo, [clave]: mensaje };
+  }
+
+  /**
+   * Abre el acordeón de la observación en rojo y lleva el scroll hasta ella
+   * (el pie «Grabar» suele quedar lejos de la sección fallida).
+   */
+  private dirigirAObservacion(clave: string, abrirAcordeon: () => void): void {
+    abrirAcordeon();
+    setTimeout(() => {
+      const nodo = document.getElementById(`tdr-err-${clave}`);
+      if (!nodo) {
+        return;
+      }
+      nodo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 280);
+  }
+
   private leerCantidadAnexo5(detalle: any): number {
     const proveedores = proveedoresDelRequerimiento(detalle);
     for (const proveedor of proveedores) {
@@ -303,15 +393,37 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
       return;
     }
 
+    this.limpiarErroresCampo();
+
     const errActividades = validarActividadesTdr(this.tdr);
     if (errActividades) {
-      this.funciones.mensaje('info', errActividades);
+      this.marcarError('actividades', errActividades);
+      this.dirigirAObservacion('actividades', () => { this.acordeonCaracteristicas = true; });
       return;
     }
 
-    const errEntregables = validarEntregablesTdr(this.tdr, this.cantidadDesdeAnexo5);
+    if (!(this.tdr.ExperienciaGeneral || '').trim()) {
+      this.marcarError('experienciaGeneral', 'Complete la experiencia general mínima (sección 7).');
+      this.dirigirAObservacion('experienciaGeneral', () => { this.acordeonRequisitos = true; });
+      return;
+    }
+
+    if (this.tdr.ExigeExperienciaEspecifica && !(this.tdr.ExperienciaEspecifica || '').trim()) {
+      this.marcarError('experienciaEspecifica', 'Marcó experiencia específica: complete el texto o desactive el check.');
+      this.dirigirAObservacion('experienciaEspecifica', () => { this.acordeonRequisitos = true; });
+      return;
+    }
+
+    if (this.tdr.ExigeInformePrevio && !(this.tdr.UnidadInforme || '').trim()) {
+      this.marcarError('informePrevio', 'Indique el área o especialista del informe previo / visto bueno.');
+      this.dirigirAObservacion('informePrevio', () => { this.acordeonConformidad = true; });
+      return;
+    }
+
+    const errEntregables = validarEntregablesTdr(this.tdr, this.cantidadDesdeAnexo5, this.plazoContrato);
     if (errEntregables) {
-      this.funciones.mensaje('info', errEntregables);
+      this.marcarError('entregables', errEntregables);
+      this.dirigirAObservacion('entregables', () => { this.acordeonEntregables = true; });
       return;
     }
 
@@ -340,6 +452,7 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
       return;
     }
 
+    this.tdr.IntroActividades = INTRO_ACTIVIDADES;
     this.guardando = true;
     const definicion = construirAnexo3Tdr(this.detalle, this.tdr, this.pedidos);
     const nombre = nombreArchivoAnexo3(this.detalle);
@@ -366,19 +479,22 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
               this.funciones.mensaje('error', doc?.mensaje || 'No se registró el Anexo 3.');
               return;
             }
-            if (!this.embebido) {
-              this.abierto = false;
-            }
+            const codigo = this.detalle?.Codigo;
+            const payload = this.detalle
+              ? {
+                  IdRequerimiento: this.detalle.IdRequerimiento,
+                  IdExpediente: this.detalle.IdExpediente,
+                  Version: this.detalle.Version
+                }
+              : null;
+
+            this.abierto = false;
             this.registrado.emit();
-            if (this.embebido && this.detalle) {
-              this.completado.emit({
-                IdRequerimiento: this.detalle.IdRequerimiento,
-                IdExpediente: this.detalle.IdExpediente,
-                Version: this.detalle.Version
-              });
+            if (this.embebido && payload) {
+              this.completado.emit(payload);
             }
             this.funciones.mensaje('success',
-              `Se registró el TDR (Anexo 3) del requerimiento ${this.detalle?.Codigo}.`);
+              `Se registró el TDR (Anexo 3) del requerimiento ${codigo}.`);
           },
           error: () => {
             this.guardando = false;
@@ -393,25 +509,15 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
     });
   }
 
-  private leerTdr(payload: any): Partial<TdrLocacion> | null {
-    const datos = typeof payload === 'string'
-      ? this.parsear(payload)
-      : (payload || {});
-    const tdr = datos.Tdr || datos.tdr || datos;
-    if (!tdr || typeof tdr !== 'object' || Array.isArray(tdr)) {
-      return null;
+  private listaDocumentos(docs: any): any[] {
+    let lista = docs?.Documentos ?? docs?.documentos ?? [];
+    if (typeof lista === 'string') {
+      try {
+        lista = JSON.parse(lista);
+      } catch {
+        lista = [];
+      }
     }
-    if (!tdr.FinalidadPublica && !tdr.Objetivo && !tdr.Entregables) {
-      return null;
-    }
-    return tdr;
-  }
-
-  private parsear(valor: string): any {
-    try {
-      return JSON.parse(valor) || {};
-    } catch {
-      return {};
-    }
+    return Array.isArray(lista) ? lista : [];
   }
 }

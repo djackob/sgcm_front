@@ -37,14 +37,7 @@ export class GuardService {
         return false;
       }
     } else {
-      this.ssoService.loginOut().subscribe(
-        data => {
-          if (data.estado == 'OK') {
-            sessionStorage.clear();
-            window.location.href = data.mensaje;
-          }
-        }
-      );
+      this.ssoService.redirigirLoginPorExpiracion();
       return false;
     }
   }

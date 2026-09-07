@@ -39,8 +39,15 @@ export class FormProveedorComponent implements OnInit, OnChanges {
   @Input() total = 1;
   @Input() puedeQuitar = false;
   @Input() pedidos: PedidoFormularioRequerimiento[] = [];
+  /** Tope 8 UIT del año; si llega, se valida al tipear monto/entregables. */
+  @Input() montoTope: number | null = null;
+  /** Suma locación (todos los proveedores). La regla del tope es sobre el total. */
+  @Input() montoTotalLocacion = 0;
+  /** Aviso de monto venido del padre (p. ej. rechazo VALIDACION_MONTO al guardar). */
+  @Input() avisoMontoExterno: string | null = null;
 
   @Output() quitar = new EventEmitter<void>();
+  @Output() montoCambiado = new EventEmitter<void>();
 
   /**
    * El RUC NO es una opción aquí, y es deliberado.
@@ -82,6 +89,26 @@ export class FormProveedorComponent implements OnInit, OnChanges {
   buscandoEmpresa = false;
   private rucConsultado = '';
 
+  avisoEmail = '';
+  avisoEmailError = false;
+  sugerenciasEmail: string[] = [];
+  /** Vista con comas de miles; el modelo `MontoMensual` sigue siendo número. */
+  montoMensualVista = '';
+  /** Mensajes bajo cada caja al validar obligatoriedad. */
+  errorCampo: Record<string, string> = {};
+  /** Chips fijos bajo el campo, al estilo del teclado móvil. */
+  readonly chipsDominioEmail = [
+    '@anin.gob.pe',
+    '@gmail.com',
+    '@outlook.com',
+    '@hotmail.com',
+    '@icloud.com',
+    '@yahoo.com'
+  ] as const;
+  private readonly dominiosEmail = [
+    'anin.gob.pe', 'gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com'
+  ];
+
   constructor(
     private maestraService: MaestraService,
     private funciones: Funciones,
@@ -91,11 +118,15 @@ export class FormProveedorComponent implements OnInit, OnChanges {
   ngOnInit(): void {
     this.aplicarPedidoPorDefecto();
     this.cargarDepartamentos();
+    this.sincronizarMontoMensualVista();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['pedidos']) {
       queueMicrotask(() => this.aplicarPedidoPorDefecto());
+    }
+    if (changes['proveedor']) {
+      this.sincronizarMontoMensualVista();
     }
   }
 
@@ -105,6 +136,182 @@ export class FormProveedorComponent implements OnInit, OnChanges {
 
   get montoTotal(): number {
     return montoTotalProveedor(this.proveedor);
+  }
+
+  /**
+   * Aviso flotante bajo Monto Mensual: el total (mensual × entregables, o la
+   * suma de locadores) supera las ocho UIT. Solo si hay cifras que calcular.
+   */
+  get avisoTopeUit(): string | null {
+    if (this.avisoMontoExterno) {
+      return this.avisoMontoExterno;
+    }
+    if (this.montoTope == null || !(this.montoTotalLocacion > this.montoTope)) {
+      return null;
+    }
+    if (!(this.montoTotal > 0)) {
+      return null;
+    }
+    const monto = this.formatearMonto(this.montoTotalLocacion);
+    const tope = this.formatearMonto(this.montoTope);
+    return `El cálculo monto mensual por entregables (S/ ${monto}) supera el tope de ocho UIT (S/ ${tope}). Una contratación mayor no se tramita por esta vía.`;
+  }
+
+  onMontoOEntregablesChange(): void {
+    this.limpiarError('entregables');
+    this.limpiarError('montoMensual');
+    this.montoCambiado.emit();
+    this.cdr.detectChanges();
+  }
+
+  alCambiarMontoMensual(texto: string): void {
+    this.montoMensualVista = texto;
+    this.proveedor.MontoMensual = this.parsearMontoVista(texto);
+    this.limpiarError('montoMensual');
+    this.onMontoOEntregablesChange();
+  }
+
+  /** Marca todos los faltantes y devuelve true si el formulario está completo. */
+  marcarErroresObligatorios(): boolean {
+    this.errorCampo = this.calcularErroresObligatorios();
+    if (this.errorCampo['email']) {
+      this.avisoEmail = this.errorCampo['email'];
+      this.avisoEmailError = true;
+    }
+    this.cdr.detectChanges();
+    return Object.keys(this.errorCampo).length === 0;
+  }
+
+  limpiarErrores(): void {
+    this.errorCampo = {};
+    this.cdr.detectChanges();
+  }
+
+  limpiarError(clave: string): void {
+    if (!this.errorCampo[clave]) {
+      return;
+    }
+    const siguiente = { ...this.errorCampo };
+    delete siguiente[clave];
+    this.errorCampo = siguiente;
+  }
+
+  private calcularErroresObligatorios(): Record<string, string> {
+    const e: Record<string, string> = {};
+    const obligatorio = 'Campo obligatorio.';
+
+    if (!(this.proveedor.TipoDocumento || '').trim()) {
+      e['tipoDocumento'] = obligatorio;
+    }
+
+    const doc = (this.proveedor.Dni || '').trim();
+    if (!doc) {
+      e['dni'] = obligatorio;
+    } else if (this.proveedor.TipoDocumento === 'DNI' && doc.length !== 8) {
+      e['dni'] = 'Debe tener 8 dígitos.';
+    }
+
+    const ruc = String(this.proveedor.Ruc || '').replace(/\D/g, '');
+    if (!ruc) {
+      e['ruc'] = obligatorio;
+    } else if (ruc.length !== 11) {
+      e['ruc'] = 'Debe tener 11 dígitos.';
+    }
+
+    if (!(this.proveedor.TipoRegistro || '').trim()) {
+      e['tipoRegistro'] = obligatorio;
+    }
+
+    if (this.modoRazonSocial) {
+      if (!(this.proveedor.RazonSocial || '').trim()) {
+        e['razonSocial'] = obligatorio;
+      }
+    } else {
+      if (!(this.proveedor.Nombres || '').trim()) {
+        e['nombres'] = obligatorio;
+      }
+      if (!(this.proveedor.ApellidoPaterno || '').trim()) {
+        e['apellidoPaterno'] = obligatorio;
+      }
+      if (!(this.proveedor.ApellidoMaterno || '').trim()) {
+        e['apellidoMaterno'] = obligatorio;
+      }
+    }
+
+    if (!(this.proveedor.Direccion || '').trim()) {
+      e['direccion'] = obligatorio;
+    }
+    if (!(this.proveedor.CodDepartamento || '').trim()) {
+      e['departamento'] = obligatorio;
+    }
+    if (!(this.proveedor.CodProvincia || '').trim()) {
+      e['provincia'] = obligatorio;
+    }
+    if (!(this.proveedor.CodDistrito || '').trim()) {
+      e['distrito'] = obligatorio;
+    }
+    if (!(this.proveedor.Celular || '').trim()) {
+      e['celular'] = obligatorio;
+    }
+    if (!(Number(this.proveedor.CantidadEntregables) > 0)) {
+      e['entregables'] = obligatorio;
+    }
+    if (!(Number(this.proveedor.MontoMensual) > 0)) {
+      e['montoMensual'] = obligatorio;
+    }
+    if (!(this.proveedor.NumeroPedido || '').trim()) {
+      e['pedido'] = obligatorio;
+    }
+
+    const email = (this.proveedor.Email || '').trim();
+    if (!email) {
+      e['email'] = obligatorio;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(email)) {
+      e['email'] = 'Revise la sintaxis del correo (ej. nombre@anin.gob.pe).';
+    }
+
+    return e;
+  }
+
+  alSalirMontoMensual(): void {
+    this.sincronizarMontoMensualVista();
+  }
+
+  private sincronizarMontoMensualVista(): void {
+    const v = this.proveedor?.MontoMensual;
+    if (v == null || !Number.isFinite(Number(v))) {
+      this.montoMensualVista = '';
+      return;
+    }
+    this.montoMensualVista = Number(v).toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+  }
+
+  /** Quita comas de miles; el punto es decimal. Devuelve null si está vacío. */
+  private parsearMontoVista(texto: string): number | null {
+    const t = (texto || '').trim();
+    if (!t) {
+      return null;
+    }
+    const limpio = t.replace(/,/g, '').replace(/[^\d.]/g, '');
+    if (!limpio) {
+      return null;
+    }
+    const partes = limpio.split('.');
+    const normalizado = partes.length > 2
+      ? `${partes[0]}.${partes.slice(1).join('')}`
+      : limpio;
+    const n = Number(normalizado);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  private formatearMonto(valor: number): string {
+    return (Number(valor) || 0).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
   }
 
   get pedidosConNumero(): PedidoFormularioRequerimiento[] {
@@ -159,6 +366,8 @@ export class FormProveedorComponent implements OnInit, OnChanges {
   onTipoDocumentoChange(): void {
     this.dniConsultado = '';
     this.proveedor.Dni = '';
+    this.limpiarError('tipoDocumento');
+    this.limpiarError('dni');
   }
 
   onDniChange(): void {
@@ -167,6 +376,7 @@ export class FormProveedorComponent implements OnInit, OnChanges {
       .replace(soloDigitos ? /\D/g : /[^A-Za-z0-9]/g, '')
       .slice(0, this.longitudDocumento);
     this.proveedor.Dni = limpio;
+    this.limpiarError('dni');
 
     /* El carné no tiene servicio de consulta ni longitud fija: no se dispara. */
     if (this.esCarneExtranjeria) {
@@ -178,8 +388,9 @@ export class FormProveedorComponent implements OnInit, OnChanges {
   }
 
   onRucChange(): void {
-    const ruc = (this.proveedor.Ruc || '').replace(/\D/g, '').slice(0, 11);
+    const ruc = String(this.proveedor.Ruc || '').replace(/\D/g, '').slice(0, 11);
     this.proveedor.Ruc = ruc;
+    this.limpiarError('ruc');
 
     /* Sin RUC no hay contribuyente que mostrar: se vuelve a los campos de
        persona natural. Es la salida del modo razón social. */
@@ -254,7 +465,8 @@ export class FormProveedorComponent implements OnInit, OnChanges {
    * es como figura en la orden de servicio.
    */
   buscarEmpresaSunat(): void {
-    const ruc = (this.proveedor.Ruc || '').replace(/\D/g, '');
+    const ruc = String(this.proveedor.Ruc || '').replace(/\D/g, '');
+    this.proveedor.Ruc = ruc;
     if (ruc.length !== 11) {
       this.funciones.mensaje('info', 'Ingrese un RUC de 11 dígitos para consultar SUNAT.');
       return;
@@ -268,18 +480,38 @@ export class FormProveedorComponent implements OnInit, OnChanges {
       next: (rpta: any) => {
         this.buscandoEmpresa = false;
         const datos = datosSunat(rpta);
-        const razonSocial = (datos.strnombres || '').trim();
-        const direccion = (datos.strdireccion || '').trim();
+        const razonSocial = String(datos.strnombres || '').trim();
+        const direccion = String(datos.strdireccion || '').trim();
+        const codigo = String(datos.strcodigo || '').trim();
 
         if (!razonSocial) {
-          this.funciones.mensaje('info',
-            datos.strresultado || 'No se encontró el contribuyente en SUNAT.');
+          /* strcodigo "0" = el bus respondio y el RUC no existe.
+             strcodigo "-1" o respuesta vacia = fallo de red/config (antes se
+             confundia con "no encontrado" porque UT_Sunat devolvia {}). */
+          if (codigo === '0') {
+            this.funciones.mensaje('info', 'No se encontró el contribuyente en SUNAT.');
+          } else if (codigo === '-1' || !codigo) {
+            this.funciones.mensaje('error', this.mensajeErrorSunat(datos.strresultado));
+          } else {
+            this.funciones.mensaje('info',
+              datos.strresultado || 'No se encontró el contribuyente en SUNAT.');
+          }
           this.cdr.detectChanges();
           return;
         }
 
         this.rucConsultado = ruc;
         this.proveedor.RazonSocial = razonSocial;
+
+        /* RUC 10 de persona natural: el DNI va embebido (quita prefijo 10 y
+           el dígito verificador). Solo si SUNAT trajo contribuyente; si no
+           hubo respuesta no se inventa el documento. */
+        const dniDesdeRuc = dniDesdeRucSunat(ruc);
+        if (dniDesdeRuc) {
+          this.proveedor.TipoDocumento = 'DNI';
+          this.proveedor.Dni = dniDesdeRuc;
+          this.dniConsultado = dniDesdeRuc;
+        }
 
         if (direccion) {
           this.proveedor.Direccion = direccion;
@@ -302,10 +534,21 @@ export class FormProveedorComponent implements OnInit, OnChanges {
       },
       error: () => {
         this.buscandoEmpresa = false;
-        this.funciones.mensaje('error', 'No fue posible consultar SUNAT.');
+        this.funciones.mensaje('error',
+          'SUNAT no respondió a tiempo. Intente nuevamente en unos momentos.');
         this.cdr.detectChanges();
       }
     });
+  }
+
+  /** Evita mostrar el texto técnico de cancelación/timeout del HttpClient. */
+  private mensajeErrorSunat(detalle: unknown): string {
+    const texto = String(detalle || '').trim();
+    if (!texto
+      || /E\/S|I\/O|anul|cancel|timeout|tiempo de espera/i.test(texto)) {
+      return 'SUNAT no respondió a tiempo. Intente nuevamente en unos momentos.';
+    }
+    return texto;
   }
 
   onDepartamentoChange(): void {
@@ -409,6 +652,65 @@ export class FormProveedorComponent implements OnInit, OnChanges {
       }
     });
   }
+
+  sugerirDominioEmail(): void {
+    const valor = (this.proveedor?.Email || '').trim().toLowerCase();
+    const at = valor.indexOf('@');
+    if (at < 0) {
+      this.sugerenciasEmail = [];
+      return;
+    }
+    const local = valor.slice(0, at);
+    const parcial = valor.slice(at + 1);
+    this.sugerenciasEmail = this.dominiosEmail
+      .filter(d => !parcial || d.startsWith(parcial))
+      .map(d => `${local}@${d}`);
+  }
+
+  /**
+   * Concatena el dominio del chip al correo, como en teclados móviles:
+   * - «juan» + @gmail.com → juan@gmail.com
+   * - «juan@hot» + @gmail.com → juan@gmail.com (reemplaza lo que haya tras @)
+   */
+  aplicarDominioEmail(sufijo: string): void {
+    const valor = String(this.proveedor?.Email || '').trim();
+    const dominio = sufijo.startsWith('@') ? sufijo : `@${sufijo}`;
+    const at = valor.indexOf('@');
+    const local = (at >= 0 ? valor.slice(0, at) : valor).replace(/\s+/g, '');
+    this.proveedor.Email = `${local}${dominio}`;
+    this.sugerirDominioEmail();
+    this.validarEmail();
+    this.cdr.detectChanges();
+  }
+
+  validarEmail(): void {
+    const valor = (this.proveedor?.Email || '').trim();
+    this.avisoEmail = '';
+    this.avisoEmailError = false;
+    if (!valor) {
+      this.errorCampo = { ...this.errorCampo, email: 'Campo obligatorio.' };
+      this.avisoEmail = 'Campo obligatorio.';
+      this.avisoEmailError = true;
+      return;
+    }
+    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(valor);
+    if (!ok) {
+      this.errorCampo = {
+        ...this.errorCampo,
+        email: 'Revise la sintaxis del correo (ej. nombre@anin.gob.pe).'
+      };
+      this.avisoEmail = 'Revise la sintaxis del correo (ej. nombre@anin.gob.pe).';
+      this.avisoEmailError = true;
+      return;
+    }
+    this.limpiarError('email');
+    const dominio = valor.split('@')[1]?.toLowerCase() || '';
+    if (this.dominiosEmail.includes(dominio)) {
+      this.avisoEmail = '';
+      return;
+    }
+    this.avisoEmail = 'Correo válido. Si es institucional, verifique el dominio.';
+  }
 }
 
 /**
@@ -427,6 +729,7 @@ export class FormProveedorComponent implements OnInit, OnChanges {
  */
 function datosSunat(rpta: any): {
   strnombres?: string;
+  strruc?: string;
   strdireccion?: string;
   strcoddepa?: string;
   strcodprov?: string;
@@ -455,12 +758,33 @@ function datosSunat(rpta: any): {
   if ('strnombres' in rpta || 'strruc' in rpta || 'strcodigo' in rpta) {
     return rpta;
   }
+  /* Sobre accidental (RootElement / datos / data) si el backend re-serializa. */
+  for (const clave of ['RootElement', 'datos', 'data', 'resultado', 'mensaje']) {
+    if (rpta[clave] != null && typeof rpta[clave] === 'object') {
+      const anidado = datosSunat(rpta[clave]);
+      if (anidado.strnombres || anidado.strcodigo || anidado.strruc) {
+        return anidado;
+      }
+    }
+  }
   return {};
 }
 
 /** "True"/"False" como los manda el bus, no booleanos JSON. */
 function banderaSunat(valor: string | undefined): boolean {
   return String(valor || '').trim().toLowerCase() === 'true';
+}
+
+/**
+ * DNI contenido en un RUC de persona natural (tipo 10): sin los 2 primeros
+ * dígitos ni el verificador final. Devuelve null si el RUC no es ese caso.
+ */
+function dniDesdeRucSunat(ruc: string): string | null {
+  const limpio = String(ruc || '').replace(/\D/g, '');
+  if (limpio.length !== 11 || !limpio.startsWith('10')) {
+    return null;
+  }
+  return limpio.slice(2, 10);
 }
 
 function datosReniec(rpta: any): {

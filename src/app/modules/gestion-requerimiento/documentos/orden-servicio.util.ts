@@ -27,13 +27,26 @@ export function formularioOrdenVacio(): OrdenServicioFormulario {
 }
 
 export function leerTdrDesdePayload(payload: any): Partial<TdrLocacion> | null {
-  const datos = typeof payload === 'string' ? parsearJson(payload) : (payload || {});
-  const tdr = datos.Tdr || datos.tdr || datos;
+  let datos = typeof payload === 'string' ? parsearJson(payload) : (payload || {});
+  /* A veces el API deja Payload o Tdr como JSON en texto (doble serialización). */
+  if (typeof datos === 'string') {
+    datos = parsearJson(datos);
+  }
+  let tdr = datos?.Tdr ?? datos?.tdr ?? datos;
+  if (typeof tdr === 'string') {
+    tdr = parsearJson(tdr);
+  }
   if (!tdr || typeof tdr !== 'object' || Array.isArray(tdr)) {
     return null;
   }
-  if (!tdr.FinalidadPublica && !tdr.Objetivo && !tdr.Entregables) {
+  if (!tdr.FinalidadPublica && !tdr.Objetivo && !tdr.Entregables && !tdr.Actividades) {
     return null;
+  }
+  if (typeof tdr.Actividades === 'string') {
+    tdr = { ...tdr, Actividades: parsearJson(tdr.Actividades) };
+  }
+  if (!Array.isArray(tdr.Actividades)) {
+    tdr = { ...tdr, Actividades: [] };
   }
   return tdr;
 }

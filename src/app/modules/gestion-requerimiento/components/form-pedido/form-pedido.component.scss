@@ -76,3 +76,15 @@ select.campo-control:disabled {
   color: #475569;
   cursor: not-allowed;
 }
+
+.req-campo-error {
+  margin: 0.3rem 0 0;
+  padding: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #b91c1c;
+}
+
+.campo-control--invalido {
+  border-color: #fca5a5 !important;
+}

@@ -79,6 +79,31 @@
   .campo-control {
     border-radius: 0 8px 8px 0 !important;
   }
+
+  .campo-control--invalido {
+    border-color: #fca5a5 !important;
+  }
+}
+
+.req-campo-error {
+  margin: 0.3rem 0 0;
+  padding: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #b91c1c;
+}
+
+.campo-control--invalido {
+  border-color: #fca5a5 !important;
+}
+
+.req-campo-error--flotante {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 
 .campo-control--bloqueado,
@@ -86,4 +111,35 @@
   background: #f1f5f9 !important;
   color: #475569;
   cursor: not-allowed;
+}
+
+.email-dominios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.email-dominios__chip {
+  appearance: none;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 550;
+  line-height: 1;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    background: #eef2ff;
+    border-color: #a5b4fc;
+    color: #312e81;
+  }
+
+  &:active {
+    background: #e0e7ff;
+  }
 }

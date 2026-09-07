@@ -14,33 +14,37 @@
 
   <div class="req-grid req-grid--proveedor">
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-tipoDoc'">Tipo Documento</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-tipoDoc'">
+        Tipo Documento<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <select
         [id]="prefijo + '-tipoDoc'"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['tipoDocumento']"
         [name]="prefijo + '-tipoDoc'"
         [(ngModel)]="proveedor.TipoDocumento"
         (ngModelChange)="onTipoDocumentoChange()"
       >
         <option *ngFor="let t of tiposDocumento" [value]="t.valor">{{ t.nombre }}</option>
       </select>
+      <p class="req-campo-error" *ngIf="errorCampo['tipoDocumento']">{{ errorCampo['tipoDocumento'] }}</p>
     </div>
 
-    <!-- Documento de identidad de la persona: DNI o carne de extranjeria. El
-         label y la longitud salen del tipo; solo el DNI tiene servicio detras. -->
     <div class="campo">
       <label class="campo-etiqueta" [attr.for]="prefijo + '-numDoc'">
-        {{ etiquetaDocumento }}
+        {{ etiquetaDocumento }}<span class="campo-req" aria-hidden="true">*</span>
       </label>
       <div class="campo-con-boton">
         <input
           [id]="prefijo + '-numDoc'"
           type="text"
           class="campo-control"
+          [class.campo-control--invalido]="!!errorCampo['dni']"
           [name]="prefijo + '-numDoc'"
           [attr.maxlength]="longitudDocumento"
           [attr.inputmode]="esCarneExtranjeria ? 'text' : 'numeric'"
           [(ngModel)]="proveedor.Dni"
+          (ngModelChange)="limpiarError('dni')"
           (blur)="onDniChange()"
           (keyup.enter)="buscarPersonaReniec()"
         />
@@ -59,24 +63,24 @@
           ></i>
         </button>
       </div>
+      <p class="req-campo-error" *ngIf="errorCampo['dni']">{{ errorCampo['dni'] }}</p>
     </div>
 
-    <!-- El RUC es campo propio y no una opcion del tipo de documento: SIGA
-         identifica al contratista por RUC y F004 rechaza emitir la orden de
-         servicio sin el (error 51227), asi que se pide siempre, sea el
-         proveedor persona natural o juridica. Consultarlo trae la razon social
-         y con ella la pantalla cambia de forma. -->
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-ruc'">RUC</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-ruc'">
+        RUC<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <div class="campo-con-boton">
         <input
           [id]="prefijo + '-ruc'"
           type="text"
           class="campo-control"
+          [class.campo-control--invalido]="!!errorCampo['ruc']"
           [name]="prefijo + '-ruc'"
           maxlength="11"
           inputmode="numeric"
           [(ngModel)]="proveedor.Ruc"
+          (ngModelChange)="limpiarError('ruc')"
           (blur)="onRucChange()"
           (keyup.enter)="buscarEmpresaSunat()"
         />
@@ -94,161 +98,215 @@
           ></i>
         </button>
       </div>
+      <p class="req-campo-error" *ngIf="errorCampo['ruc']">{{ errorCampo['ruc'] }}</p>
     </div>
 
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-tipoReg'">Tipo Registro</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-tipoReg'">
+        Tipo Registro<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <select
         [id]="prefijo + '-tipoReg'"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['tipoRegistro']"
         [name]="prefijo + '-tipoReg'"
         [(ngModel)]="proveedor.TipoRegistro"
+        (ngModelChange)="limpiarError('tipoRegistro')"
       >
         <option *ngFor="let t of tiposRegistro" [value]="t.valor">{{ t.nombre }}</option>
       </select>
+      <p class="req-campo-error" *ngIf="errorCampo['tipoRegistro']">{{ errorCampo['tipoRegistro'] }}</p>
     </div>
 
-    <!-- Razon social: aparece cuando la consulta a SUNAT devolvio un
-         contribuyente, y entonces reemplaza a los tres campos de persona
-         natural. SUNAT entrega el nombre en una sola cadena y una empresa no
-         tiene apellidos, asi que repartirlo en tres seria inventar. -->
     <div class="campo req-grid__ancho" *ngIf="modoRazonSocial">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-razonSocial'">Razón social</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-razonSocial'">
+        Razón social<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <input
         [id]="prefijo + '-razonSocial'"
         type="text"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['razonSocial']"
         [name]="prefijo + '-razonSocial'"
         maxlength="250"
         [(ngModel)]="proveedor.RazonSocial"
+        (ngModelChange)="limpiarError('razonSocial')"
       />
+      <p class="req-campo-error" *ngIf="errorCampo['razonSocial']">{{ errorCampo['razonSocial'] }}</p>
     </div>
 
-    <!-- Persona natural: los tres campos, tal como los devuelve RENIEC. -->
     <ng-container *ngIf="!modoRazonSocial">
       <div class="campo">
-        <label class="campo-etiqueta" [attr.for]="prefijo + '-nombres'">Nombres</label>
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-nombres'">
+          Nombres<span class="campo-req" aria-hidden="true">*</span>
+        </label>
         <input
           [id]="prefijo + '-nombres'"
           type="text"
           class="campo-control"
+          [class.campo-control--invalido]="!!errorCampo['nombres']"
           [name]="prefijo + '-nombres'"
           [(ngModel)]="proveedor.Nombres"
+          (ngModelChange)="limpiarError('nombres')"
         />
+        <p class="req-campo-error" *ngIf="errorCampo['nombres']">{{ errorCampo['nombres'] }}</p>
       </div>
       <div class="campo">
-        <label class="campo-etiqueta" [attr.for]="prefijo + '-apePat'">Apellido Paterno</label>
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-apePat'">
+          Apellido Paterno<span class="campo-req" aria-hidden="true">*</span>
+        </label>
         <input
           [id]="prefijo + '-apePat'"
           type="text"
           class="campo-control"
+          [class.campo-control--invalido]="!!errorCampo['apellidoPaterno']"
           [name]="prefijo + '-apePat'"
           [(ngModel)]="proveedor.ApellidoPaterno"
+          (ngModelChange)="limpiarError('apellidoPaterno')"
         />
+        <p class="req-campo-error" *ngIf="errorCampo['apellidoPaterno']">{{ errorCampo['apellidoPaterno'] }}</p>
       </div>
       <div class="campo">
-        <label class="campo-etiqueta" [attr.for]="prefijo + '-apeMat'">Apellido Materno</label>
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-apeMat'">
+          Apellido Materno<span class="campo-req" aria-hidden="true">*</span>
+        </label>
         <input
           [id]="prefijo + '-apeMat'"
           type="text"
           class="campo-control"
+          [class.campo-control--invalido]="!!errorCampo['apellidoMaterno']"
           [name]="prefijo + '-apeMat'"
           [(ngModel)]="proveedor.ApellidoMaterno"
+          (ngModelChange)="limpiarError('apellidoMaterno')"
         />
+        <p class="req-campo-error" *ngIf="errorCampo['apellidoMaterno']">{{ errorCampo['apellidoMaterno'] }}</p>
       </div>
     </ng-container>
 
     <div class="campo req-grid__ancho">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-direccion'">Dirección</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-direccion'">
+        Dirección<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <input
         [id]="prefijo + '-direccion'"
         type="text"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['direccion']"
         [name]="prefijo + '-direccion'"
         [(ngModel)]="proveedor.Direccion"
+        (ngModelChange)="limpiarError('direccion')"
         placeholder="Se completa al buscar el DNI"
       />
+      <p class="req-campo-error" *ngIf="errorCampo['direccion']">{{ errorCampo['direccion'] }}</p>
     </div>
 
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-dpto'">Departamento</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-dpto'">
+        Departamento<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <select
         [id]="prefijo + '-dpto'"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['departamento']"
         [name]="prefijo + '-dpto'"
         [(ngModel)]="proveedor.CodDepartamento"
-        (ngModelChange)="onDepartamentoChange()"
+        (ngModelChange)="onDepartamentoChange(); limpiarError('departamento')"
       >
         <option value="">Seleccione</option>
         <option *ngFor="let d of departamentos" [value]="d.iddpto">{{ d.departamento }}</option>
       </select>
+      <p class="req-campo-error" *ngIf="errorCampo['departamento']">{{ errorCampo['departamento'] }}</p>
     </div>
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-prov'">Provincia</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-prov'">
+        Provincia<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <select
         [id]="prefijo + '-prov'"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['provincia']"
         [name]="prefijo + '-prov'"
         [(ngModel)]="proveedor.CodProvincia"
-        (ngModelChange)="onProvinciaChange()"
+        (ngModelChange)="onProvinciaChange(); limpiarError('provincia')"
         [disabled]="!proveedor.CodDepartamento"
       >
         <option value="">Seleccione</option>
         <option *ngFor="let p of provincias" [value]="p.idprov">{{ p.provincia }}</option>
       </select>
+      <p class="req-campo-error" *ngIf="errorCampo['provincia']">{{ errorCampo['provincia'] }}</p>
     </div>
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-dist'">Distrito</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-dist'">
+        Distrito<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <select
         [id]="prefijo + '-dist'"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['distrito']"
         [name]="prefijo + '-dist'"
         [(ngModel)]="proveedor.CodDistrito"
-        (ngModelChange)="onDistritoChange()"
+        (ngModelChange)="onDistritoChange(); limpiarError('distrito')"
         [disabled]="!proveedor.CodProvincia"
       >
         <option value="">Seleccione</option>
         <option *ngFor="let d of distritos" [value]="d.iddist">{{ d.distrito }}</option>
       </select>
+      <p class="req-campo-error" *ngIf="errorCampo['distrito']">{{ errorCampo['distrito'] }}</p>
     </div>
 
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-celular'">Celular</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-celular'">
+        Celular<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <input
         [id]="prefijo + '-celular'"
         type="text"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['celular']"
         [name]="prefijo + '-celular'"
         maxlength="9"
         inputmode="numeric"
         [(ngModel)]="proveedor.Celular"
+        (ngModelChange)="limpiarError('celular')"
       />
+      <p class="req-campo-error" *ngIf="errorCampo['celular']">{{ errorCampo['celular'] }}</p>
     </div>
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-entregables'">Cantidad Entregables</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-entregables'">
+        Cantidad Entregables<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <input
         [id]="prefijo + '-entregables'"
         type="number"
         min="0"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['entregables']"
         [name]="prefijo + '-entregables'"
         [(ngModel)]="proveedor.CantidadEntregables"
+        (ngModelChange)="onMontoOEntregablesChange()"
       />
+      <p class="req-campo-error" *ngIf="errorCampo['entregables']">{{ errorCampo['entregables'] }}</p>
     </div>
     <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-mensual'">Monto Mensual</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-mensual'">
+        Monto Mensual<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <div class="campo-moneda">
         <span>S/</span>
         <input
           [id]="prefijo + '-mensual'"
-          type="number"
-          min="0"
-          step="0.01"
+          type="text"
+          inputmode="decimal"
+          autocomplete="off"
           class="campo-control"
+          [class.campo-control--invalido]="!!avisoTopeUit || !!errorCampo['montoMensual']"
           [name]="prefijo + '-mensual'"
-          [(ngModel)]="proveedor.MontoMensual"
+          [ngModel]="montoMensualVista"
+          (ngModelChange)="alCambiarMontoMensual($event)"
+          (blur)="alSalirMontoMensual()"
         />
       </div>
+      <p class="req-campo-error" *ngIf="errorCampo['montoMensual']">{{ errorCampo['montoMensual'] }}</p>
     </div>
     <div class="campo">
       <label class="campo-etiqueta" [attr.for]="prefijo + '-total'">Monto Total</label>
@@ -259,21 +317,28 @@
           type="text"
           class="campo-control campo-control--bloqueado"
           [name]="prefijo + '-total'"
-          [value]="montoTotal | number: '1.2-2'"
+          [value]="montoTotal | number: '1.2-2':'en-US'"
           readonly
           tabindex="-1"
         />
       </div>
     </div>
+    <div class="campo req-grid__ancho" *ngIf="avisoTopeUit">
+      <p class="req-campo-error req-campo-error--flotante" role="alert">{{ avisoTopeUit }}</p>
+    </div>
 
     <div class="campo req-grid__ancho">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-pedido'">N.° Pedido SIGA</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-pedido'">
+        N.° Pedido SIGA<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <select
         *ngIf="pedidosConNumero.length; else pedidoTexto"
         [id]="prefijo + '-pedido'"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['pedido']"
         [name]="prefijo + '-pedido'"
         [(ngModel)]="proveedor.NumeroPedido"
+        (ngModelChange)="limpiarError('pedido')"
       >
         <option value="">Seleccione el pedido de esta propuesta</option>
         <option *ngFor="let pedido of pedidosConNumero" [value]="pedido.NumeroPedido">
@@ -285,21 +350,53 @@
           [id]="prefijo + '-pedido'"
           type="text"
           class="campo-control"
+          [class.campo-control--invalido]="!!errorCampo['pedido']"
           [name]="prefijo + '-pedido'"
           [(ngModel)]="proveedor.NumeroPedido"
+          (ngModelChange)="limpiarError('pedido')"
         />
       </ng-template>
+      <p class="req-campo-error" *ngIf="errorCampo['pedido']">{{ errorCampo['pedido'] }}</p>
     </div>
 
     <div class="campo req-grid__ancho">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-email'">Email</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-email'">
+        Email<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <input
         [id]="prefijo + '-email'"
         type="email"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['email'] || avisoEmailError"
         [name]="prefijo + '-email'"
         [(ngModel)]="proveedor.Email"
+        [attr.list]="prefijo + '-email-sugerencias'"
+        (ngModelChange)="limpiarError('email'); sugerirDominioEmail()"
+        (blur)="validarEmail()"
+        autocomplete="email"
+        placeholder="usuario@dominio.com"
+        required
       />
+      <div class="email-dominios" role="group" aria-label="Dominios de correo frecuentes">
+        <button
+          type="button"
+          class="email-dominios__chip"
+          *ngFor="let chip of chipsDominioEmail"
+          (mousedown)="$event.preventDefault()"
+          (click)="aplicarDominioEmail(chip)"
+        >
+          {{ chip }}
+        </button>
+      </div>
+      <datalist [id]="prefijo + '-email-sugerencias'">
+        <option *ngFor="let s of sugerenciasEmail" [value]="s"></option>
+      </datalist>
+      <p class="req-campo-error" *ngIf="errorCampo['email']">{{ errorCampo['email'] }}</p>
+      <p
+        class="req-nota"
+        *ngIf="!errorCampo['email'] && avisoEmail"
+        [class.req-nota--error]="avisoEmailError"
+      >{{ avisoEmail }}</p>
     </div>
   </div>
 </section>

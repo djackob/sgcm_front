@@ -42,10 +42,28 @@ export class ModalDetalleComponent {
   detalle: SolicitudDetalleCmn | null = null;
 
   historial: HistorialCmn[] = [];
+  /** Vista para AU: solo hitos de firma / aprobación relevantes. */
+  historialVisible: HistorialCmn[] = [];
   observaciones: ObservacionCmn[] = [];
   integracion: OperacionIntegracionCmn[] = [];
   /** Documentos del expediente con su versión vigente. */
   documentos: any[] = [];
+
+  /** Transiciones internas de Abastecimiento que no deben confundir al AU. */
+  private readonly ocultarEnTrazabilidadAu = new Set([
+    'CMN_ABAST_JEFE_DERIVAR',
+    'CMN_ABAST_COORD_DERIVAR',
+    'CMN_ABAST_ESP_FIRMAR_A3',
+    'CMN_ABAST_COORD_FIRMAR_A3',
+    'CMN_ABAST_COORD_FIRMAR_A4',
+    'CMN_GENERAR_A4',
+    'CMN_OBS_COORD_DERIVAR',
+    'CMN_OBS_JEFE_DEVOLVER',
+    'CMN_OBS_AU_JEFE_DERIVAR',
+    'CMN_OBS_AU_COORD_DERIVAR',
+    'CMN_SUBS_COORD_DERIVAR',
+    'CMN_SUBS_JEFE_ENVIAR'
+  ]);
 
   /** Los cuatro años del cuadro multianual, rotulados desde el año de ejecución. */
   get anios(): number[] {
@@ -75,6 +93,7 @@ export class ModalDetalleComponent {
     this.resumen = solicitud;
     this.detalle = null;
     this.historial = [];
+    this.historialVisible = [];
     this.observaciones = [];
     this.integracion = [];
     this.pestana = 'anexo3';
@@ -103,6 +122,7 @@ export class ModalDetalleComponent {
       next: (respuesta: any) => {
         if (respuesta?.estado === 1) {
           this.historial = respuesta.Historial || [];
+          this.historialVisible = this.filtrarTrazabilidadAu(this.historial);
           this.observaciones = respuesta.Observaciones || [];
           this.integracion = respuesta.Integracion || [];
         }
@@ -118,6 +138,16 @@ export class ModalDetalleComponent {
 
   cerrar(): void {
     this.abierto = false;
+  }
+
+  private filtrarTrazabilidadAu(pasos: HistorialCmn[]): HistorialCmn[] {
+    return (pasos || []).filter(paso => {
+      const codigo = (paso.CodigoTransicion || '').trim();
+      if (!codigo) {
+        return true;
+      }
+      return !this.ocultarEnTrazabilidadAu.has(codigo);
+    });
   }
 
   emitirEditar(): void {

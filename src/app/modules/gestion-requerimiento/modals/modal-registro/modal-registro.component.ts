@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, ViewChild } from '@angular/core';
+import { Component, EventEmitter, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -72,16 +72,15 @@ import {
 export class ModalRegistroRequerimientoComponent {
 
   @Output() registrado = new EventEmitter<void>();
-  /** Anexo 5 y Anexo 3 guardados; listo para iniciar «Firma especialista». */
-  @Output() anexosCompletados = new EventEmitter<{
-    IdRequerimiento: string;
-    IdExpediente: string;
-    Version: number;
-  }>();
   /** Locación: el Anexo 5 ya está en el file server; toca abrir el TDR. */
   @Output() anexo5Creado = new EventEmitter<string>();
 
   @ViewChild('tdrEmbebido') tdrEmbebido?: ModalAnexo3RequerimientoComponent;
+  @ViewChildren(FormProveedorComponent) formsProveedor!: QueryList<FormProveedorComponent>;
+  @ViewChildren(FormPedidoComponent) formsPedido!: QueryList<FormPedidoComponent>;
+
+  /** Mensajes bajo cajas de Datos Generales. */
+  errorCampo: Record<string, string> = {};
 
   readonly breadcrumb = ['Requerimiento', 'Registro de la necesidad'];
   pestanaTrabajo: 'anexo5' | 'anexo3' = 'anexo5';
@@ -109,6 +108,8 @@ export class ModalRegistroRequerimientoComponent {
   cargo = '';
 
   denominacion = '';
+  /** Último Nombre Item Pedido copiado a denominación; evita pisar edición manual. */
+  private denominacionDesdePedido = '';
   codigoTipoContratacion: TipoContratacionRequerimiento = 'LOCACION';
   codigoDec: 'ABASTECIMIENTO' | 'DAI' = 'ABASTECIMIENTO';
   condicionCmn: 'INCLUIDO' | 'NO_INCLUIDO' = 'INCLUIDO';
@@ -126,6 +127,37 @@ export class ModalRegistroRequerimientoComponent {
 
   /** Tope de ocho UIT del año. Referencia visual; la regla es de la rutina. */
   montoTope: number | null = null;
+
+  /** Aviso UIT / validación al guardar: texto pequeño rojo, no modal. */
+  errorGuardadoVisible: string | null = null;
+
+  /** Rechazo VALIDACION_MONTO: se muestra flotante bajo Monto Mensual. */
+  avisoMontoCampo: string | null = null;
+
+  get mensajeTopeUit(): string {
+    const monto = this.formatearMonto(this.esLocacion ? this.montoProveedorTotal : this.montoTotal);
+    const tope = this.formatearMonto(this.montoTope || 0);
+    return `El cálculo monto mensual por entregables (S/ ${monto}) supera el tope de ocho UIT (S/ ${tope}). Una contratación mayor no se tramita por esta vía.`;
+  }
+
+  esErrorMontoUit(mensaje: string | null | undefined): boolean {
+    const t = String(mensaje || '');
+    return /tope de ocho UIT|VALIDACION_MONTO|monto mensual por entregables/i.test(t);
+  }
+
+  onMontoProveedorCambiado(): void {
+    this.avisoMontoCampo = null;
+    if (this.errorGuardadoVisible && this.esErrorMontoUit(this.errorGuardadoVisible)) {
+      this.errorGuardadoVisible = null;
+    }
+  }
+
+  private formatearMonto(valor: number): string {
+    return (Number(valor) || 0).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
 
   /** Solicitudes CMN finalizadas, para el caso NO_INCLUIDO (REQ-04). */
   solicitudesCmn: { IdSolicitud: string; Codigo: string; CentroCosto: string }[] = [];
@@ -248,6 +280,7 @@ export class ModalRegistroRequerimientoComponent {
 
   private limpiarFormulario(): void {
     this.denominacion = '';
+    this.denominacionDesdePedido = '';
     this.codigoTipoContratacion = 'LOCACION';
     this.codigoDec = 'ABASTECIMIENTO';
     this.condicionCmn = 'INCLUIDO';
@@ -270,6 +303,9 @@ export class ModalRegistroRequerimientoComponent {
     this.proveedores = [crearProveedorFormularioRequerimiento()];
     this.acordeonDocumento = true;
     this.acordeonProveedor = false;
+    this.errorGuardadoVisible = null;
+    this.errorCampo = {};
+    this.avisoMontoCampo = null;
   }
 
   private pedidosDesdeDetalle(filas: any[]): PedidoFormularioRequerimiento[] {
@@ -511,6 +547,28 @@ export class ModalRegistroRequerimientoComponent {
         proveedor.NumeroPedido = elegido;
       }
     });
+
+    this.sincronizarDenominacionDesdePedido();
+  }
+
+  /**
+   * La denominación arranca con el Nombre Item Pedido del primer pedido SIGA.
+   * Solo se autocompleta si el campo está vacío o aún tiene el valor que el
+   * sistema puso antes (el usuario no lo editó a mano).
+   */
+  private sincronizarDenominacionDesdePedido(): void {
+    if (this.modoEdicion) {
+      return;
+    }
+    const nombre = (this.pedidos.find(p => (p.NombreItemPedido || '').trim())?.NombreItemPedido || '').trim();
+    if (!nombre) {
+      return;
+    }
+    const actual = this.denominacion.trim();
+    if (!actual || actual === this.denominacionDesdePedido) {
+      this.denominacion = nombre;
+      this.denominacionDesdePedido = nombre;
+    }
   }
 
   quitarPedido(indice: number): void {
@@ -630,14 +688,22 @@ export class ModalRegistroRequerimientoComponent {
     return (Number(item.Cantidad) || 0) * (Number(item.PrecioUnitario) || 0);
   }
 
-  /** El monto del requerimiento es la suma de sus ítems, no un campo escribible. */
+  /**
+   * En locación el monto vivo es entregables × mensual del Anexo 5. Los ítems
+   * internos se derivan al guardar; si se reutilizan de un intento anterior
+   * quedarían congelados y el tope / el payload mostrarían un monto viejo.
+   */
   get montoTotal(): number {
+    if (this.esLocacion && this.montoProveedorTotal > 0) {
+      return this.montoProveedorTotal;
+    }
     const suma = this.items.reduce((total, item) => total + this.totalItem(item), 0);
     return suma > 0 ? suma : this.montoProveedorTotal;
   }
 
   get excedeTope(): boolean {
-    return !!this.montoTope && this.montoTotal > this.montoTope;
+    const monto = this.esLocacion ? this.montoProveedorTotal : this.montoTotal;
+    return !!this.montoTope && monto > this.montoTope;
   }
 
   get esLocacion(): boolean {
@@ -654,9 +720,8 @@ export class ModalRegistroRequerimientoComponent {
     this.tdrEmbebido?.abrir(this.idRequerimientoEdicion);
   }
 
-  alCompletarTdr(payload: { IdRequerimiento: string; IdExpediente: string; Version: number }): void {
+  alCompletarTdr(_payload: { IdRequerimiento: string; IdExpediente: string; Version: number }): void {
     this.abierto = false;
-    this.anexosCompletados.emit(payload);
   }
 
   alRegistrarTdr(): void {
@@ -668,14 +733,13 @@ export class ModalRegistroRequerimientoComponent {
   /* ---------------------------------------------------------------------- */
 
   /**
-   * Si no hay ítems armados a mano, se toman del pedido (nombre/código) y de
-   * cantidad de entregables × monto mensual del proveedor.
+   * Ítems del payload: en locación se derivan del pedido + entregables × monto
+   * mensual. Se regeneran siempre (salvo catálogo ItemBien) para no reenviar
+   * cantidades/precios de un intento de guardado anterior.
    */
   private asegurarItemsDesdeFormulario(): void {
-    const hayItemUtil = this.items.some(item =>
-      item.ItemBien || item.DescripcionServicio.trim()
-    );
-    if (hayItemUtil) {
+    const conCatalogo = this.items.some(item => !!item.ItemBien);
+    if (conCatalogo) {
       return;
     }
 
@@ -726,48 +790,83 @@ export class ModalRegistroRequerimientoComponent {
   }
 
   private primerError(): string | null {
+    this.errorCampo = {};
+    this.formsProveedor?.forEach(f => f.limpiarErrores());
+    this.formsPedido?.forEach(f => f.limpiarErrores());
+
     if (!this.centroCosto) {
       return 'Este perfil no tiene centro de costo asociado y no puede registrar requerimientos.';
     }
-    if (!this.denominacion.trim()) {
-      return 'La denominación de la contratación es obligatoria.';
-    }
-    if (!this.sustento.trim() && !this.denominacion.trim()) {
-      return 'El sustento del requerimiento es obligatorio.';
+
+    let hayObligatorios = false;
+
+    if (!this.anoEje) {
+      this.errorCampo['anoEje'] = 'Campo obligatorio.';
+      hayObligatorios = true;
     }
     if (!this.plazoDias || this.plazoDias <= 0) {
-      return 'El plazo de ejecución debe ser mayor que cero.';
+      this.errorCampo['plazo'] = 'Campo obligatorio.';
+      hayObligatorios = true;
     }
-    const dniInvalido = this.proveedores.find(p =>
-      p.TipoDocumento === 'DNI' && p.Dni && p.Dni.length !== 8
-    );
-    if (dniInvalido) {
-      return 'El DNI del proveedor debe tener 8 dígitos.';
+    if (!this.denominacion.trim()) {
+      this.errorCampo['denominacion'] = 'Campo obligatorio.';
+      hayObligatorios = true;
     }
 
-    if (this.numerosDePedido.length === 0) {
-      return 'El requerimiento debe vincular al menos un pedido SIGA.';
+    const pedidosOk = (this.formsPedido?.toArray() || [])
+      .map(f => f.marcarErroresObligatorios())
+      .every(ok => ok);
+    if (!pedidosOk || this.numerosDePedido.length === 0) {
+      this.formsPedido?.forEach(f => f.marcarErroresObligatorios());
+      hayObligatorios = true;
+    }
+
+    if (hayObligatorios) {
+      this.acordeonDocumento = true;
+    }
+
+    if (this.esLocacion) {
+      const proveedoresOk = (this.formsProveedor?.toArray() || [])
+        .map(f => f.marcarErroresObligatorios())
+        .every(ok => ok);
+      if (!proveedoresOk) {
+        this.acordeonProveedor = true;
+        hayObligatorios = true;
+      }
+    }
+
+    if (hayObligatorios) {
+      return null;
     }
 
     this.asegurarItemsDesdeFormulario();
 
     if (!this.items.some(item => item.ItemBien || item.DescripcionServicio.trim())) {
-      return 'Indique el nombre del ítem del pedido y, en el proveedor, la cantidad de entregables y el monto mensual.';
+      this.acordeonProveedor = true;
+      if (this.formsProveedor?.length) {
+        this.formsProveedor.forEach(f => f.marcarErroresObligatorios());
+      }
+      return null;
     }
     if (this.montoTotal <= 0) {
-      return 'El monto del requerimiento debe ser mayor que cero. Complete entregables y monto mensual.';
+      this.acordeonProveedor = true;
+      this.formsProveedor?.forEach(f => f.marcarErroresObligatorios());
+      return null;
     }
     if (this.esLocacion && this.montoTope != null && this.montoProveedorTotal > this.montoTope) {
-      return `El cálculo monto mensual × entregables (S/ ${this.montoProveedorTotal.toFixed(2)}) supera el tope de ocho UIT (S/ ${this.montoTope.toFixed(2)}). Una contratación mayor no se tramita por esta vía.`;
-    }
-    if (this.esLocacion && this.numerosDePedido.length > 1) {
-      const sinPedido = this.proveedores.find(p => !(p.NumeroPedido || '').trim());
-      if (sinPedido) {
-        return 'Cada locador del Anexo 5 debe quedar asociado a su Pedido SIGA.';
-      }
+      return this.mensajeTopeUit;
     }
 
     return null;
+  }
+
+  limpiarErrorCampo(clave: string): void {
+    if (!this.errorCampo[clave]) {
+      return;
+    }
+    const siguiente = { ...this.errorCampo };
+    delete siguiente[clave];
+    this.errorCampo = siguiente;
   }
 
   guardar(): void {
@@ -775,9 +874,23 @@ export class ModalRegistroRequerimientoComponent {
       return;
     }
 
+    this.errorGuardadoVisible = null;
+    this.avisoMontoCampo = null;
     const error = this.primerError();
     if (error) {
-      this.funciones.mensaje('info', error);
+      /* El tope UIT ya se ve flotante bajo Monto Mensual al tipear. */
+      if (this.esErrorMontoUit(error)) {
+        this.avisoMontoCampo = error;
+        return;
+      }
+      this.errorGuardadoVisible = error;
+      return;
+    }
+
+    /* Obligatoriedad: los mensajes ya están bajo cada caja. */
+    if (Object.keys(this.errorCampo).length > 0
+      || this.formsProveedor?.some(f => Object.keys(f.errorCampo).length > 0)
+      || this.formsPedido?.some(f => Object.keys(f.errorCampo).length > 0)) {
       return;
     }
 
@@ -846,7 +959,13 @@ export class ModalRegistroRequerimientoComponent {
       next: (respuesta: any) => {
         if (respuesta?.estado !== 1) {
           this.guardando = false;
-          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible guardar el requerimiento.');
+          const msg = respuesta?.mensaje || 'No fue posible guardar el requerimiento.';
+          if (/VALIDACION_MONTO/i.test(msg)) {
+            this.avisoMontoCampo = this.humanizarMensajeMonto(msg);
+            this.errorGuardadoVisible = null;
+          } else {
+            this.funciones.mensaje('error', msg);
+          }
           return;
         }
 
@@ -862,6 +981,24 @@ export class ModalRegistroRequerimientoComponent {
         this.funciones.mensaje('error', 'No fue posible comunicarse con el servicio.');
       }
     });
+  }
+
+  /**
+   * Quita el prefijo técnico y normaliza «x» → «por» y montos con miles.
+   */
+  private humanizarMensajeMonto(mensaje: string): string {
+    let texto = (mensaje || '')
+      .replace(/^VALIDACION_MONTO:\s*/i, '')
+      .replace(/\s+x\s+entregables/gi, ' por entregables')
+      .replace(/\s+×\s+entregables/gi, ' por entregables');
+
+    /* Acepta 1234.56 o 1,234.56 (FORMAT en-US del SQL) y deja miles con coma. */
+    texto = texto.replace(/S\/\s*([\d,]+(?:\.\d+)?)/g, (_m, num: string) => {
+      const n = Number(String(num).replace(/,/g, ''));
+      return Number.isFinite(n) ? `S/ ${this.formatearMonto(n)}` : `S/ ${num}`;
+    });
+
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
   }
 
   /**

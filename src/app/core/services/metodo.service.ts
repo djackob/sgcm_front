@@ -70,6 +70,7 @@ export class MetodoService {
   }
 
   GET_PALOTES(path: string, ipInput: any = null, respuesta: any = 'json'): Observable<any> {
-    return this.http.get(ConfigService.settings.apiUrl + `${path}?ipInput=${ipInput}`, { responseType: respuesta });
+    const valor = ipInput == null ? '' : encodeURIComponent(String(ipInput));
+    return this.http.get(ConfigService.settings.apiUrl + `${path}?ipInput=${valor}`, { responseType: respuesta });
   }
 }

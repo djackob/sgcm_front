@@ -87,6 +87,77 @@ import {
  * V.B. y firma del Jefe), OA/DEC, indagación de mercado (invitación uno a uno
  * con Anexos 3, 6 y 7), filtros de idoneidad, CCP y O/S.
  */
+
+/**
+ * Icono de cada acción del flujo. Se indexa por CodigoTransicion (estable);
+ * lo que no esté aquí cae en ICONO_ACCION_POR_DEFECTO. Es presentación, no regla.
+ */
+const ICONO_ACCION: { [codigoTransicion: string]: string } = {
+  /* Documentos AU */
+  REQ_ELABORAR_DOC: 'mdi-file-document-plus-outline',
+  REQ_OTORGAR_VB: 'mdi-arrow-right-circle-outline',
+  REQ_FIRMAR_AU: 'mdi-draw-pen',
+
+  /* Derivaciones */
+  REQ_DERIVAR_COORD: 'mdi-arrow-right-circle-outline',
+  REQ_DERIVAR_COORD_OBS: 'mdi-arrow-right-circle-outline',
+  REQ_DERIVAR_JEFE: 'mdi-arrow-right-circle-outline',
+  REQ_DERIVAR_DEC: 'mdi-arrow-right-circle-outline',
+  REQ_ABAST_JEFE_DERIVAR: 'mdi-arrow-right-circle-outline',
+  REQ_ABAST_JEFE_OBSERVAR: 'mdi-alert-outline',
+  REQ_ABAST_COORD_DERIVAR: 'mdi-arrow-right-circle-outline',
+  REQ_REMITIR_OA: 'mdi-send-outline',
+  REQ_REMITIR_DAI: 'mdi-send-outline',
+  REQ_ENVIAR_FILTROS_COORD: 'mdi-arrow-right-circle-outline',
+  REQ_ENVIAR_FILTROS_JEFE: 'mdi-arrow-right-circle-outline',
+
+  /* Observación / devolución / subsanación */
+  REQ_OBSERVAR_OA: 'mdi-alert-outline',
+  REQ_OBS_AU_JEFE_DERIVAR: 'mdi-arrow-right-circle-outline',
+  REQ_OBS_AU_COORD_DERIVAR: 'mdi-arrow-right-circle-outline',
+  REQ_OBSERVAR_DEC: 'mdi-alert-outline',
+  REQ_OBSERVAR_DAI: 'mdi-alert-outline',
+  REQ_OBSERVAR_FILTROS: 'mdi-alert-outline',
+  REQ_OBSERVAR_COORD: 'mdi-alert-outline',
+  REQ_OBSERVAR_JEFE: 'mdi-alert-outline',
+  REQ_DEVOLVER_FILTROS_COORD: 'mdi-undo-variant',
+  REQ_DEVOLVER_FILTROS_JEFE: 'mdi-undo-variant',
+  REQ_DEVOLVER_COORD: 'mdi-undo-variant',
+  REQ_DEVOLVER_JEFE: 'mdi-undo-variant',
+  REQ_SUBSANAR: 'mdi-clipboard-edit-outline',
+
+  /* Conformidad / no objeción */
+  REQ_CONFORMIDAD_DEC: 'mdi-check-circle-outline',
+  REQ_CONFORMIDAD_DAI: 'mdi-check-circle-outline',
+  REQ_NO_OBJECION_DEC: 'mdi-file-check-outline',
+  REQ_ACEPTAR_NO_OBJECION: 'mdi-check-circle-outline',
+
+  /* Indagación, filtros, CCP, O/S */
+  REQ_INICIAR_INDAGACION: 'mdi-store-search-outline',
+  REQ_INICIAR_FILTROS: 'mdi-filter-check-outline',
+  REQ_CONFIRMAR_FILTROS: 'mdi-filter-check-outline',
+  REQ_REGISTRAR_CCP: 'mdi-cash-check',
+  REQ_GENERAR_CUADRO: 'mdi-table-large',
+  REQ_EMITIR_OS: 'mdi-file-sign',
+  REQ_NOTIFICAR_OS: 'mdi-email-fast-outline',
+
+  /* Anulación / archivo */
+  REQ_ANULAR_BORRADOR: 'mdi-close-circle-outline',
+  REQ_ANULAR_DOC_PEND: 'mdi-close-circle-outline',
+  REQ_ARCHIVAR_VB: 'mdi-archive-outline',
+  REQ_ARCHIVAR_FIRMA: 'mdi-archive-outline'
+};
+
+const ICONO_ACCION_POR_DEFECTO = 'mdi-play-circle-outline';
+
+/** Acciones que no se deshacen; se pintan en rojo para que no se pulsen de paso. */
+const ACCIONES_DESTRUCTIVAS = new Set([
+  'REQ_ANULAR_BORRADOR',
+  'REQ_ANULAR_DOC_PEND',
+  'REQ_ARCHIVAR_VB',
+  'REQ_ARCHIVAR_FIRMA'
+]);
+
 @Component({
   selector: 'app-gestion-requerimiento',
   standalone: true,
@@ -133,14 +204,20 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   cargando = false;
 
   filtro = {
+    /* Acota a la unidad del actor (como Gestión CMN). Ya no es un check de la
+       pantalla: queda fijo en true y la bandeja marca lo pendiente del perfil. */
     SoloMiBandeja: true,
     Texto: '',
     CodigoEstado: '',
     CodigoTipoContratacion: '',
     AnoEje: new Date().getFullYear(),
-    Limite: 20,
-    Desplazamiento: 0
+    /** Filas por página (múltiplo de 10). Se envía como `limit` al API. */
+    limit: 10,
+    /** Desplazamiento (múltiplo de `limit`). Se envía como `offset` al API. */
+    offset: 0
   };
+
+  readonly opcionesPaginacion = [10, 20, 50, 100];
 
   /* Confirmación de una acción del flujo */
   accionEnCurso: { requerimiento: RequerimientoBandeja; transicion: TransicionRequerimiento } | null = null;
@@ -220,8 +297,8 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       CodigoEstado: this.filtro.CodigoEstado || null,
       CodigoTipoContratacion: this.filtro.CodigoTipoContratacion || null,
       AnoEje: this.filtro.AnoEje || null,
-      Limite: this.filtro.Limite,
-      Desplazamiento: this.filtro.Desplazamiento
+      limit: this.filtro.limit,
+      offset: this.filtro.offset
     };
 
     this.requerimientoService.listarRequerimiento(filtro).subscribe({
@@ -249,12 +326,14 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
 
   /**
    * Acciones de la grilla. REQ_REMITIR_DAI está apagado en la semilla y aquí
-   * por si alguna fila lo trae. REQ_SUBSANAR sí se muestra: es el botón con el
-   * que el Especialista AU abre la corrección cuando Abastecimiento observó.
+   * por si alguna fila lo trae. REQ_SUBSANAR no se muestra: tras Observar AU
+   * el Especialista edita de frente (lápiz) y usa Firma especialista.
    */
   accionesDe(requerimiento: RequerimientoBandeja): TransicionRequerimiento[] {
     return this.transicionesCompletasDe(requerimiento)
-      .filter(t => t.CodigoTransicion !== 'REQ_REMITIR_DAI');
+      .filter(t =>
+        t.CodigoTransicion !== 'REQ_REMITIR_DAI'
+        && t.CodigoTransicion !== 'REQ_SUBSANAR');
   }
 
   /** Transiciones que vienen en la fila. Si el motor las serializó como
@@ -280,23 +359,37 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * REQ-11: el requerimiento se edita sólo en borrador o durante una subsanación
-   * recepcionada. Fuera de esas etapas el formulario es un visor de sólo lectura.
-   *
-   * Se comprueba contra las transiciones disponibles y no contra el estado: si
-   * el motor ofrece REQ_SUBSANAR, este actor puede abrir la subsanación; si
-   * ofrece REQ_ELABORAR_DOC, está en borrador y es suyo. Preguntar es lo mismo
-   * que hace el resto de la pantalla.
+   * Solo el Especialista AU elabora o corrige anexos.
+   * - Borrador / elaborar: REQ_ELABORAR_DOC
+   * - Observado (p. ej. Jefe/Coordinador AU): edita en el mismo estado
+   * - Documento pendiente o observado, antes de Firma especialista
    */
   puedeEditar(requerimiento: RequerimientoBandeja): boolean {
+    if (this.codigoRol !== 'AREA_ESPECIALISTA') {
+      return false;
+    }
+    if (requerimiento.CodigoEstado === 'REQ_OBSERVADO') {
+      return true;
+    }
     const disponibles = this.transicionesCompletasDe(requerimiento);
     return disponibles.some(t =>
-      t.CodigoTransicion === 'REQ_SUBSANAR' || t.CodigoTransicion === 'REQ_ELABORAR_DOC');
+      t.CodigoTransicion === 'REQ_ELABORAR_DOC'
+      || t.CodigoTransicion === 'REQ_DERIVAR_COORD'
+      || t.CodigoTransicion === 'REQ_DERIVAR_COORD_OBS');
   }
 
-  /** Hay botón de transición en la grilla (no solo el lápiz de edición). */
-  tieneAccionVisible(requerimiento: RequerimientoBandeja): boolean {
-    return this.accionesDe(requerimiento).length > 0;
+  /** Icono de la acción. Si la transición no está mapeada, uno genérico. */
+  iconoAccion(transicion: TransicionRequerimiento): string {
+    return ICONO_ACCION[transicion.CodigoTransicion] || ICONO_ACCION_POR_DEFECTO;
+  }
+
+  /** Rótulo del botón: el nombre del flujo más el estado al que lleva. */
+  tituloAccion(transicion: TransicionRequerimiento): string {
+    return `${transicion.NombreAccion} (pasa a: ${transicion.EstadoDestino})`;
+  }
+
+  esAccionDestructiva(transicion: TransicionRequerimiento): boolean {
+    return ACCIONES_DESTRUCTIVAS.has(transicion.CodigoTransicion);
   }
 
   limpiarFiltros(): void {
@@ -304,30 +397,46 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     this.filtro.CodigoEstado = '';
     this.filtro.CodigoTipoContratacion = '';
     this.filtro.SoloMiBandeja = true;
-    this.filtro.Desplazamiento = 0;
+    this.filtro.offset = 0;
     this.cargarBandeja();
   }
 
   buscar(): void {
-    this.filtro.Desplazamiento = 0;
+    this.filtro.offset = 0;
+    this.cargarBandeja();
+  }
+
+  cambiarPaginacion(valor: string | number): void {
+    const n = Number(valor);
+    const permitido = this.opcionesPaginacion.includes(n) ? n : 10;
+    this.filtro.limit = permitido;
+    this.filtro.offset = 0;
     this.cargarBandeja();
   }
 
   pagina(direccion: number): void {
-    const siguiente = this.filtro.Desplazamiento + direccion * this.filtro.Limite;
+    const siguiente = this.filtro.offset + direccion * this.filtro.limit;
     if (siguiente < 0 || siguiente >= this.total) {
       return;
     }
-    this.filtro.Desplazamiento = siguiente;
+    this.filtro.offset = siguiente;
     this.cargarBandeja();
   }
 
   get desde(): number {
-    return this.total === 0 ? 0 : this.filtro.Desplazamiento + 1;
+    return this.total === 0 ? 0 : this.filtro.offset + 1;
   }
 
   get hasta(): number {
-    return Math.min(this.filtro.Desplazamiento + this.filtro.Limite, this.total);
+    return Math.min(this.filtro.offset + this.filtro.limit, this.total);
+  }
+
+  get totalPaginas(): number {
+    return this.total === 0 ? 0 : Math.ceil(this.total / this.filtro.limit);
+  }
+
+  get paginaActual(): number {
+    return this.total === 0 ? 0 : Math.floor(this.filtro.offset / this.filtro.limit) + 1;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -464,7 +573,12 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
           return;
         }
         this.cargandoPdfId = '';
-        this.abrirAnexo3(item.IdRequerimiento);
+        if (this.puedeEditar(item)) {
+          this.abrirAnexo3(item.IdRequerimiento);
+          return;
+        }
+        this.funciones.mensaje('info',
+          'El Anexo 3 (TDR) aún no está registrado. Solo el Especialista AU puede elaborarlo.');
       },
       error: (err) => {
         this.cargandoPdfId = '';
@@ -782,6 +896,34 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (transicion.CodigoTransicion === 'REQ_FIRMAR_AU') {
+      this.funciones.Mensaje(
+        'question',
+        'Confirmar envío del expediente',
+        `Al firmar los documentos, el expediente <b>${requerimiento.Codigo}</b> `
+          + 'será enviado a la Oficina de Administración (área respectiva). '
+          + '¿Desea continuar?',
+        (result: any) => {
+          if (result?.isConfirmed) {
+            this.ejecutarConfirmacionAccion();
+          }
+        },
+        'Sí, enviar',
+        'Cancelar'
+      );
+      return;
+    }
+
+    this.ejecutarConfirmacionAccion();
+  }
+
+  /** Continúa la acción ya validada (firma digital y/o transición). */
+  private ejecutarConfirmacionAccion(): void {
+    if (!this.accionEnCurso || this.ejecutando) {
+      return;
+    }
+
+    const { requerimiento, transicion } = this.accionEnCurso;
     this.ejecutando = true;
 
     if (transicion.CodigoTransicion === 'REQ_ENVIAR_FILTROS_COORD'
@@ -808,20 +950,52 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     }
 
     if (transicion.CodigoTransicion === 'REQ_NOTIFICAR_OS') {
-      this.paso = 'Enviando la notificación…';
+      this.paso = 'Registrando usuario externo…';
       this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento).pipe(
         switchMap((detalle: any) => {
           const version = detalle?.Version ?? requerimiento.Version;
           const proveedor = proveedoresDelRequerimiento(detalle)[0];
-          return this.requerimientoService.notificarOrdenServicio(
-            requerimiento.IdRequerimiento,
-            version,
+          if (!proveedor) {
+            return throwError(() => ({
+              mensaje: 'No hay locador en el Anexo 5 para dar de alta como usuario externo.'
+            }));
+          }
+
+          /* Obligatorio pasar por api/General/InsertarUsuarioExterno (validaciones
+             del SSO). No se inserta desde notificarOrdenServicio. */
+          return this.maestraService.insertarUsuarioExterno(
             jsonUsuarioExternoContrataciones(proveedor)
+          ).pipe(
+            switchMap((alta: any) => {
+              /* La funcion SSO no usa estado 1/0: exito = id_usuario_externo > 0
+                 (p. ej. «Se le enviará las credenciales…»). */
+              const idExterno = Number(alta?.id_usuario_externo ?? 0);
+              if (!(idExterno > 0)) {
+                return throwError(() => ({
+                  mensaje: alta?.mensaje
+                    || 'No fue posible registrar el usuario externo en el SSO.'
+                }));
+              }
+              this.paso = 'Enviando la notificación…';
+              return this.requerimientoService.notificarOrdenServicio(
+                requerimiento.IdRequerimiento,
+                version
+              ).pipe(
+                map((respuesta: any) => ({
+                  ...respuesta,
+                  UsuarioExterno: alta
+                }))
+              );
+            })
           );
         })
       ).subscribe({
         next: (respuesta: any) => this.terminarAccion(respuesta, transicion),
-        error: () => this.fallar('No fue posible notificar la orden de servicio.')
+        error: (err) => this.fallar(
+          err?.mensaje
+            || err?.error?.mensaje
+            || 'No fue posible notificar la orden de servicio.'
+        )
       });
       return;
     }
@@ -1020,6 +1194,10 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   }
 
   get debeInvocarFirmaDigital(): boolean {
+    /* El Coordinador AU solo deriva al Jefe: no firma PDF. */
+    if (this.codigoRol === 'AREA_COORDINADOR') {
+      return false;
+    }
     return !!this.accionEnCurso?.transicion.RequiereFirma;
   }
 
@@ -1271,10 +1449,6 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const idParaEditar =
-      _transicion?.CodigoTransicion === 'REQ_SUBSANAR'
-        ? this.accionEnCurso?.requerimiento.IdRequerimiento
-        : null;
     const filaOrigen = this.accionEnCurso?.requerimiento || null;
 
     this.cerrarPopupFirma();
@@ -1289,7 +1463,14 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     const encadenaIndagacion = !!(filaOrigen && this.esLocacion(filaOrigen)
       && this.esHitoIndagacion(_transicion?.CodigoTransicion));
     if (!encadenaIndagacion) {
-      this.funciones.mensaje('success', respuesta.mensaje || 'Se registró la acción.');
+      if (_transicion?.CodigoTransicion === 'REQ_FIRMAR_AU') {
+        this.funciones.mensaje(
+          'success',
+          `El expediente ${filaOrigen?.Codigo || ''} fue enviado a la Oficina de Administración (área respectiva).`
+        );
+      } else {
+        this.funciones.mensaje('success', respuesta.mensaje || 'Se registró la acción.');
+      }
     }
     this.cargarBandeja();
 
@@ -1300,10 +1481,6 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
         CodigoEstado: respuesta.CodigoEstado || 'REQ_CONFORME',
         IdExpediente: respuesta.IdExpediente || filaOrigen.IdExpediente
       });
-    }
-
-    if (idParaEditar) {
-      this.editarRequerimiento({ IdRequerimiento: idParaEditar } as RequerimientoBandeja);
     }
   }
 
@@ -1447,10 +1624,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
         const hay6 = docs.some((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_6);
         const hay7 = docs.some((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_7);
         if (!hay6 || !hay7) {
-          this.funciones.mensaje(
-            'info',
-            'Registre primero la cotización (Anexo 6) y la declaración jurada (Anexo 7) firmadas por el locador. El plazo es de 3 días hábiles.'
-          );
+          /* Abre el registro de respuesta del locador (A6/A7 firmados). */
           this.modalRespuestaLocador.abrir(requerimiento);
           return;
         }
@@ -1550,12 +1724,24 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   }
 
   firmarDigitalDesdeVisor(): void {
+    if (!this.debeInvocarFirmaDigital) {
+      this.funciones.mensaje('info',
+        'El Coordinador AU no firma el documento. Use «Derivar al Jefe del Área usuaria».');
+      return;
+    }
+
     const requerimiento = this.accionEnCurso?.requerimiento;
     if (!requerimiento) {
       return;
     }
 
-    const archivo = idDocumentoSistema(this.documentoSistemaParaFirmar);
+    const archivo = idDocumentoSistema(
+      this.nombreDocumentoFirmado
+      || this.documentoSistemaParaFirmar
+      || (this.documentoPendienteFirma
+        ? this.firmaDigitalPorTipo[this.documentoPendienteFirma.codigo]
+        : '')
+    );
     if (!archivo) {
       this.funciones.mensaje('info', 'No hay archivo para firmar digitalmente. Abra el PDF primero.');
       return;
@@ -1687,19 +1873,9 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   }
 
   private continuarTrasFirmaDigital(idFirmado: string): void {
-    const siguiente = this.secuenciaPendienteFirma.find(d => !this.firmaDigitalPorTipo[d.codigo]);
-    if (siguiente && this.accionEnCurso) {
-      this.funciones.mensaje(
-        'success',
-        `Se registró la firma digital del ${this.documentoPendienteFirma?.anexo || 'documento'}. Continúe con el ${siguiente.anexo}.`
-      );
-      this.abrirDocumentoSecuenciaFirma(siguiente);
-      return;
-    }
-
     this.funciones.mensaje(
       'success',
-      'Firma digital completada en los anexos pendientes. Confirme la acción para continuar el flujo.'
+      'El PDF firmado quedó en el servidor. Puede firmar de nuevo este documento o abrir el siguiente anexo.'
     );
     this.mostrarPdfFirmado(idFirmado);
   }
@@ -1978,89 +2154,5 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   /** El registro y las acciones cambian la bandeja: se recarga entera. */
   alRegistrar(): void {
     this.cargarBandeja();
-  }
-
-  /**
-   * Tras guardar Anexo 5 y Anexo 3: pasa a documento pendiente (si aplica) y
-   * abre el flujo «Firma especialista» (firma digital de Anexo 5 y Anexo 3).
-   */
-  iniciarFirmaAnexos(payload: { IdRequerimiento: string; IdExpediente: string; Version: number }): void {
-    this.requerimientoService.listarTransicionDisponible(payload.IdExpediente).subscribe({
-      next: (respuesta: any) => {
-        const transiciones: TransicionRequerimiento[] = respuesta?.Transiciones
-          || respuesta?.transiciones
-          || [];
-
-        const elaborar = transiciones.find(t => t.CodigoTransicion === 'REQ_ELABORAR_DOC');
-        const firmar = transiciones.find(t => t.CodigoTransicion === 'REQ_DERIVAR_COORD');
-
-        const continuarConFirma = (version: number) => {
-          this.requerimientoService.listarRequerimiento(this.filtro).subscribe({
-            next: (bandeja: any) => {
-              const fila = (bandeja?.Requerimientos || bandeja?.requerimientos || [])
-                .find((r: RequerimientoBandeja) => r.IdRequerimiento === payload.IdRequerimiento);
-              if (!fila) {
-                this.cargarBandeja();
-                this.funciones.mensaje('info',
-                  'Los anexos quedaron guardados. Use «Firma especialista» en la bandeja cuando el expediente aparezca.');
-                return;
-              }
-              const transicionFirma = this.transicionesDeFila(fila)
-                .find(t => t.CodigoTransicion === 'REQ_DERIVAR_COORD') || firmar;
-              if (!transicionFirma) {
-                this.cargarBandeja();
-                this.funciones.mensaje('info',
-                  'Los anexos quedaron guardados. La acción «Firma especialista» no está disponible en este momento.');
-                return;
-              }
-              this.requerimientos = bandeja?.Requerimientos || bandeja?.requerimientos || [];
-              this.total = bandeja?.Total ?? bandeja?.total ?? this.requerimientos.length;
-              this.pedirConfirmacion({ ...fila, Version: version }, transicionFirma);
-            },
-            error: () => {
-              this.cargarBandeja();
-              this.funciones.mensaje('info',
-                'Los anexos quedaron guardados. Use «Firma especialista» en la bandeja.');
-            }
-          });
-        };
-
-        if (elaborar) {
-          this.requerimientoService.ejecutarTransicion(
-            payload.IdExpediente,
-            'REQ_ELABORAR_DOC',
-            payload.Version
-          ).subscribe({
-            next: (resp: any) => {
-              if (resp?.estado !== 1) {
-                this.funciones.mensaje('error', resp?.mensaje || 'No fue posible avanzar el expediente.');
-                this.cargarBandeja();
-                return;
-              }
-              continuarConFirma(resp.Version ?? payload.Version + 1);
-            },
-            error: () => {
-              this.funciones.mensaje('error', 'No fue posible avanzar el expediente al documento técnico.');
-              this.cargarBandeja();
-            }
-          });
-          return;
-        }
-
-        if (firmar) {
-          continuarConFirma(payload.Version);
-          return;
-        }
-
-        this.cargarBandeja();
-        this.funciones.mensaje('info',
-          'Los anexos quedaron guardados. Use «Firma especialista» en la bandeja cuando corresponda.');
-      },
-      error: () => {
-        this.cargarBandeja();
-        this.funciones.mensaje('info',
-          'Los anexos quedaron guardados. Use «Firma especialista» en la bandeja.');
-      }
-    });
   }
 }

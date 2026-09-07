@@ -44,14 +44,18 @@ export class PlantillaComponent implements OnInit, OnDestroy {
 
   Salir(e: any) {
     e.preventDefault();
-    this.ssoService.loginOut().subscribe(
-      data => {
-        if (data.estado == 'OK') {
-          sessionStorage.clear();
-          window.location.href = data.mensaje;
-        }
+    this.ssoService.loginOut().subscribe({
+      next: data => {
+        sessionStorage.clear();
+        window.location.href = (data?.estado === 'OK' && data?.mensaje)
+          ? data.mensaje
+          : this.ssoService.urlLoginSso();
+      },
+      error: () => {
+        sessionStorage.clear();
+        window.location.href = this.ssoService.urlLoginSso();
       }
-    );
+    });
   }
 
   ActivarMenu() {

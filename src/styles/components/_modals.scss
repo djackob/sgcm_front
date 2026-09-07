@@ -184,6 +184,12 @@
   color: #334155;
 }
 
+.campo-req {
+  color: #dc2626;
+  margin-left: 0.15rem;
+  font-weight: 700;
+}
+
 .campo-ayuda {
   margin: 0;
   font-size: 0.78rem;
@@ -210,6 +216,10 @@
     outline: 0;
     border-color: #93c5fd !important;
     box-shadow: 0 0 0 3px rgb(147 197 253 / 0.35);
+  }
+
+  &--invalido {
+    border-color: #fca5a5 !important;
   }
 }
 

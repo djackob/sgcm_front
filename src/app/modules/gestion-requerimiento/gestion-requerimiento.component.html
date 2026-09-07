@@ -72,13 +72,6 @@
         />
       </div>
 
-      <div class="req-filtros__campo req-filtros__campo--check">
-        <label class="req-check">
-          <input type="checkbox" [(ngModel)]="filtro.SoloMiBandeja" (change)="buscar()" />
-          <span>Solo mi bandeja</span>
-        </label>
-      </div>
-
       <div class="req-filtros__acciones">
         <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
           <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
@@ -145,18 +138,27 @@
 
             <td data-column-name="Acción del perfil" class="td-acciones">
               <div class="action-cell">
-                <span class="action-cell__label" *ngIf="!esMiTurno(item) && !puedeEditar(item)">
-                  Sin acción pendiente
-                </span>
+                <button
+                  type="button"
+                  class="btn-icon-outline btn-accion"
+                  *ngIf="puedeEditar(item)"
+                  title="Modificar requerimiento"
+                  aria-label="Modificar requerimiento"
+                  (click)="editarRequerimiento(item)"
+                >
+                  <i class="mdi mdi-pencil-outline" aria-hidden="true"></i>
+                </button>
 
                 <button
                   type="button"
-                  class="btn btn-app-primary btn-sm"
+                  class="btn-icon-outline btn-accion"
+                  [class.btn-accion--peligro]="esAccionDestructiva(transicion)"
                   *ngFor="let transicion of accionesDe(item)"
-                  [title]="'Pasa a: ' + transicion.EstadoDestino"
+                  [title]="tituloAccion(transicion)"
+                  [attr.aria-label]="transicion.NombreAccion"
                   (click)="pedirConfirmacion(item, transicion)"
                 >
-                  {{ transicion.NombreAccion }}
+                  <i class="mdi" [ngClass]="iconoAccion(transicion)" aria-hidden="true"></i>
                 </button>
 
                 <button
@@ -185,25 +187,6 @@
 
                 <button
                   type="button"
-                  class="btn btn-app-primary btn-sm"
-                  *ngIf="puedeEditar(item) && !tieneAccionVisible(item)"
-                  (click)="editarRequerimiento(item)"
-                >
-                  Modificar requerimiento
-                </button>
-
-                <button
-                  type="button"
-                  class="btn-icon-outline"
-                  *ngIf="puedeEditar(item) && tieneAccionVisible(item)"
-                  title="Editar el requerimiento"
-                  (click)="editarRequerimiento(item)"
-                >
-                  <i class="mdi mdi-pencil-outline" aria-hidden="true"></i>
-                </button>
-
-                <button
-                  type="button"
                   class="btn-icon-outline"
                   title="Ver expediente"
                   (click)="verDetalle(item)"
@@ -220,8 +203,7 @@
                 <i class="mdi mdi-inbox-outline" aria-hidden="true"></i>
                 <h3>Sin requerimientos</h3>
                 <p class="cell-muted" *ngIf="puedeRegistrar">
-                  Registre un requerimiento para iniciar el flujo, o desmarque
-                  «Solo mi bandeja» para ver los expedientes de otros perfiles.
+                  Registre un requerimiento para iniciar el flujo.
                 </p>
                 <p class="cell-muted" *ngIf="!puedeRegistrar">
                   No hay documentos pendientes para este perfil.
@@ -233,13 +215,29 @@
       </table>
     </div>
 
-    <div class="req-paginacion" *ngIf="total > filtro.Limite">
-      <span class="cell-muted">Mostrando {{ desde }}–{{ hasta }} de {{ total }}</span>
-      <div>
+    <div class="req-paginacion" *ngIf="!cargando && total > 0">
+      <div class="req-paginacion__info">
+        <span class="cell-muted">Mostrando {{ desde }}–{{ hasta }} de {{ total }}</span>
+        <label class="req-paginacion__tamano" for="filtroPaginacion">
+          Por página
+          <select
+            id="filtroPaginacion"
+            class="campo-control campo-control--compacto"
+            [ngModel]="filtro.limit"
+            (ngModelChange)="cambiarPaginacion($event)"
+          >
+            <option *ngFor="let n of opcionesPaginacion" [ngValue]="n">{{ n }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="req-paginacion__nav">
+        <span class="cell-muted" *ngIf="totalPaginas > 1">
+          Página {{ paginaActual }} de {{ totalPaginas }}
+        </span>
         <button
           type="button"
           class="btn btn-app-secundario btn-sm"
-          [disabled]="filtro.Desplazamiento === 0"
+          [disabled]="filtro.offset === 0"
           (click)="pagina(-1)"
         >
           Anterior
@@ -295,19 +293,46 @@
           </li>
           <li *ngIf="debeInvocarFirmaDigital && !todasFirmasDigitalesListas">
             <i class="mdi mdi-certificate-outline" aria-hidden="true"></i>
-            Al abrir cada documento se ofrece la firma digital; el PDF firmado se registra de inmediato en el expediente.
+            Al abrir cada documento se ofrece la firma digital. Puede colocar varios sellos; cada PDF firmado se registra de inmediato en el servidor.
           </li>
           <li *ngIf="todasFirmasDigitalesListas" class="req-aviso-ok">
             <i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
-            Anexos con firma digital registrados. Ya puede confirmar la acción.
+            Anexos con firma digital en el servidor. Puede firmar de nuevo o confirmar la acción.
           </li>
-          <li *ngIf="accionEnCurso.transicion.GeneraObservacion">
+          <li *ngIf="accionEnCurso.transicion.GeneraObservacion
+                 && accionEnCurso.transicion.CodigoTransicion !== 'REQ_OBSERVAR_OA'
+                 && accionEnCurso.transicion.CodigoTransicion !== 'REQ_ABAST_JEFE_OBSERVAR'">
             <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
             Devuelve el expediente al área usuaria como observado.
           </li>
-          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_FIRMAR_AU'">
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_ARCHIVAR_VB'
+                 || accionEnCurso.transicion.CodigoTransicion === 'REQ_ARCHIVAR_FIRMA'">
+            <i class="mdi mdi-archive-outline" aria-hidden="true"></i>
+            El expediente se archiva y deja de tramitarse.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_OTORGAR_VB'">
             <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
-            Al firmar, el expediente pasa al Jefe de la Oficina de Administración.
+            El Coordinador no firma el documento: solo lo deriva al Jefe del Área usuaria.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_OBSERVAR_OA'">
+            <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
+            El expediente volverá al Jefe del Área usuaria; luego se derivará al Coordinador y al Especialista para subsanar.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_ABAST_JEFE_OBSERVAR'">
+            <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
+            El expediente vuelve directamente al Jefe del Área usuaria como observado.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_OBS_AU_JEFE_DERIVAR'">
+            <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
+            Deriva el expediente observado al Coordinador del Área usuaria.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_OBS_AU_COORD_DERIVAR'">
+            <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
+            Envía el expediente observado al Especialista AU para que corrija los documentos.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_FIRMAR_AU'">
+            <i class="mdi mdi-send-check-outline" aria-hidden="true"></i>
+            Al confirmar, el expediente será enviado a la Oficina de Administración (área respectiva).
           </li>
         </ul>
 
@@ -317,7 +342,8 @@
                detenía en una bandeja que todos ven y nadie da por suya. Si el
                combo aparece es porque hay a quién elegir. -->
           <label class="campo-etiqueta" for="responsableDestino">
-            Derivar a <span>(obligatorio)</span>
+            Derivar a<span class="campo-req" aria-hidden="true">*</span>
+            <span class="cell-muted"> (obligatorio)</span>
           </label>
           <select
             id="responsableDestino"
@@ -397,8 +423,11 @@
         <div class="campo">
           <label class="campo-etiqueta" for="comentarioAccion">
             Comentario
-            <span *ngIf="accionEnCurso.transicion.RequiereComentario">(obligatorio)</span>
-            <span *ngIf="!accionEnCurso.transicion.RequiereComentario">(opcional)</span>
+            <ng-container *ngIf="accionEnCurso.transicion.RequiereComentario">
+              <span class="campo-req" aria-hidden="true">*</span>
+              <span class="cell-muted"> (obligatorio)</span>
+            </ng-container>
+            <span class="cell-muted" *ngIf="!accionEnCurso.transicion.RequiereComentario"> (opcional)</span>
           </label>
           <textarea
             id="comentarioAccion"
@@ -431,7 +460,6 @@
 
 <app-modal-registro-requerimiento
   (registrado)="alRegistrar()"
-  (anexosCompletados)="iniciarFirmaAnexos($event)"
 />
 <app-modal-detalle-requerimiento
   (editar)="editarRequerimiento($event)"
@@ -491,15 +519,15 @@
         <button
           type="button"
           class="btn btn-app-secundario"
-          *ngIf="debeInvocarFirmaDigital && !nombreDocumentoFirmado"
+          *ngIf="debeInvocarFirmaDigital"
           (click)="firmarDigitalDesdeVisor()"
         >
           <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
-          Firmar digitalmente
+          {{ nombreDocumentoFirmado ? 'Firmar de nuevo' : 'Firmar digitalmente' }}
         </button>
         <span class="req-firma-ok" *ngIf="nombreDocumentoFirmado">
           <i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
-          Firmado digitalmente
+          Firmado en el servidor
           <ng-container *ngIf="documentoPendienteFirma"> · {{ documentoPendienteFirma.anexo }}</ng-container>
         </span>
         <button type="button" class="btn btn-app-primary" (click)="cerrarVisorPdf()">Cerrar</button>

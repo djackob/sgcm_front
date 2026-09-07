@@ -26,9 +26,13 @@ export interface TdrLocacion {
   /** 7.1.4 Capacitación requerida */
   Capacitacion: string;
   ExperienciaGeneral: string;
+  /** Si false, no se exige ni se imprime experiencia específica. */
+  ExigeExperienciaEspecifica: boolean;
   ExperienciaEspecifica: string;
   UnidadOrganizacional: string;
   UnidadConformidad: string;
+  /** Si true, se designa un informe previo / VB antes de la conformidad. */
+  ExigeInformePrevio: boolean;
   UnidadInforme: string;
   LugarPrestacion: string;
   OtrasPenalidades: string;
@@ -39,7 +43,7 @@ export const AYUDA_FINALIDAD =
   'Describir el interés público que se pretende satisfacer con la contratación, indicando cómo la prestación contribuirá al cumplimiento de las funciones, objetivos institucionales o necesidades de la Entidad.';
 
 export const AYUDA_OBJETIVO =
-  'Identificar el propósito de la contratación, precisando "¿qué se requiere contratar?" y "¿para qué?", en función de la necesidad identificada por el área usuaria.';
+  'Indique qué se consigue de forma técnica con la ejecución de las actividades: ¿qué producto, capacidad o resultado operativo se logra? No limite el texto al nombre del servicio; describa el resultado técnico esperado.';
 
 export const AYUDA_JUSTIFICACION =
   'Consignar una breve descripción de los antecedentes considerados por el área usuaria para la determinación de la necesidad, respecto del motivo por el cual se efectúa el requerimiento de contratación de servicios y cómo esta contribuirá al cumplimiento de sus funciones, objetivos institucionales o metas programadas.';
@@ -53,17 +57,14 @@ export const MARCO_LEGAL = [
   'Demás normas que resulten aplicables durante la ejecución de la prestación.'
 ].map(linea => `• ${linea}`).join('\n');
 
-export const FINALIDAD_EDITABLE =
-  'La presente contratación tiene por finalidad contribuir directamente a [mencionar el impacto social/beneficio final para el ciudadano: ej. asegurar el acceso oportuno a la salud, mejorar las condiciones educativas, garantizar la seguridad ribereña] en favor de la población de [ámbito geográfico o público objetivo]';
+export const FINALIDAD_EDITABLE = 'finalidad 1';
 
 export const FINALIDAD_COMPLEMENTO =
   ', mediante la prestación del servicio requerido, contribuyendo al cumplimiento oportuno y eficiente de las funciones, actividades, objetivos institucionales o compromisos de gestión del área usuaria, en el marco de las competencias de la Autoridad Nacional de Infraestructura.';
 
-export const OBJETIVO_EDITABLE =
-  'El objetivo del presente requerimiento es contratar el servicio de [indicar la denominación del servicio], a fin de desarrollar, ejecutar, apoyar, asesorar o brindar asistencia técnica en [describir las principales actividades principales o entregables clave], conforme a las condiciones establecidas en los presentes Términos de Referencia.';
+export const OBJETIVO_EDITABLE = 'objetivo 1';
 
-export const JUSTIFICACION_EDITABLE =
-  'En el marco de las funciones asignadas a la [Nombre del área usuaria], y de las actividades, objetivos o metas institucionales previstas para el periodo correspondiente, se ha identificado la necesidad de contratar el servicio de [indicar denominación del servicio], con la finalidad de atender los requerimientos propios de la gestión institucional y asegurar el cumplimiento oportuno de las actividades a su cargo. \nEl servicio se desarrollará en la [De corresponder a proyecto, especificar fase, etapa del proyecto: ej. Fase de ejecución] bajo las condiciones de los presentes Términos de Referencia, asegurando el cumplimiento de los plazos, estándares de calidad, costos y requerimientos técnicos establecidos.\n';
+export const JUSTIFICACION_EDITABLE = 'justificación 1';
 
 export const JUSTIFICACION_COMPLEMENTO =
   'En ese sentido, la contratación resulta necesaria e idónea, toda vez que contribuirá al adecuado cumplimiento de las funciones del área usuaria, optimizando el uso de los recursos públicos, asegurando la continuidad de las actividades institucionales y el logro de los objetivos previstos.';
@@ -77,16 +78,13 @@ export const INTRO_ENTREGABLES =
 export const OBSERVACION_ENTREGABLES =
   'De existir alguna observación al entregable, esta deberá ser subsanada por el contratista en el plazo establecido en la comunicación de la Dependencia Encargada de las Contrataciones (DEC), de conformidad al numeral 144.4 del artículo 144 del Reglamento de la Ley N° 32069, Ley General de Contrataciones Públicas, contados desde el día siguiente de la notificación de la observación.\n\nLas observaciones que puedan contener los documentos indicados en los literales b, c, d y e del numeral IX, podrán ser subsanadas por el contratista a solicitud de la Unidad de Abastecimiento a través de correo electrónico.\n\nLos entregables deberán ser presentados en concordancia con lo descrito en los numerales IX y X.';
 
-export const PERFIL_EJEMPLO =
-  'Título Técnico o Profesional de Ingeniero Mecánico Electricista. Colegiado y habilitado.';
+export const PERFIL_EJEMPLO = 'perfil 1';
 
-export const CAPACITACION_EJEMPLO = '';
+export const CAPACITACION_EJEMPLO = 'capacitación 1';
 
-export const EXPERIENCIA_GENERAL_EJEMPLO =
-  'cinco (05) años en el sector público y/o privado.';
+export const EXPERIENCIA_GENERAL_EJEMPLO = 'experiencia general 1';
 
-export const EXPERIENCIA_ESPECIFICA_EJEMPLO =
-  'tres (03) años en el sector público y/o privado, Instalaciones Mecánicas y/o Instalaciones Mecánicas y Eléctricas y/o Asistente de campo y/o Supervisor y/o Supervisor de Obras y/o Residente de Montaje Electromecánico y/o Ingeniero Residente en obra.';
+export const EXPERIENCIA_ESPECIFICA_EJEMPLO = 'experiencia específica 1';
 
 export const ACREDITACION_ESTUDIOS =
   '• Los estudios y/o capacitaciones deberán ser acreditados con certificados y/o diplomas y/o constancias y/o algún documento que demuestre fehacientemente los estudios y/o capacitaciones realizadas.\n• La experiencia del proveedor deberá ser acreditada con: Certificados y/o Constancias de Trabajo, contratos y/u órdenes de servicios acompañadas de sus respectivas conformidades o constancias de prestación de servicios u otro documento que acredite fehacientemente la experiencia; asimismo, en caso de presentar adendas, estas deben estar adjuntas al contrato primigenio. Para el caso de resoluciones y/o documentos de designación, deberán adjuntarse las respectivas resoluciones y/o documentos de cese.';
@@ -115,11 +113,9 @@ export const PENALIDAD_MORA_TEXTO =
 export const PENALIDAD_MORA_CIERRE =
   'Tanto el monto como el plazo se refieren, según corresponda, al monto vigente del contrato, componente o ítem que debió ejecutarse o, en caso de que estos involucren entregables cuantificables en monto y plazo, al monto y plazo del entregable que fuera materia de retraso (para dichos casos, no se considerará el plazo acumulado).\n\nLa Entidad tiene derecho para exigir, además de la penalidad, el cumplimiento de la obligación.';
 
-export const UNIDAD_ORGANIZACIONAL_EJEMPLO =
-  '[ indicar nombre de la unidad orgánica que es el área usuaria] [previo informe de cumplimiento, indicar el área técnica, (de corresponder) ] ';
+export const UNIDAD_ORGANIZACIONAL_EJEMPLO = 'unidad organizacional 1';
 
-export const LUGAR_EJEMPLO =
-  'El servicio será realizado de forma presencial en [indicar sede, distrito, provincia y región].';
+export const LUGAR_EJEMPLO = 'lugar 1';
 
 export const OTRAS_PENALIDADES_EJEMPLO = '';
 
@@ -145,7 +141,7 @@ export const GASTOS_DESPLAZAMIENTO =
   'En caso de que, para el cumplimiento de sus actividades, se requiera el traslado del contratista en el ámbito nacional, los gastos inherentes a las mismas (pasajes, viáticos y tarifa única por uso de aeropuerto), serán asumidos por la ANIN. Dichos gastos se otorgarán y rendirán conforme a lo dispuesto en la DIRECTIVA PARA LA GESTIÓN DE VIÁTICOS, PASAJES Y OTRAS ASIGNACIONES POR COMISIÓN DE SERVICIOS AL INTERIOR Y EXTERIOR DEL PAÍS, EN LA ANIN.';
 
 export const OTRAS_CONSIDERACIONES =
-  `12.1. Confidencialidad\n\n${CONFIDENCIALIDAD}\n\n12.2. Cláusula anticorrupción y antisoborno\n\n${ANTICORRUPCION}\n\n12.3. Conflicto de intereses (Ley N° 31564)\n\n${CONFLICTO_INTERESES}\n\n12.4. Propiedad intelectual\n\n${PROPIEDAD_INTELECTUAL}\n\n12.5. Responsabilidad por vicios ocultos\n\n${VICIOS_OCULTOS}\n\n12.6. Declaración Jurada de Intereses [de corresponder]\n\n${DECLARACION_INTERESES}\n\n12.7. Gastos por desplazamiento [de corresponder]\n\n${GASTOS_DESPLAZAMIENTO}`;
+  `13.1. Confidencialidad\n\n${CONFIDENCIALIDAD}\n\n13.2. Cláusula anticorrupción y antisoborno\n\n${ANTICORRUPCION}\n\n13.3. Conflicto de intereses (Ley N° 31564)\n\n${CONFLICTO_INTERESES}\n\n13.4. Propiedad intelectual\n\n${PROPIEDAD_INTELECTUAL}\n\n13.5. Responsabilidad por vicios ocultos\n\n${VICIOS_OCULTOS}\n\n13.6. Declaración Jurada de Intereses [de corresponder]\n\n${DECLARACION_INTERESES}\n\n13.7. Gastos por desplazamiento [de corresponder]\n\n${GASTOS_DESPLAZAMIENTO}`;
 
 export const RESOLUCION_CONTRACTUAL =
   'La ANIN puede resolver el contrato, en los siguientes casos:\n\na) Incumplimiento de obligaciones contractuales, por causa atribuible a la parte que incumple.\nb) Caso fortuito o fuerza mayor que imposibilite la continuación del contrato.\nc) Hecho sobreviniente al perfeccionamiento del contrato, de supuesto distinto al caso fortuito o fuerza mayor, no imputable a ninguna de las partes, que imposibilite la continuación del contrato.\nd) Por incumplimiento de la cláusula anticorrupción y antisoborno.\ne) Por la presentación de documentación falsa o inexacta durante la ejecución contractual y/o en la presentación de su cotización.\nf) Cuando la suma de la aplicación de las penalidades por mora y de otras penalidades exceda el 10% del monto del contrato menor.\n\nAsimismo, puede resolverse de forma total o parcial la orden de servicio y/o contrato por mutuo acuerdo entre las partes o de manera unilateral por la ANIN por fines institucionales, previa opinión del área usuaria que sustente dicha decisión.';
@@ -162,9 +158,62 @@ const LETRAS = [
   'DIECIOCHO', 'DIECINUEVE', 'VEINTE'
 ];
 
+const UNIDADES_MIN = [
+  '', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'
+];
+const ESPECIALES_MIN = [
+  'diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete',
+  'dieciocho', 'diecinueve'
+];
+const DECENAS_MIN = [
+  '', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'
+];
+const CENTENAS_MIN = [
+  '', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos',
+  'seiscientos', 'setecientos', 'ochocientos', 'novecientos'
+];
+
 export function numeroEnLetras(valor: number): string {
   const n = Math.floor(Number(valor) || 0);
   return LETRAS[n] || String(n);
+}
+
+/** «cinco (05)» / «ciento veinte (120)» para entregables. */
+export function diasEnLiteralYCifra(dias: number): string {
+  const n = Math.max(0, Math.floor(Number(dias) || 0));
+  const cifra = String(n).padStart(2, '0');
+  return `${numeroDiasEnLetras(n)} (${cifra})`;
+}
+
+export function numeroDiasEnLetras(n: number): string {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  if (v === 0) {
+    return 'cero';
+  }
+  if (v === 100) {
+    return 'cien';
+  }
+  if (v < 10) {
+    return UNIDADES_MIN[v];
+  }
+  if (v < 20) {
+    return ESPECIALES_MIN[v - 10];
+  }
+  if (v < 30) {
+    return v === 20 ? 'veinte' : `veinti${UNIDADES_MIN[v - 20]}`;
+  }
+  if (v < 100) {
+    const d = Math.floor(v / 10);
+    const u = v % 10;
+    return u === 0 ? DECENAS_MIN[d] : `${DECENAS_MIN[d]} y ${UNIDADES_MIN[u]}`;
+  }
+  if (v < 1000) {
+    const c = Math.floor(v / 100);
+    const r = v % 100;
+    const cabeza = c === 1 && r === 0 ? 'cien' : CENTENAS_MIN[c];
+    return r === 0 ? cabeza : `${cabeza} ${numeroDiasEnLetras(r)}`;
+  }
+  return String(v);
 }
 
 export function textoFormaPago(cantidadEntregables: number): string {
@@ -177,8 +226,44 @@ export function textoFormaPago(cantidadEntregables: number): string {
 }
 
 export function nombreEntregableUnico(plazo: number): string {
-  const dias = plazo > 0 ? plazo : 30;
-  return `ÚNICO ENTREGABLE. Hasta los ${dias} días calendario, contados a partir del día siguiente de notificada la orden de servicio o de suscrito el contrato.`;
+  return nombreEntregable(0, plazo > 0 ? plazo : 30, 1);
+}
+
+const ORDINALES_ENTREGABLE = [
+  'PRIMER', 'SEGUNDO', 'TERCER', 'CUARTO', 'QUINTO',
+  'SEXTO', 'SÉPTIMO', 'OCTAVO', 'NOVENO', 'DÉCIMO',
+  'DECIMOPRIMER', 'DECIMOSEGUNDO', 'DECIMOTERCER', 'DECIMOCUARTO', 'DECIMOQUINTO',
+  'DECIMOSEXTO', 'DECIMOSÉPTIMO', 'DECIMOCTAVO', 'DECIMONOVENO', 'VIGÉSIMO'
+];
+
+/**
+ * Texto por defecto del entregable i (0-based).
+ * `diasAcumulados` es el día límite (acumulativo), no un tramo a sumar.
+ */
+export function nombreEntregable(indice: number, diasAcumulados: number, cantidad: number): string {
+  const dias = diasAcumulados > 0 ? diasAcumulados : 30;
+  const cola =
+    `Hasta los ${diasEnLiteralYCifra(dias)} días calendario, contados a partir del día siguiente de notificada la orden de servicio o de suscrito el contrato.`;
+  if (cantidad <= 1) {
+    return `ÚNICO ENTREGABLE. ${cola}`;
+  }
+  const ordinal = ORDINALES_ENTREGABLE[indice] || `${indice + 1}.°`;
+  return `${ordinal} ENTREGABLE. ${cola}`;
+}
+
+function esNombreEntregableGenerado(nombre: string): boolean {
+  const n = (nombre || '').trim().toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (!n) {
+    return true;
+  }
+  if (n.startsWith('UNICO ENTREGABLE')) {
+    return true;
+  }
+  return ORDINALES_ENTREGABLE.some(o => {
+    const base = o.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    return n.startsWith(`${base} ENTREGABLE`);
+  });
 }
 
 export function crearTdrLocacion(valores: {
@@ -199,9 +284,11 @@ export function crearTdrLocacion(valores: {
     PerfilProveedor: PERFIL_EJEMPLO,
     Capacitacion: CAPACITACION_EJEMPLO,
     ExperienciaGeneral: EXPERIENCIA_GENERAL_EJEMPLO,
+    ExigeExperienciaEspecifica: true,
     ExperienciaEspecifica: EXPERIENCIA_ESPECIFICA_EJEMPLO,
     UnidadOrganizacional: unidad || UNIDAD_ORGANIZACIONAL_EJEMPLO,
     UnidadConformidad: unidad,
+    ExigeInformePrevio: false,
     UnidadInforme: '',
     LugarPrestacion: LUGAR_EJEMPLO,
     OtrasPenalidades: OTRAS_PENALIDADES_EJEMPLO,
@@ -209,20 +296,56 @@ export function crearTdrLocacion(valores: {
   };
 }
 
+/** Día límite del último entregable (acumulativo, no suma de tramos). */
 export function plazoEntregables(tdr: TdrLocacion): number {
-  return (tdr.Entregables || []).reduce((suma, e) => suma + (Number(e.Dias) || 0), 0);
+  const filas = tdr.Entregables || [];
+  if (!filas.length) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(Number(filas[filas.length - 1].Dias) || 0));
+}
+
+/** En modelo acumulativo, Dias ya es el día límite hasta ese entregable. */
+export function diasAcumuladosEntregable(tdr: TdrLocacion, indice: number): number {
+  const filas = tdr.Entregables || [];
+  if (indice < 0 || indice >= filas.length) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(Number(filas[indice]?.Dias) || 0));
 }
 
 /**
- * Reparte el plazo contractual entre N entregables. El total no cambia:
- * los días sobrantes van a los últimos.
+ * Regenera el texto por defecto. Dias es acumulativo (30, 50, 120…), no tramo.
+ */
+export function recalcularNombresEntregables(tdr: TdrLocacion): void {
+  const filas = tdr.Entregables || [];
+  const n = filas.length;
+  filas.forEach((entregable, i) => {
+    const dia = Math.max(0, Math.floor(Number(entregable.Dias) || 0));
+    entregable.Dias = dia > 0 ? dia : 1;
+    if (esNombreEntregableGenerado(entregable.Nombre)) {
+      entregable.Nombre = nombreEntregable(i, entregable.Dias, n);
+    }
+  });
+}
+
+/**
+ * Hitos acumulativos que suman el plazo (p. ej. 120 / 4 → 30, 60, 90, 120).
  */
 export function prorratearDias(plazo: number, cantidad: number): number[] {
   const n = Math.max(1, Math.min(20, Math.floor(Number(cantidad) || 1)));
   const total = Math.max(0, Math.floor(Number(plazo) || 0));
+  if (n === 1) {
+    return [total];
+  }
   const base = Math.floor(total / n);
   const resto = total - base * n;
-  return Array.from({ length: n }, (_, i) => base + (i >= n - resto ? 1 : 0));
+  const tramos = Array.from({ length: n }, (_, i) => base + (i >= n - resto ? 1 : 0));
+  let acumulado = 0;
+  return tramos.map(t => {
+    acumulado += t;
+    return acumulado;
+  });
 }
 
 /** Al menos una actividad con descripción. */
@@ -234,11 +357,13 @@ export function validarActividadesTdr(tdr: TdrLocacion): string | null {
   return null;
 }
 
-/** Al menos un entregable con nombre y plazo. Si el Anexo 5 ya fijó la
- *  cantidad, el TDR tiene que traer exactamente esa cantidad. */
+/**
+ * Días calendario acumulativos: estrictamente crecientes y el último = plazo.
+ */
 export function validarEntregablesTdr(
   tdr: TdrLocacion,
-  cantidadRegistrada?: number | null
+  cantidadRegistrada?: number | null,
+  plazoContrato?: number | null
 ): string | null {
   const filas = tdr.Entregables || [];
   const conNombre = filas.filter(e => (e.Nombre || '').trim());
@@ -255,18 +380,40 @@ export function validarEntregablesTdr(
   if (conNombre.some(e => !(Number(e.Dias) > 0))) {
     return 'Cada entregable debe tener un plazo en días mayor que cero.';
   }
+
+  for (let i = 1; i < filas.length; i++) {
+    const prev = Math.floor(Number(filas[i - 1].Dias) || 0);
+    const actual = Math.floor(Number(filas[i].Dias) || 0);
+    if (actual <= prev) {
+      return `Los días calendario son acumulativos: el entregable ${i + 1} debe ser mayor que el ${i} (${prev} días).`;
+    }
+  }
+
+  const plazo = Math.floor(Number(plazoContrato) || 0);
+  if (plazo > 0) {
+    const ultimo = plazoEntregables(tdr);
+    if (ultimo !== plazo) {
+      return `El último entregable debe llegar al plazo del contrato (${plazo} días). Ahora figura ${ultimo}.`;
+    }
+  }
   return null;
 }
 
+/**
+ * Ajusta la cantidad de filas. Si cambió el número o aún no hay días, reparte
+ * hitos acumulativos; si ya había días, los conserva y refresca nombres.
+ */
 export function ajustarEntregables(tdr: TdrLocacion, cantidad: number, plazoContrato?: number | null): void {
   const n = Math.max(1, Math.min(20, Math.floor(Number(cantidad) || 1)));
   const plazo = Number(plazoContrato) > 0
     ? Math.floor(Number(plazoContrato))
-    : (tdr.Entregables?.[0]?.Dias || 30);
+    : (tdr.Entregables?.[tdr.Entregables.length - 1]?.Dias || 30);
 
   if (!Array.isArray(tdr.Entregables)) {
     tdr.Entregables = [];
   }
+
+  const prev = tdr.Entregables.length;
 
   while (tdr.Entregables.length < n) {
     tdr.Entregables.push({ Nombre: '', Dias: 1 });
@@ -275,15 +422,18 @@ export function ajustarEntregables(tdr: TdrLocacion, cantidad: number, plazoCont
     tdr.Entregables.length = n;
   }
 
-  const dias = prorratearDias(plazo, n);
-  tdr.Entregables.forEach((entregable, i) => {
-    entregable.Dias = dias[i];
-  });
+  const countChanged = prev !== n;
+  const sinDias = tdr.Entregables.every(e => !(Number(e.Dias) > 0));
 
-  if (n === 1) {
-    const actual = (tdr.Entregables[0].Nombre || '').trim();
-    if (!actual || actual.startsWith('ÚNICO ENTREGABLE')) {
-      tdr.Entregables[0].Nombre = nombreEntregableUnico(plazo);
-    }
+  if (countChanged || sinDias) {
+    const dias = prorratearDias(plazo, n);
+    tdr.Entregables.forEach((entregable, i) => {
+      entregable.Dias = dias[i];
+      if (esNombreEntregableGenerado(entregable.Nombre) || countChanged) {
+        entregable.Nombre = '';
+      }
+    });
   }
+
+  recalcularNombresEntregables(tdr);
 }

@@ -137,6 +137,26 @@
   margin-bottom: 0.85rem;
 }
 
+.req-bloque__acciones {
+  margin-top: 0.85rem;
+}
+
+.req-bloque__denominacion {
+  margin-top: 1rem;
+}
+
+.req-campo-error {
+  margin: 0.3rem 0 0;
+  padding: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #b91c1c;
+}
+
+.campo-control--invalido {
+  border-color: #fca5a5 !important;
+}
+
 .req-bloque__ayuda {
   font-size: 0.78rem;
   color: #64748b;
@@ -485,13 +505,12 @@
 }
 
 .req-alerta {
-  margin: 0 0 1rem;
-  padding: 0.7rem 0.85rem;
-  border-radius: 8px;
-  background: #fef3c7;
-  color: #92400e;
-  font-size: 0.82rem;
-  line-height: 1.4;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  background: transparent;
+  color: #b91c1c;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .req-travel {

@@ -175,10 +175,6 @@
 
               <td data-column-name="Acción del perfil" class="td-acciones">
                 <div class="action-cell">
-                  <span class="action-cell__label" *ngIf="accionesDelPaquete(item).length === 0">
-                    Sin acción pendiente
-                  </span>
-
                   <button
                     type="button"
                     class="btn-icon-outline btn-accion"
@@ -263,10 +259,6 @@
 
               <td data-column-name="Acción del perfil" class="td-acciones">
                 <div class="action-cell">
-                  <span class="action-cell__label" *ngIf="accionesVisiblesDe(item).length === 0 && !agrupaPaquete(item) && !puedeEditar(item)">
-                    Sin acción pendiente
-                  </span>
-
                   <button
                     type="button"
                     class="btn-icon-outline btn-accion"
@@ -421,20 +413,39 @@
           </li>
           <li *ngIf="debeInvocarFirmaDigital && !nombreDocumentoFirmado">
             <i class="mdi mdi-certificate-outline" aria-hidden="true"></i>
-            Al abrir el documento se ofrece la firma digital. Por ahora puede confirmar sin ella para seguir el flujo.
+            Al abrir el documento se ofrece la firma digital. Puede colocar varias firmas; cada una se registra en el servidor. Por ahora también puede confirmar sin ella.
           </li>
           <li *ngIf="nombreDocumentoFirmado" class="cmn-aviso-ok">
             <i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
-            Firma digital completada. Ya puede confirmar la acción.
+            Hay un PDF firmado en el servidor. Puede firmar de nuevo (otro sello sobre el mismo archivo) o confirmar la acción.
           </li>
           <li *ngIf="accionEnCurso.transicion.EncolaIntegracion">
             <i class="mdi mdi-database-export-outline" aria-hidden="true"></i>
             Encola operaciones hacia SIGA<ng-container *ngIf="expedientesDeLaAccion > 1">,
             una aprobación por cada una de las {{ expedientesDeLaAccion }} solicitudes</ng-container>.
           </li>
-          <li *ngIf="accionEnCurso.transicion.GeneraObservacion">
+          <li *ngIf="accionEnCurso.transicion.GeneraObservacion
+                 && accionEnCurso.transicion.CodigoTransicion !== 'CMN_OA_OBSERVAR'
+                 && accionEnCurso.transicion.CodigoTransicion !== 'CMN_ABAST_JEFE_OBSERVAR'">
             <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
             Devuelve el expediente al área usuaria como observado.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'CMN_OA_OBSERVAR'">
+            <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
+            El expediente volverá al Jefe del Área usuaria; luego se derivará al Coordinador y al Especialista para subsanar.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'CMN_ABAST_JEFE_OBSERVAR'
+                 || accionEnCurso.transicion.CodigoTransicion === 'CMN_OBS_JEFE_DEVOLVER'">
+            <i class="mdi mdi-alert-outline" aria-hidden="true"></i>
+            El expediente vuelve directamente al Jefe del Área usuaria como observado.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'CMN_OBS_AU_JEFE_DERIVAR'">
+            <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
+            Deriva el expediente observado al Coordinador del Área usuaria.
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'CMN_OBS_AU_COORD_DERIVAR'">
+            <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
+            Envía el expediente observado al Especialista AU para que corrija los documentos.
           </li>
           <li *ngIf="expedientesDeLaAccion > 1">
             <i class="mdi mdi-file-document-multiple-outline" aria-hidden="true"></i>
@@ -525,7 +536,7 @@
         -->
         <div class="campo" *ngIf="ofreceDestinatarios">
           <label class="campo-etiqueta" for="responsableDestino">
-            Derivar a <span>(obligatorio)</span>
+            Derivar a
           </label>
           <select
             id="responsableDestino"
@@ -630,15 +641,15 @@
         <button
           type="button"
           class="btn btn-app-secundario"
-          *ngIf="debeInvocarFirmaDigital && !nombreDocumentoFirmado"
+          *ngIf="debeInvocarFirmaDigital"
           (click)="firmarDigitalDesdeVisor()"
         >
           <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
-          Firmar digitalmente
+          {{ nombreDocumentoFirmado ? 'Firmar de nuevo' : 'Firmar digitalmente' }}
         </button>
         <span class="cmn-firma-ok" *ngIf="nombreDocumentoFirmado">
           <i class="mdi mdi-check-circle-outline" aria-hidden="true"></i>
-          Firmado digitalmente
+          Firmado en el servidor
         </span>
         <button type="button" class="btn btn-app-primary" (click)="cerrarVisorPdf()">Cerrar</button>
       </div>

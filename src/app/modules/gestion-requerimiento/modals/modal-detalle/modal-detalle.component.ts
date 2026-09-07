@@ -242,6 +242,9 @@ export class ModalDetalleRequerimientoComponent {
   }
 
   get puedeElaborarAnexo3(): boolean {
+    if (!this.puedeEditar) {
+      return false;
+    }
     if (this.detalle?.CodigoTipoContratacion !== 'LOCACION') {
       return false;
     }

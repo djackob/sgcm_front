@@ -158,6 +158,8 @@ export interface RequerimientoDetalle extends RespuestaSigcm {
   Anulado: boolean;
   Estado: string;
   Responsable: string;
+  /** Jefe titular del área usuaria (para espacios de firma del Anexo 3). */
+  JefeAreaUsuaria?: string | null;
   Pedidos: PedidoRequerimiento[];
   Items: ItemRequerimiento[];
 }
@@ -433,7 +435,7 @@ export function montoTotalProveedor(proveedor: ProveedorFormularioRequerimiento)
 
 /**
  * JSON que espera login.fn_insertar_tm_login_usuario_externo_contrataciones.
- * Lo arma el front y el backend lo reenvia tal cual.
+ * Lo arma el front y lo envía a api/General/InsertarUsuarioExterno.
  */
 export function jsonUsuarioExternoContrataciones(proveedor: any): Record<string, unknown> {
   const nro = String(proveedor?.Dni || proveedor?.nro_documento || proveedor?.Ruc || '').trim();

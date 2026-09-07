@@ -196,8 +196,12 @@
         <ng-container *ngIf="!cargando && pestana === 'trazabilidad'">
           <section class="seccion">
             <h3 class="contenido-titulo">Historial</h3>
+            <p class="contenido-subtitulo">
+              Se muestran los hitos de firma y aprobación. Las derivaciones internas
+              de Abastecimiento se omiten para evitar confusiones.
+            </p>
             <ol class="linea-tiempo">
-              <li *ngFor="let paso of historial">
+              <li *ngFor="let paso of historialVisible">
                 <span class="linea-tiempo__punto"></span>
                 <div class="linea-tiempo__cuerpo">
                   <span class="linea-tiempo__titulo">
@@ -212,7 +216,7 @@
                   </p>
                 </div>
               </li>
-              <li *ngIf="historial.length === 0" class="cell-muted">Sin movimientos registrados.</li>
+              <li *ngIf="historialVisible.length === 0" class="cell-muted">Sin movimientos registrados.</li>
             </ol>
           </section>
 

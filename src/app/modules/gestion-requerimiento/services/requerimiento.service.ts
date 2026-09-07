@@ -183,11 +183,10 @@ export class RequerimientoService {
     });
   }
 
-  notificarOrdenServicio(idRequerimiento: string, version: number, usuarioExterno: any = {}): Observable<any> {
+  notificarOrdenServicio(idRequerimiento: string, version: number): Observable<any> {
     return this.apiService.POST('api/requerimiento/notificarOrdenServicio', {
       IdRequerimiento: idRequerimiento,
-      Version: version,
-      ...usuarioExterno
+      Version: version
     });
   }
 

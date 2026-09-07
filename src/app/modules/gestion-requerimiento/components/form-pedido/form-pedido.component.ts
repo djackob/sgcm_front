@@ -35,8 +35,33 @@ export class FormPedidoComponent {
 
   cargandoDetalle = false;
   private detalleSeq = 0;
+  errorCampo: Record<string, string> = {};
 
   constructor(private requerimientoService: RequerimientoService) {}
+
+  marcarErroresObligatorios(): boolean {
+    this.errorCampo = {};
+    if (!(this.pedido?.NumeroPedido || '').trim()) {
+      this.errorCampo['numero'] = 'Campo obligatorio.';
+    }
+    if (!(Number(this.pedido?.AnoPedido) > 0)) {
+      this.errorCampo['ano'] = 'Campo obligatorio.';
+    }
+    return Object.keys(this.errorCampo).length === 0;
+  }
+
+  limpiarErrores(): void {
+    this.errorCampo = {};
+  }
+
+  limpiarError(clave: string): void {
+    if (!this.errorCampo[clave]) {
+      return;
+    }
+    const siguiente = { ...this.errorCampo };
+    delete siguiente[clave];
+    this.errorCampo = siguiente;
+  }
 
   get prefijo(): string {
     return `pedido-${this.indice}`;

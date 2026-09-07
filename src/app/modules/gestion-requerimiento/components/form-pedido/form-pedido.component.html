@@ -14,14 +14,17 @@
 
   <div class="req-grid req-grid--documento">
     <div class="campo req-grid__ancho">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-numero'">N° Pedido SIGA</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-numero'">
+        N° Pedido SIGA<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <select
         [id]="prefijo + '-numero'"
         class="campo-control"
         [class.campo-control--bloqueado]="soloLectura"
+        [class.campo-control--invalido]="!!errorCampo['numero']"
         [name]="prefijo + '-numero'"
         [ngModel]="pedido.NumeroPedido"
-        (ngModelChange)="onPedidoSeleccionado($event)"
+        (ngModelChange)="onPedidoSeleccionado($event); limpiarError('numero')"
         [disabled]="soloLectura || cargandoPedidos || cargandoDetalle"
       >
         <option value="">{{ cargandoPedidos ? 'Cargando pedidos SIGA…' : 'Seleccione el N° de pedido' }}</option>
@@ -29,19 +32,25 @@
           {{ o.MotivoPedido || o.NumeroPedido }}
         </option>
       </select>
+      <p class="req-campo-error" *ngIf="errorCampo['numero']">{{ errorCampo['numero'] }}</p>
     </div>
 
     <div class="campo campo--corto">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-ano'">Año</label>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-ano'">
+        Año<span class="campo-req" aria-hidden="true">*</span>
+      </label>
       <input
         [id]="prefijo + '-ano'"
         type="number"
         class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['ano']"
         [name]="prefijo + '-ano'"
         [(ngModel)]="pedido.AnoPedido"
+        (ngModelChange)="limpiarError('ano')"
         [readonly]="soloLectura"
         [class.campo-control--bloqueado]="soloLectura"
       />
+      <p class="req-campo-error" *ngIf="errorCampo['ano']">{{ errorCampo['ano'] }}</p>
     </div>
 
     <div class="campo req-grid__resto">

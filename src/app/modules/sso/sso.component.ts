@@ -59,6 +59,8 @@ export class SsoComponent implements OnInit {
   preToken = '';
   cargando = true;
   ingresando = '';
+  /** Sin token SSO o fallo de red: se muestra en pantalla en vez de recargar. */
+  aviso = '';
 
   constructor(
     private CryptoService: CryptoService,
@@ -72,13 +74,25 @@ export class SsoComponent implements OnInit {
   ngOnInit(): void {
     setTimeout(() => {
       this.urlTree = this.router.parseUrl(this.router.url);
-      this.token = this.urlTree.queryParams['xy'];
+      this.token = (this.urlTree.queryParams['xy'] || '').trim();
+
+      if (!this.token) {
+        // Sin token del portal: al login SSO del ambiente (config.ssoLoginUrl).
+        this.ssoService.redirigirLoginSso();
+        return;
+      }
+
       this.loginSso(this.token);
     }, 50);
   }
 
+  irAccesoLocal(): void {
+    window.location.href = this.ssoService.urlLoginLocal();
+  }
+
   loginSso(token: string): void {
     this.cargando = true;
+    this.aviso = '';
 
     this.ssoService.iniciarSesionSso(token).subscribe({
       next: (userInfo: IUserInfo | any) => {
@@ -105,10 +119,11 @@ export class SsoComponent implements OnInit {
         this.salir();
       },
       error: () => {
+        // No recargar /sso-acceso: con HTTPS no confiable o API caída eso
+        // dejaba el loader eterno.
         this.cargando = false;
-        this.router.navigate(['/sso-acceso']).then(() => {
-          window.location.reload();
-        });
+        this.aviso = 'No fue posible validar el acceso con el SSO. Compruebe que el API esté arriba o use el ingreso local.';
+        this.funciones.mensaje('error', this.aviso);
       }
     });
   }
@@ -181,13 +196,17 @@ export class SsoComponent implements OnInit {
   }
 
   private salir(): void {
-    this.ssoService.loginOut().subscribe(
-      data => {
-        if (data.estado == 'OK') {
-          sessionStorage.clear();
-          window.location.href = data.mensaje;
-        }
+    this.ssoService.loginOut().subscribe({
+      next: data => {
+        sessionStorage.clear();
+        window.location.href = (data?.estado === 'OK' && data?.mensaje)
+          ? data.mensaje
+          : this.ssoService.urlLoginSso();
+      },
+      error: () => {
+        sessionStorage.clear();
+        window.location.href = this.ssoService.urlLoginSso();
       }
-    );
+    });
   }
 }

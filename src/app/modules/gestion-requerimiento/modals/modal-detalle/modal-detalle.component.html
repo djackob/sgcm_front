@@ -172,7 +172,7 @@
               <button
                 type="button"
                 class="btn btn-app-secundario btn-sm"
-                *ngIf="doc.codigo === 'REQ_TDR_LOCACION' && (!doc.registrado || doc.registrado.Estado !== 'FIRMADO')"
+                *ngIf="puedeEditar && doc.codigo === 'REQ_TDR_LOCACION' && (!doc.registrado || doc.registrado.Estado !== 'FIRMADO')"
                 (click)="emitirElaborarAnexo3()"
               >
                 {{ doc.registrado ? 'Editar TDR' : 'Elaborar TDR' }}

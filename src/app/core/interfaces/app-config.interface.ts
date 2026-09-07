@@ -1,6 +1,13 @@
 export interface AppConfig {
   env: string;
   apiUrl: string;
+  /**
+   * URL del portal SSO al vencer la sesión o al abrir /sso-acceso sin token.
+   * Cambia por ambiente (p. ej. https://dsso.anin.gob.pe/login).
+   */
+  ssoLoginUrl: string;
+  /** Ruta de retorno del ingreso local de pruebas. */
+  accesoLocalUrl?: string;
   profile: any[];
   /**
    * Unidad ejecutora en SIGA (SEC_EJEC). Toda consulta a SIGA va filtrada por

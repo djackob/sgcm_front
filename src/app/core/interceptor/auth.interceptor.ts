@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpRequest, HttpHandler, HttpEvent, HttpInterceptor, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { Router } from '@angular/router';
 import { catchError, tap } from 'rxjs/operators';
 import { SessionService } from '../services/session.service';
 import { Funciones } from '../../shared/funciones/funciones';
@@ -12,7 +11,6 @@ export class AuthInterceptor implements HttpInterceptor {
 
   constructor(
     private funciones: Funciones,
-    private router: Router,
     private SessionService: SessionService,
     private ssoService: SsoLoginService
   ) { }
@@ -27,21 +25,10 @@ export class AuthInterceptor implements HttpInterceptor {
         next: () => { },
         error: () => { }
       }),
-      catchError(err => {
+      catchError((err: HttpErrorResponse) => {
         if (err.status === 401) {
-          this.funciones.Mensaje('error', 'La sesión ha caducado', 'Será redireccionado al login', (data: any) => {
-            if (data.value) {
-              sessionStorage.clear();
-              this.ssoService.loginOut().subscribe(
-                data => {
-                  if (data.estado == 'OK') {
-                    sessionStorage.clear();
-                    window.location.href = data.mensaje;
-                  }
-                }
-              );
-            }
-          });
+          /* Sin aviso: el token venció → login del ambiente. */
+          this.ssoService.redirigirLoginPorExpiracion();
         } else if (err.status === 400) {
           this.funciones.Mensaje('error', 'Error 400', 'Mala respuesta por parte del servidor', () => { });
         } else if (err.status === 0) {
