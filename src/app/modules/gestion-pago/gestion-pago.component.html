@@ -126,9 +126,13 @@
               <span class="cell-subtitle" *ngIf="item.RucLocador">RUC {{ item.RucLocador }}</span>
             </td>
             <td data-column-name="Estado">
-              <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">
-                {{ item.Estado }}
-              </span>
+              <!-- El estado abre la trazabilidad: es la pregunta que se hace al
+                   mirarlo —quién lo movió y dónde está—, igual que en CMN. -->
+              <a href="javascript:void(0)" (click)="abrirTrazabilidad(item)">
+                <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">
+                  {{ item.Estado }}
+                </span>
+              </a>
             </td>
             <td data-column-name="Acción" class="td-acciones">
               <div class="action-cell">
@@ -140,6 +144,15 @@
                   (click)="abrir(item)"
                 >
                   <i class="mdi mdi-folder-open-outline" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  class="btn-icon-outline btn-accion"
+                  title="Ver el Acta de Conformidad (Anexo 11)"
+                  aria-label="Ver el Acta de Conformidad"
+                  (click)="verActaDesdeBandeja(item)"
+                >
+                  <i class="mdi mdi-file-document-outline" aria-hidden="true"></i>
                 </button>
               </div>
             </td>
@@ -186,7 +199,24 @@
           </button>
         </div>
 
-        <div class="modal-cuerpo">
+        <!-- Dos pestañas, como el detalle del CMN: lo que hay que hacer, y lo
+             que ya pasó. La trazabilidad contesta «quién lo movió y dónde está»
+             sin salir del expediente. -->
+        <nav class="detalle-tabs">
+          <button type="button" class="detalle-tabs__boton"
+                  [class.detalle-tabs__activo]="pestana === 'detalle'"
+                  (click)="pestana = 'detalle'">
+            Expediente
+          </button>
+          <button type="button" class="detalle-tabs__boton"
+                  [class.detalle-tabs__activo]="pestana === 'trazabilidad'"
+                  (click)="pestana = 'trazabilidad'">
+            Trazabilidad
+            <span class="detalle-tabs__conteo" *ngIf="historial.length">{{ historial.length }}</span>
+          </button>
+        </nav>
+
+        <div class="modal-cuerpo" [hidden]="pestana !== 'detalle'">
 
     <dl class="pago-datos">
       <div><dt>Requerimiento</dt><dd>{{ seleccionado.CodigoRequerimiento }}</dd></div>
@@ -197,6 +227,21 @@
       <div><dt>Presentado</dt><dd>{{ fecha(seleccionado.FechaPresentacion) }}</dd></div>
       <div><dt>Días de atraso</dt><dd>{{ seleccionado.DiasAtraso }}</dd></div>
       <div><dt>Penalidad</dt><dd>S/ {{ monto(seleccionado.MontoPenalidad) }}</dd></div>
+      <div *ngIf="ordenSiga?.EnSiga">
+        <dt>Estado en SIGA</dt>
+        <dd>
+          <span class="status-pill"
+                [ngClass]="ordenSiga!.Aprobada ? 'status-pill--success' : 'status-pill--warning'">
+            {{ ordenSiga!.Aprobada ? 'Emitida y comprometida' : 'Pendiente en SIGA' }}
+          </span>
+        </dd>
+      </div>
+      <div *ngIf="ordenSiga?.ExpedienteSiaf">
+        <dt>Expediente SIAF</dt><dd>{{ ordenSiga!.ExpedienteSiaf }}</dd>
+      </div>
+      <div *ngIf="ordenSiga?.FechaRecepcion">
+        <dt>Recepción en SIGA</dt><dd>{{ fecha(ordenSiga!.FechaRecepcion) }}</dd>
+      </div>
     </dl>
 
     <p class="pago-obs" *ngIf="seleccionado.ObservacionAu">
@@ -211,18 +256,62 @@
 
     <div class="pago-carga" *ngIf="codigoRol === 'PROVEEDOR'">
       <h3>Carga del entregable</h3>
-      <label>Informe / entregable (PDF)
-        <input type="file" accept="application/pdf" (change)="onFile($event, 'informe')" />
-      </label>
-      <label>RHE PDF
-        <input type="file" accept="application/pdf" (change)="onFile($event, 'rhePdf')" />
-      </label>
-      <label>RHE XML
-        <input type="file" accept=".xml,text/xml,application/xml" (change)="onFile($event, 'rheXml')" />
-      </label>
-      <label>Suspensión 4ta (PDF, si corresponde)
-        <input type="file" accept="application/pdf" (change)="onFile($event, 'susp')" />
-      </label>
+      <div class="campo">
+        <label class="campo-etiqueta">Informe / entregable (PDF)</label>
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton">
+            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+            Elegir archivo
+            <input type="file" accept="application/pdf" (change)="onFile($event, 'informe')" />
+          </label>
+          <span class="campo-archivo__nombre"
+                [class.campo-archivo__nombre--vacio]="!informeFile">
+            {{ informeFile?.name || 'Sin archivo seleccionado' }}
+          </span>
+        </div>
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta">RHE PDF</label>
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton">
+            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+            Elegir archivo
+            <input type="file" accept="application/pdf" (change)="onFile($event, 'rhePdf')" />
+          </label>
+          <span class="campo-archivo__nombre"
+                [class.campo-archivo__nombre--vacio]="!rhePdfFile">
+            {{ rhePdfFile?.name || 'Sin archivo seleccionado' }}
+          </span>
+        </div>
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta">RHE XML</label>
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton">
+            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+            Elegir archivo
+            <input type="file" accept=".xml,text/xml,application/xml" (change)="onFile($event, 'rheXml')" />
+          </label>
+          <span class="campo-archivo__nombre"
+                [class.campo-archivo__nombre--vacio]="!rheXmlFile">
+            {{ rheXmlFile?.name || 'Sin archivo seleccionado' }}
+          </span>
+        </div>
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta">Suspensión 4ta (PDF, si corresponde)</label>
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton">
+            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+            Elegir archivo
+            <input type="file" accept="application/pdf" (change)="onFile($event, 'susp')" />
+          </label>
+          <span class="campo-archivo__nombre"
+                [class.campo-archivo__nombre--vacio]="!suspFile">
+            {{ suspFile?.name || 'Sin archivo seleccionado' }}
+          </span>
+        </div>
+      </div>
       <div class="req-filtros">
         <div class="req-filtros__campo">
           <label class="campo-etiqueta">Serie RHE</label>
@@ -288,15 +377,48 @@
       <input class="campo-control" [(ngModel)]="numeroOperacion" />
       <label class="campo-etiqueta">CCI (20 dígitos)</label>
       <input class="campo-control" [(ngModel)]="cci" maxlength="20" />
-      <label>Nota de pago SIAF (PDF)
-        <input type="file" accept="application/pdf" (change)="onFile($event, 'nota')" />
-      </label>
-      <label>Constancia de transferencia
-        <input type="file" accept="application/pdf" (change)="onFile($event, 'constancia')" />
-      </label>
-      <label>Papeleta de penalidad (si corresponde)
-        <input type="file" accept="application/pdf" (change)="onFile($event, 'papeleta')" />
-      </label>
+      <div class="campo">
+        <label class="campo-etiqueta">Nota de pago SIAF (PDF)</label>
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton">
+            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+            Elegir archivo
+            <input type="file" accept="application/pdf" (change)="onFile($event, 'nota')" />
+          </label>
+          <span class="campo-archivo__nombre"
+                [class.campo-archivo__nombre--vacio]="!notaPagoFile">
+            {{ notaPagoFile?.name || 'Sin archivo seleccionado' }}
+          </span>
+        </div>
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta">Constancia de transferencia</label>
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton">
+            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+            Elegir archivo
+            <input type="file" accept="application/pdf" (change)="onFile($event, 'constancia')" />
+          </label>
+          <span class="campo-archivo__nombre"
+                [class.campo-archivo__nombre--vacio]="!constanciaFile">
+            {{ constanciaFile?.name || 'Sin archivo seleccionado' }}
+          </span>
+        </div>
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta">Papeleta de penalidad (si corresponde)</label>
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton">
+            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+            Elegir archivo
+            <input type="file" accept="application/pdf" (change)="onFile($event, 'papeleta')" />
+          </label>
+          <span class="campo-archivo__nombre"
+                [class.campo-archivo__nombre--vacio]="!papeletaFile">
+            {{ papeletaFile?.name || 'Sin archivo seleccionado' }}
+          </span>
+        </div>
+      </div>
       <div class="req-filtros">
         <div class="req-filtros__campo req-filtros__campo--corto">
           <label class="campo-etiqueta">Prórroga (1-5)</label>
@@ -315,6 +437,96 @@
       · SIAF {{ seleccionado.NotaPagoSiaf || '—' }}
     </p>
 
+    <section class="seccion" *ngIf="documentosExpediente.length">
+      <h3 class="contenido-titulo">Documentos</h3>
+      <div class="table-responsive">
+        <table class="table scm-table">
+          <tbody>
+            <tr *ngFor="let doc of documentosExpediente">
+              <td data-column-name="Documento">
+                <span class="cell-title">{{ doc.Nombre || doc.CodigoTipoDocumento }}</span>
+                <span class="cell-subtitle">{{ doc.CodigoTipoDocumento }}</span>
+              </td>
+              <td data-column-name="Estado">
+                <span class="status-pill"
+                      [ngClass]="doc.Estado === 'FIRMADO' ? 'status-pill--success' : 'status-pill--neutral'">
+                  {{ doc.Estado === 'FIRMADO' ? 'Firmado' : 'Sin firma' }}
+                </span>
+              </td>
+              <td data-column-name="Acción" class="td-acciones">
+                <div class="action-cell">
+                  <button type="button" class="btn-icon-outline btn-accion"
+                          title="Ver el documento" aria-label="Ver el documento"
+                          (click)="verDocumento(doc)">
+                    <i class="mdi mdi-file-document-outline" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+        </div>
+
+        <div class="modal-cuerpo" [hidden]="pestana !== 'trazabilidad'">
+          <section class="seccion">
+            <h3 class="contenido-titulo">Historial</h3>
+            <ol class="linea-tiempo">
+              <li *ngFor="let paso of historial">
+                <span class="linea-tiempo__punto"></span>
+                <div class="linea-tiempo__cuerpo">
+                  <span class="linea-tiempo__titulo">
+                    {{ paso.CodigoEstadoOrigen || 'Inicio' }} → {{ paso.CodigoEstadoDestino }}
+                  </span>
+                  <span class="linea-tiempo__meta">
+                    {{ paso.Actor }} · {{ paso.ActorRol }} · {{ paso.Unidad }} ·
+                    {{ paso.OcurridoEn | date: 'dd/MM/yyyy HH:mm' }}
+                  </span>
+                  <p class="linea-tiempo__comentario" *ngIf="paso.Comentario">{{ paso.Comentario }}</p>
+                </div>
+              </li>
+              <li *ngIf="historial.length === 0" class="cell-muted">Sin movimientos registrados.</li>
+            </ol>
+          </section>
+
+          <section class="seccion" *ngIf="observaciones.length">
+            <h3 class="contenido-titulo">Observaciones</h3>
+            <div class="observacion" *ngFor="let obs of observaciones">
+              <div class="observacion__cabecera">
+                <span class="status-pill status-pill--warning">{{ obs.Estado }}</span>
+                <span class="cell-muted">Origen {{ obs.CodigoRolOrigen }}</span>
+              </div>
+              <p class="observacion__motivo">{{ obs.Motivo }}</p>
+              <p class="observacion__respuesta" *ngIf="obs.Respuesta">
+                <b>Subsanación:</b> {{ obs.Respuesta }}
+              </p>
+            </div>
+          </section>
+
+          <section class="seccion" *ngIf="hitos.length">
+            <h3 class="contenido-titulo">Integración con SIGA</h3>
+            <div class="table-responsive">
+              <table class="table scm-table">
+                <tbody>
+                  <tr *ngFor="let h of hitos">
+                    <td data-column-name="Hito">
+                      <span class="cell-title">{{ h.NumeroHito }} · {{ h.NombreHito }}</span>
+                      <span class="cell-subtitle">{{ h.Direccion }} · {{ h.TablaSiga }}</span>
+                    </td>
+                    <td data-column-name="Estado">
+                      <span class="status-pill"
+                            [ngClass]="h.Estado === 'REGISTRADO' ? 'status-pill--success' : 'status-pill--neutral'">
+                        {{ h.Estado }}
+                      </span>
+                    </td>
+                    <td data-column-name="Detalle" class="cell-muted">{{ h.Mensaje }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
         <!-- Las acciones van al pie y CON SU NOMBRE, no como iconos. En la
@@ -327,6 +539,26 @@
           </button>
           <button
             type="button"
+            class="btn btn-app-secundario"
+            *ngIf="puedeGenerarAnexo11"
+            [disabled]="ejecutando"
+            (click)="documentoAnexo11 ? verAnexo11() : generarAnexo11()"
+          >
+            <i class="mdi mdi-file-document-outline" aria-hidden="true"></i>
+            {{ documentoAnexo11 ? "Ver Anexo 11" : "Generar Anexo 11" }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-app-secundario"
+            *ngIf="puedeGenerarAnexos910"
+            [disabled]="ejecutando"
+            (click)="generarAnexos910()"
+          >
+            <i class="mdi mdi-file-document-multiple-outline" aria-hidden="true"></i>
+            {{ etiquetaAnexos910 }}
+          </button>
+          <button
+            type="button"
             class="btn btn-app-primary"
             *ngFor="let t of seleccionado.Transiciones"
             [disabled]="ejecutando"
@@ -336,6 +568,45 @@
             {{ t.NombreAccion }}
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visor del Anexo 11, mismo patrón que CMN y Requerimiento -->
+<div class="modal-fondo" *ngIf="visorPdfUrl" role="presentation">
+  <div class="modal-app-dialog modal-app-dialog--pdf" role="dialog" aria-modal="true"
+       (click)="$event.stopPropagation()">
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">{{ visorPdfTitulo }}</h2>
+          <p class="modal-subtitulo">{{ seleccionado?.Codigo }} · {{ visorPdfSubtitulo }}</p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarVisorPdf()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-cuerpo">
+        <div class="pago-pdf-marco">
+          <iframe [src]="visorPdfUrl" title="Anexo 11 en formato PDF"></iframe>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          *ngIf="!omitirFirma && !anexo11Firmado"
+          [disabled]="ejecutando"
+          (click)="firmarAnexo11DesdeVisor()"
+        >
+          <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
+          Firmar digitalmente
+        </button>
+        <span class="status-pill status-pill--success" *ngIf="anexo11Firmado">
+          Firmado digitalmente
+        </span>
+        <button type="button" class="btn btn-app-primary" (click)="cerrarVisorPdf()">Cerrar</button>
       </div>
     </div>
   </div>

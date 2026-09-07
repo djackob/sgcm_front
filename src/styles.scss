@@ -8,6 +8,9 @@
 @import "styles/layouts/forms";
 @import "bootstrap/scss/bootstrap";
 @import "styles/components/tabs";
+/* Después de Bootstrap, igual que tabs: el reboot de button pisa el estilo de
+   las pestañas del detalle si se importa antes. */
+@import "styles/components/trazabilidad";
 
 body {
     background-color: #f1f5f9;

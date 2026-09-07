@@ -19,6 +19,24 @@ export interface ChecklistPago {
   Observacion?: string;
 }
 
+/**
+ * Lo que devuelve pago.paSincronizarOrdenSiga: el estado real de la orden de
+ * servicio dentro de SIGA. `Aprobada` es ESTADO '1' + ESTADO_SIAF '2', que es
+ * la única combinación con la que la orden está viva y comprometida.
+ */
+export interface OrdenServicioSiga {
+  EnSiga: boolean;
+  NumeroOrden: string | null;
+  EstadoOrden: string | null;
+  EstadoSiaf: string | null;
+  Aprobada: boolean;
+  ExpedienteSiaf: string | null;
+  NroCertifica: number | null;
+  FlagRecepcion: string | null;
+  FechaRecepcion: string | null;
+  mensaje: string;
+}
+
 export interface HitoPago {
   NumeroHito: number;
   NombreHito: string;

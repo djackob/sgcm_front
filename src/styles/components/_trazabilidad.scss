@@ -1,0 +1,184 @@
+/* Detalle de un expediente: pestañas, línea de tiempo y observaciones.
+
+   Vivían dentro del .scss del modal de detalle del CMN, que es component-scoped:
+   cuando el módulo de pagos usó las mismas clases salieron sin estilo, con las
+   pestañas como botones desnudos y el historial como una lista con viñetas. Son
+   piezas del sistema visual —el mismo gesto en los tres módulos— y por eso viven
+   aquí, junto a tablas, modales y botones. */
+
+.detalle-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+
+  button {
+    appearance: none;
+    padding: 0.6rem 0.9rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: #64748b;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+
+    &:hover:not(.detalle-tabs__activo) {
+      color: #475569;
+    }
+  }
+
+  &__activo {
+    border-bottom-color: #1d4ed8 !important;
+    color: #1d4ed8 !important;
+    font-weight: 600;
+  }
+
+  &__conteo {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: var(--main-color-300);
+    color: var(--main-color-800);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+}
+
+.linea-tiempo {
+  margin: 0.5rem 0 0;
+  padding: 0 0 0 1rem;
+  list-style: none;
+  border-left: 2px solid #e2e8f0;
+
+  li {
+    position: relative;
+    padding: 0 0 1rem 0.75rem;
+  }
+
+  &__punto {
+    position: absolute;
+    left: -1.42rem;
+    top: 0.3rem;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #1d4ed8;
+  }
+
+  &__titulo {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  &__meta {
+    display: block;
+    font-size: 0.75rem;
+    color: #94a3b8;
+  }
+
+  &__comentario {
+    margin: 0.35rem 0 0;
+    font-size: 0.82rem;
+    color: #475569;
+  }
+}
+
+/* Mismo par de color que status-pill--warning, que es como se muestra un
+   expediente observado en la bandeja. */
+.observacion {
+  padding: 0.75rem;
+  border: 1px solid #fff7ed;
+  border-radius: 8px;
+  background: #fff7ed;
+
+  + .observacion {
+    margin-top: 0.5rem;
+  }
+
+  &__cabecera {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.4rem;
+    font-size: 0.78rem;
+  }
+
+  &__motivo,
+  &__respuesta {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #c2410c;
+  }
+
+  &__respuesta {
+    margin-top: 0.35rem;
+    color: #047857;
+  }
+}
+
+/* Bloque con título dentro del cuerpo de un modal. */
+.seccion {
+  + .seccion {
+    margin-top: 1.25rem;
+  }
+
+  .contenido-titulo {
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Campo de archivo. El input nativo trae un botón gris del sistema operativo
+   que rompe la pantalla: se oculta y se pinta la etiqueta como un botón del
+   sistema visual, con el nombre del archivo al lado. */
+.campo-archivo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+
+  input[type='file'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  &__boton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--main-color-500, #1d4ed8);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--main-color-700, #1d4ed8);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover {
+      background: var(--main-color-100, #eff6ff);
+    }
+  }
+
+  &__nombre {
+    font-size: 0.82rem;
+    color: #475569;
+    overflow-wrap: anywhere;
+  }
+
+  &__nombre--vacio {
+    color: #94a3b8;
+  }
+}

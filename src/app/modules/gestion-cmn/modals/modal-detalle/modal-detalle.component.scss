@@ -1,35 +1,6 @@
-.detalle-tabs {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0 1.25rem;
-  border-bottom: 1px solid #e2e8f0;
-
-  button {
-    padding: 0.6rem 0.9rem;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: none;
-    color: #64748b;
-    font-size: 0.85rem;
-    cursor: pointer;
-  }
-
-  &__activo {
-    border-bottom-color: #1d4ed8 !important;
-    color: #1d4ed8 !important;
-    font-weight: 600;
-  }
-
-  &__conteo {
-    display: inline-block;
-    margin-left: 0.3rem;
-    padding: 0 0.35rem;
-    border-radius: 999px;
-    background: var(--main-color-300);
-    color: var(--main-color-800);
-    font-size: 0.7rem;
-  }
-}
+/* Las pestañas, la línea de tiempo y el bloque de observación viven en
+   src/styles/components/_trazabilidad.scss: los tres módulos los usan. Aquí
+   queda solo lo propio de este modal. */
 
 .detalle-ficha {
   display: grid;
@@ -60,80 +31,6 @@
   font-size: 0.85rem;
   line-height: 1.5;
   white-space: pre-wrap;
-}
-
-.linea-tiempo {
-  margin: 0.5rem 0 0;
-  padding: 0 0 0 1rem;
-  list-style: none;
-  border-left: 2px solid #e2e8f0;
-
-  li {
-    position: relative;
-    padding: 0 0 1rem 0.75rem;
-  }
-
-  &__punto {
-    position: absolute;
-    left: -1.42rem;
-    top: 0.3rem;
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #1d4ed8;
-  }
-
-  &__titulo {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #0f172a;
-  }
-
-  &__meta {
-    display: block;
-    font-size: 0.75rem;
-    color: #94a3b8;
-  }
-
-  &__comentario {
-    margin: 0.35rem 0 0;
-    font-size: 0.82rem;
-    color: #475569;
-  }
-}
-
-/* Mismo par de color que status-pill--warning, que es como se muestra un
-   expediente observado en la bandeja. */
-.observacion {
-  padding: 0.75rem;
-  border: 1px solid #fff7ed;
-  border-radius: 8px;
-  background: #fff7ed;
-
-  + .observacion {
-    margin-top: 0.5rem;
-  }
-
-  &__cabecera {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    margin-bottom: 0.4rem;
-    font-size: 0.78rem;
-  }
-
-  &__motivo,
-  &__respuesta {
-    margin: 0;
-    font-size: 0.85rem;
-    color: #c2410c;
-  }
-
-  &__respuesta {
-    margin-top: 0.35rem;
-    color: #047857;
-  }
 }
 
 .lista-documentos {
