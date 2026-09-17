@@ -11,10 +11,18 @@ export interface TdrActividad {
 export interface TdrEntregable {
   Nombre: string;
   Dias: number;
+  /**
+   * Índices 0-based sobre `TdrLocacion.Actividades`. Un entregable puede
+   * repetir actividades ya tocadas en hitos previos; al último entregable la
+   * unión de todos debe cubrir el TDR completo.
+   */
+  IndicesActividades: number[];
 }
 
 export interface TdrLocacion {
+  /** Conservado en TDRs antiguos; se deriva de si hay NombreProyecto SIGA. */
   EsProyecto: boolean;
+  /** Nombre SIGA cuando el pedido tiene CUI o está en idea. Visible siempre. */
   NombreProyecto: string;
   FinalidadPublica: string;
   Objetivo: string;
@@ -43,7 +51,7 @@ export const AYUDA_FINALIDAD =
   'Describir el interés público que se pretende satisfacer con la contratación, indicando cómo la prestación contribuirá al cumplimiento de las funciones, objetivos institucionales o necesidades de la Entidad.';
 
 export const AYUDA_OBJETIVO =
-  'Indique qué se consigue de forma técnica con la ejecución de las actividades: ¿qué producto, capacidad o resultado operativo se logra? No limite el texto al nombre del servicio; describa el resultado técnico esperado.';
+  '¿Qué conseguimos con la ejecución de las actividades?';
 
 export const AYUDA_JUSTIFICACION =
   'Consignar una breve descripción de los antecedentes considerados por el área usuaria para la determinación de la necesidad, respecto del motivo por el cual se efectúa el requerimiento de contratación de servicios y cómo esta contribuirá al cumplimiento de sus funciones, objetivos institucionales o metas programadas.';
@@ -73,7 +81,7 @@ export const INTRO_ACTIVIDADES =
   'Las actividades que realizará el CONTRATISTA durante la prestación del servicio son:';
 
 export const INTRO_ENTREGABLES =
-  'Cada entregable deberá contener un (01) un informe que describa el desarrollo total o parcial de las actividades (según corresponda).';
+  'Cada entregable deberá contener un (01) informe que describa el desarrollo total o parcial de las actividades del TDR (según corresponda). Indique qué actividades abarca cada entregable; pueden repetirse entre hitos. En el último entregable, el conjunto de todos los hitos debe haber abarcado la totalidad de las actividades.';
 
 export const OBSERVACION_ENTREGABLES =
   'De existir alguna observación al entregable, esta deberá ser subsanada por el contratista en el plazo establecido en la comunicación de la Dependencia Encargada de las Contrataciones (DEC), de conformidad al numeral 144.4 del artículo 144 del Reglamento de la Ley N° 32069, Ley General de Contrataciones Públicas, contados desde el día siguiente de la notificación de la observación.\n\nLas observaciones que puedan contener los documentos indicados en los literales b, c, d y e del numeral IX, podrán ser subsanadas por el contratista a solicitud de la Unidad de Abastecimiento a través de correo electrónico.\n\nLos entregables deberán ser presentados en concordancia con lo descrito en los numerales IX y X.';
@@ -292,8 +300,163 @@ export function crearTdrLocacion(valores: {
     UnidadInforme: '',
     LugarPrestacion: LUGAR_EJEMPLO,
     OtrasPenalidades: OTRAS_PENALIDADES_EJEMPLO,
-    Entregables: [{ Nombre: nombreEntregableUnico(plazo), Dias: plazo }]
+    Entregables: [{ Nombre: nombreEntregableUnico(plazo), Dias: plazo, IndicesActividades: [] }]
   };
+}
+
+/**
+ * CUI (tipo 2 / código 2xxxxxx) o idea/genérico (tipo 0).
+ * 3999999 «SIN PRODUCTO» no es nombre de proyecto.
+ */
+export function esActProyConNombreProyecto(
+  actProy?: string | null,
+  tipoActProy?: string | null,
+  nombre?: string | null
+): boolean {
+  const codigo = String(actProy || '').trim();
+  const tipo = String(tipoActProy || '').trim();
+  const nom = String(nombre || '').trim();
+  if (!codigo || codigo === '3999999') {
+    return false;
+  }
+  if (/sin producto/i.test(nom)) {
+    return false;
+  }
+  if (tipo === '2' || /^2\d{6}$/.test(codigo)) {
+    return true;
+  }
+  if (tipo === '0' || codigo === '0000000') {
+    return true;
+  }
+  return false;
+}
+
+export function aplicarNombreProyectoTdr(
+  tdr: TdrLocacion,
+  pedidos: { ProdPy?: string; TipoActProy?: string; NombreProyectoSiga?: string }[]
+): void {
+  tdr.NombreProyecto = nombreProyectoDesdePedidos(pedidos);
+  tdr.EsProyecto = !!tdr.NombreProyecto;
+}
+
+export function nombreProyectoDesdePedidos(
+  pedidos: { ProdPy?: string; TipoActProy?: string; NombreProyectoSiga?: string }[]
+): string {
+  const vistos = new Set<string>();
+  const nombres: string[] = [];
+  for (const pedido of pedidos || []) {
+    const nombre = String(pedido.NombreProyectoSiga || '').trim();
+    if (!nombre) {
+      continue;
+    }
+    const clave = nombre.toUpperCase();
+    if (vistos.has(clave)) {
+      continue;
+    }
+    if (!esActProyConNombreProyecto(pedido.ProdPy, pedido.TipoActProy, nombre)) {
+      continue;
+    }
+    vistos.add(clave);
+    nombres.push(nombre);
+  }
+  return nombres.join(' / ');
+}
+
+/** Normaliza índices de actividades de un entregable (únicos, ordenados, vigentes). */
+export function normalizarIndicesActividades(
+  indices: number[] | null | undefined,
+  totalActividades: number
+): number[] {
+  const max = Math.max(0, Math.floor(Number(totalActividades) || 0));
+  const vistos = new Set<number>();
+  const out: number[] = [];
+  for (const crudo of indices || []) {
+    const i = Math.floor(Number(crudo));
+    if (!(i >= 0) || i >= max || vistos.has(i)) {
+      continue;
+    }
+    vistos.add(i);
+    out.push(i);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** Unión de índices de actividades tocadas por todos los entregables. */
+export function indicesActividadesCubiertas(tdr: TdrLocacion): number[] {
+  const total = (tdr.Actividades || []).length;
+  const vistos = new Set<number>();
+  for (const e of tdr.Entregables || []) {
+    for (const i of normalizarIndicesActividades(e.IndicesActividades, total)) {
+      vistos.add(i);
+    }
+  }
+  return [...vistos].sort((a, b) => a - b);
+}
+
+export function resumenCoberturaActividades(tdr: TdrLocacion): {
+  total: number;
+  cubiertas: number;
+  faltantes: number[];
+  completa: boolean;
+} {
+  const total = (tdr.Actividades || [])
+    .map((a, i) => ((a.Descripcion || '').trim() ? i : -1))
+    .filter(i => i >= 0);
+  const cubiertasSet = new Set(indicesActividadesCubiertas(tdr));
+  const faltantes = total.filter(i => !cubiertasSet.has(i));
+  return {
+    total: total.length,
+    cubiertas: total.length - faltantes.length,
+    faltantes,
+    completa: total.length > 0 && faltantes.length === 0
+  };
+}
+
+/**
+ * Cada entregable debe indicar ≥1 actividad; la unión (al último hito) debe
+ * abarcar todas las actividades del TDR. Se permiten repeticiones entre hitos.
+ */
+export function validarCoberturaActividadesEntregables(tdr: TdrLocacion): string | null {
+  const actividades = tdr.Actividades || [];
+  const indicesConTexto = actividades
+    .map((a, i) => ((a.Descripcion || '').trim() ? i : -1))
+    .filter(i => i >= 0);
+  if (!indicesConTexto.length) {
+    return null;
+  }
+
+  const filas = tdr.Entregables || [];
+  for (let i = 0; i < filas.length; i++) {
+    const idxs = normalizarIndicesActividades(filas[i].IndicesActividades, actividades.length)
+      .filter(ix => indicesConTexto.includes(ix));
+    filas[i].IndicesActividades = idxs;
+    if (!idxs.length) {
+      return `Indique qué actividad(es) del TDR abarca el entregable ${i + 1}.`;
+    }
+  }
+
+  const cobertura = resumenCoberturaActividades(tdr);
+  if (!cobertura.completa) {
+    const lista = cobertura.faltantes.map(i => `${i + 1}`).join(', ');
+    return `Al último entregable deben haberse abarcado todas las actividades del TDR. Faltan la(s) actividad(es) N.° ${lista}. Puede repetir actividades entre entregables, pero la unión de todos debe ser completa.`;
+  }
+  return null;
+}
+
+/** Tras quitar una actividad, reindexa los IndicesActividades de cada entregable. */
+export function reindexarActividadesTrasQuitar(tdr: TdrLocacion, indiceQuitado: number): void {
+  const quitado = Math.floor(Number(indiceQuitado));
+  for (const e of tdr.Entregables || []) {
+    const next: number[] = [];
+    for (const i of e.IndicesActividades || []) {
+      const ix = Math.floor(Number(i));
+      if (ix === quitado) {
+        continue;
+      }
+      next.push(ix > quitado ? ix - 1 : ix);
+    }
+    e.IndicesActividades = normalizarIndicesActividades(next, (tdr.Actividades || []).length);
+  }
 }
 
 /** Día límite del último entregable (acumulativo, no suma de tramos). */
@@ -359,6 +522,7 @@ export function validarActividadesTdr(tdr: TdrLocacion): string | null {
 
 /**
  * Días calendario acumulativos: estrictamente crecientes y el último = plazo.
+ * Incluye la cobertura de actividades del TDR por entregable.
  */
 export function validarEntregablesTdr(
   tdr: TdrLocacion,
@@ -396,7 +560,8 @@ export function validarEntregablesTdr(
       return `El último entregable debe llegar al plazo del contrato (${plazo} días). Ahora figura ${ultimo}.`;
     }
   }
-  return null;
+
+  return validarCoberturaActividadesEntregables(tdr);
 }
 
 /**
@@ -416,11 +581,16 @@ export function ajustarEntregables(tdr: TdrLocacion, cantidad: number, plazoCont
   const prev = tdr.Entregables.length;
 
   while (tdr.Entregables.length < n) {
-    tdr.Entregables.push({ Nombre: '', Dias: 1 });
+    tdr.Entregables.push({ Nombre: '', Dias: 1, IndicesActividades: [] });
   }
   if (tdr.Entregables.length > n) {
     tdr.Entregables.length = n;
   }
+
+  const totalAct = (tdr.Actividades || []).length;
+  tdr.Entregables.forEach(e => {
+    e.IndicesActividades = normalizarIndicesActividades(e.IndicesActividades, totalAct);
+  });
 
   const countChanged = prev !== n;
   const sinDias = tdr.Entregables.every(e => !(Number(e.Dias) > 0));

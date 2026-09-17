@@ -3,7 +3,7 @@ import { map } from 'rxjs/operators';
 
 import { RequerimientoDetalle } from '../models/requerimiento.model';
 import { RequerimientoService } from '../services/requerimiento.service';
-import { crearTdrLocacion, TdrLocacion } from './anexo3-tdr.plantilla';
+import { crearTdrLocacion, normalizarIndicesActividades, TdrLocacion } from './anexo3-tdr.plantilla';
 import { TIPO_ANEXO_3 } from './anexo3.pdfmake';
 import {
   documentoLocador,
@@ -47,6 +47,25 @@ export function leerTdrDesdePayload(payload: any): Partial<TdrLocacion> | null {
   }
   if (!Array.isArray(tdr.Actividades)) {
     tdr = { ...tdr, Actividades: [] };
+  }
+  if (typeof tdr.Entregables === 'string') {
+    tdr = { ...tdr, Entregables: parsearJson(tdr.Entregables) };
+  }
+  if (!Array.isArray(tdr.Entregables)) {
+    tdr = { ...tdr, Entregables: [] };
+  } else {
+    const totalAct = tdr.Actividades.length;
+    tdr = {
+      ...tdr,
+      Entregables: tdr.Entregables.map((e: any) => ({
+        Nombre: e?.Nombre || '',
+        Dias: Number(e?.Dias) || 0,
+        IndicesActividades: normalizarIndicesActividades(
+          Array.isArray(e?.IndicesActividades) ? e.IndicesActividades : [],
+          totalAct
+        )
+      }))
+    };
   }
   return tdr;
 }

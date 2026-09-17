@@ -46,10 +46,16 @@
   gap: 0.3rem;
   font-size: 0.78rem;
   color: #64748b;
+  margin: 0 0 0.35rem;
 
   .campo-control {
     font-size: 0.86rem;
   }
+}
+
+textarea.campo-control {
+  width: 100%;
+  resize: vertical;
 }
 
 .ccp-ayuda {

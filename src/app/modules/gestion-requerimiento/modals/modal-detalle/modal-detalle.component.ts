@@ -10,7 +10,7 @@ import { MaestraService } from '../../../../shared/services/maestra.service';
 import { SessionService } from '../../../../core/services/session.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import { esPdfDelFileServer, idDocumentoSistema } from '../../../../shared/funciones/archivo';
-import { CARPETA_MEMO_CCP } from '../../documentos/filtro-idoneidad.util';
+import { CARPETA_MEMO_CCP, CARPETA_EVAL_TDR, TIPO_EVAL_CUMPLIMIENTO_TDR, documentosDelExpediente } from '../../documentos/filtro-idoneidad.util';
 import { nombreProveedor, numeroDocumentoProveedor } from '../../models/requerimiento.model';
 import { CARPETA_ANEXO_5 } from '../../documentos/anexo5.pdfmake';
 import { CARPETA_ANEXO_3, TIPO_ANEXO_3 } from '../../documentos/anexo3.pdfmake';
@@ -141,7 +141,7 @@ export class ModalDetalleRequerimientoComponent {
 
         this.detalle = respuestas.detalle;
         this.historial = respuestas.trazabilidad?.Historial || [];
-        this.documentos = respuestas.documentos?.Documentos || [];
+        this.documentos = documentosDelExpediente(respuestas.documentos);
         this.aplicarCcpOs(respuestas.detalle);
         if (this.detalle?.CodigoTipoContratacion === 'LOCACION') {
           this.cargarFiltros();
@@ -215,10 +215,21 @@ export class ModalDetalleRequerimientoComponent {
       return [];
     }
 
-    return (DOCUMENTO_TECNICO[this.detalle.CodigoTipoContratacion] || []).map(esperado => ({
+    const esperados = (DOCUMENTO_TECNICO[this.detalle.CodigoTipoContratacion] || []).map(esperado => ({
       ...esperado,
       registrado: this.documentos.find(d => d.CodigoTipoDocumento === esperado.codigo) || null
     }));
+
+    if (this.detalle.CodigoTipoContratacion === 'LOCACION') {
+      esperados.push({
+        codigo: TIPO_EVAL_CUMPLIMIENTO_TDR,
+        etiqueta: 'Evaluación de cumplimiento del TDR',
+        anexo: 'Matriz / Excel',
+        registrado: this.documentos.find(d => d.CodigoTipoDocumento === TIPO_EVAL_CUMPLIMIENTO_TDR) || null
+      });
+    }
+
+    return esperados;
   }
 
   tonoDocumento(documento: DocumentoExpediente | null): string {
@@ -234,7 +245,9 @@ export class ModalDetalleRequerimientoComponent {
     }
     const carpeta = documento?.CodigoTipoDocumento === TIPO_ANEXO_3
       ? CARPETA_ANEXO_3
-      : CARPETA_ANEXO_5;
+      : documento?.CodigoTipoDocumento === TIPO_EVAL_CUMPLIMIENTO_TDR
+        ? CARPETA_EVAL_TDR
+        : CARPETA_ANEXO_5;
     return this.maestraService.urlDescarga(
       idDocumentoSistema(documento?.GeneradoDocumento),
       carpeta

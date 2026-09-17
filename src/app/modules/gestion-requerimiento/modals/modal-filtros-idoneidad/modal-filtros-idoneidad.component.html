@@ -153,6 +153,30 @@
         </section>
 
         <section class="fid-bloque">
+          <h3 class="fid-bloque__titulo">Evaluación de Cumplimiento de Requisitos del TDR</h3>
+          <p class="fid-ayuda" *ngIf="esEtapaEspecialista">
+            Carga obligatoria (PDF) de la matriz/Excel de evaluación de experiencia y capacitaciones del locador.
+          </p>
+          <p class="fid-ayuda" *ngIf="!esEtapaEspecialista">
+            PDF de la matriz/Excel de evaluación cargado por el especialista. Solo lectura para la revisión.
+          </p>
+          <div class="fid-evidencia">
+            <a *ngIf="urlEvalTdr" [href]="urlEvalTdr" target="_blank" rel="noopener">
+              {{ evalTdrNombre || 'Ver evaluación TDR' }}
+            </a>
+            <span class="cell-muted" *ngIf="!urlEvalTdr && !esEtapaEspecialista">Sin evaluación TDR registrada.</span>
+            <label class="fid-drop" *ngIf="esEtapaEspecialista">
+              <input type="file" accept="application/pdf,.pdf" (change)="onEvalTdrFile($event)" />
+              <span *ngIf="subiendoEvalTdr">Subiendo…</span>
+              <span *ngIf="!subiendoEvalTdr">
+                {{ evalTdrNombre ? 'Reemplazar PDF' : 'Arrastrar / elegir PDF de evaluación' }}
+              </span>
+            </label>
+          </div>
+          <p class="fid-aviso" *ngIf="!evalTdrOk">Pendiente: sin este PDF no se puede confirmar la idoneidad.</p>
+        </section>
+
+        <section class="fid-bloque">
           <h3 class="fid-bloque__titulo">Matriz de los 5 filtros de idoneidad</h3>
           <p class="fid-ayuda">
             Consulte cada registro en el portal oficial, marque el check y cargue el PDF de sustento.
@@ -259,13 +283,33 @@
           La devolución se habilita si algún filtro obligatorio no cumple.
         </span>
         <span class="fid-footer__spacer"></span>
-        <button type="button" class="btn btn-app-secundario" [disabled]="guardando" (click)="guardarBorrador()">
-          <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
+        <button
+          type="button"
+          class="btn btn-app-secundario"
+          *ngIf="esEtapaEspecialista"
+          [disabled]="guardando"
+          (click)="guardarBorrador()"
+        >
+          <i class="mdi mdi-loading mdi-spin" *ngIf="guardando && !enviandoCoordinador" aria-hidden="true"></i>
           Guardar borrador
         </button>
         <button
           type="button"
           class="btn btn-app-primary"
+          *ngIf="esEtapaEspecialista"
+          [disabled]="!puedeEnviarCoordinador || guardando"
+          (click)="enviarAlCoordinador()"
+        >
+          <i class="mdi mdi-loading mdi-spin" *ngIf="enviandoCoordinador" aria-hidden="true"></i>
+          Enviar al coordinador
+        </button>
+        <span class="modal-footer__info" *ngIf="esEtapaEspecialista && !puedeEnviarCoordinador && !hayImpedimento">
+          Complete SUNAT, RNP, la matriz y la evaluación TDR para enviar al coordinador.
+        </span>
+        <button
+          type="button"
+          class="btn btn-app-primary"
+          *ngIf="esRevisionJefe"
           [disabled]="!puedeConfirmarCcp"
           (click)="irACcp()"
         >

@@ -48,27 +48,27 @@ export const FILTROS_MATRIZ = ['RNSSC', 'REDAM', 'RPS_TCP', 'REDJUM', 'DEBIDA_DI
 export const PORTAL_FILTRO: Record<string, { etiqueta: string; url: string }> = {
   SUNAT_HABIDO: {
     etiqueta: 'Consulta RUC SUNAT',
-    url: 'https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/FrameCriterioBusquedaModulo.jsp'
+    url: 'https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/jcrS00Alias'
   },
   RNP: {
     etiqueta: 'Consulta RNP',
-    url: 'https://www.rnp.gob.pe/'
+    url: 'https://apps.osce.gob.pe/perfilprov-ui/'
   },
   RNSSC: {
-    etiqueta: 'RNSSC (SERVIR)',
-    url: 'https://www.servir.gob.pe/registro-nacional-de-sanciones-rnssc/'
+    etiqueta: 'RNSSC',
+    url: 'https://www.sanciones.gob.pe/rnssc/#/transparencia/acceso'
   },
   REDAM: {
     etiqueta: 'REDAM (Poder Judicial)',
-    url: 'https://casillas.pj.gob.pe/redam/'
+    url: 'https://casillas.pj.gob.pe/redam/#/'
   },
   RPS_TCP: {
-    etiqueta: 'Proveedores sancionados OSCE',
-    url: 'https://www.gob.pe/institucion/osce'
+    etiqueta: 'Tribunal OSCE / inhabilitados RNP',
+    url: 'https://www.rnp.gob.pe/consultasenlinea/inhabilitados/busqueda.asp'
   },
   REDJUM: {
     etiqueta: 'REDJUM (Poder Judicial)',
-    url: 'https://casillas.pj.gob.pe/redjum/'
+    url: 'https://redjum.pj.gob.pe/redjum/#/'
   },
   DEBIDA_DILIGENCIA: {
     etiqueta: 'Debida diligencia del sector público',
@@ -81,6 +81,36 @@ export const TIPO_CCP = 'REQ_CCP';
 export const TIPO_MEMO_UP_CCP = 'REQ_MEMO_UP_CCP';
 export const TIPO_PREVISION_PRESUP = 'REQ_PREVISION_PRESUP';
 export const CARPETA_MEMO_CCP = 'requerimiento';
+
+/** Matriz/Excel de evaluación de experiencia y capacitaciones del locador (PDF). */
+export const TIPO_EVAL_CUMPLIMIENTO_TDR = 'REQ_EVAL_CUMPLIMIENTO_TDR';
+export const CARPETA_EVAL_TDR = 'requerimiento';
+
+/**
+ * paListarDocumento a veces entrega Documentos como arreglo y a veces como
+ * texto JSON. Sin normalizar, el visor del jefe no encuentra la evaluación TDR.
+ */
+export function documentosDelExpediente(respuesta: any): any[] {
+  if (!respuesta) {
+    return [];
+  }
+  if (Array.isArray(respuesta)) {
+    return respuesta;
+  }
+  const raw = respuesta.Documentos ?? respuesta.documentos ?? respuesta.datos;
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
 
 export function etiquetaCortaFiltro(codigo: string): string {
   return ETIQUETA_CORTA_FILTRO[codigo] || codigo;

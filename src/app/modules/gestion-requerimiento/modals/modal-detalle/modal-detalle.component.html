@@ -358,8 +358,11 @@
             </button>
 
             <h3 class="det-seccion">Certificación de crédito presupuestario</h3>
-            <p class="det-nota" *ngIf="detalle.CodigoEstado === 'REQ_CCP_SOLICITADO'">
+            <p class="det-nota" *ngIf="detalle.CodigoEstado === 'REQ_CCP_SOLICITADO' && codigoRol === 'ABAST_ESPECIALISTA'">
               Use la acción <b>Registrar CCP y generar orden de servicio</b> en la bandeja para cargar la certificación.
+            </p>
+            <p class="det-nota" *ngIf="detalle.CodigoEstado === 'REQ_CCP_SOLICITADO' && codigoRol !== 'ABAST_ESPECIALISTA'">
+              La certificación la registra el especialista de Abastecimiento.
             </p>
             <div class="det-datos" *ngIf="detalle.Ccp">
               <div>
@@ -393,8 +396,11 @@
             <p class="cell-subtitle" *ngIf="detalle.CodigoEstado === 'REQ_CCP_CARGADA'">
               Use la acción <b>Generar cuadro de adquisicion</b> en la bandeja. SIGA no ofrece esa pantalla para pedidos de requerimiento; SCM la escribe directo.
             </p>
-            <p class="cell-subtitle" *ngIf="detalle.CodigoEstado === 'REQ_CUADRO_GENERADO'">
+            <p class="cell-subtitle" *ngIf="detalle.CodigoEstado === 'REQ_CUADRO_GENERADO' && codigoRol === 'ABAST_ESPECIALISTA'">
               Use la acción <b>Emitir orden de servicio</b> en la bandeja para abrir el asistente y generar el PDF.
+            </p>
+            <p class="cell-subtitle" *ngIf="detalle.CodigoEstado === 'REQ_CUADRO_GENERADO' && codigoRol !== 'ABAST_ESPECIALISTA'">
+              La orden de servicio la emite el especialista de Abastecimiento.
             </p>
             <div class="det-datos">
               <div>

@@ -187,6 +187,46 @@
       grid-template-columns: 1.6rem 1fr;
     }
   }
+
+  &__cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+}
+
+.tdr-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+
+  .req-check {
+    align-items: flex-start;
+    gap: 0.45rem;
+    font-size: 0.84rem;
+    line-height: 1.35;
+    color: #1e293b;
+  }
+}
+
+.tdr-cobertura {
+  margin: 0.35rem 0 0.85rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+
+  &--ok {
+    background: #ecfdf5;
+    color: #065f46;
+  }
+
+  &--warn {
+    background: #fff7ed;
+    color: #9a3412;
+  }
 }
 
 .tdr-acordeones {

@@ -3,9 +3,12 @@
     <div class="modal-app">
       <div class="modal-cabecera">
         <div class="modal-cabecera-info">
-          <h2 class="modal-titulo">Respuesta del locador</h2>
-          <p class="modal-subtitulo" *ngIf="fila">
+          <h2 class="modal-titulo">{{ vistaReenvio ? 'Reenviar paquete al locador' : 'Respuesta del locador' }}</h2>
+          <p class="modal-subtitulo" *ngIf="fila && !vistaReenvio">
             {{ fila.Codigo }} · Anexos 6 y 7 firmados (plazo: 3 días hábiles)
+          </p>
+          <p class="modal-subtitulo" *ngIf="fila && vistaReenvio">
+            {{ fila.Codigo }} · El correo se envía al locador del Anexo 5
           </p>
         </div>
         <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()" [disabled]="procesando">
@@ -13,7 +16,27 @@
         </button>
       </div>
 
-      <div class="modal-cuerpo">
+      <div class="modal-cuerpo" *ngIf="vistaReenvio">
+        <p class="ccp-ayuda">
+          El locador recibirá de nuevo el paquete (TDR, Anexos 6 y 7 e integridad).
+          Si desea, indique una observación que se incluirá en el correo.
+        </p>
+        <div class="ccp-campo">
+          <label for="obsReenvio">Observación (opcional)</label>
+          <textarea
+            id="obsReenvio"
+            class="campo-control"
+            rows="5"
+            [(ngModel)]="observacionReenvio"
+            name="observacionReenvio"
+            maxlength="2000"
+            placeholder="Ej. Se reenvía el paquete porque faltó adjuntar la cotización firmada."
+            [disabled]="procesando"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="modal-cuerpo" *ngIf="!vistaReenvio">
         <p class="ccp-ayuda">
           En locación la indagación es uno a uno: el locador del Anexo 5 devuelve
           la cotización (Anexo 6, monto a dos decimales y CCI) y la declaración
@@ -49,7 +72,7 @@
               >
                 {{ subiendo === 'anexo6' ? 'Subiendo…' : 'Examinar' }}
               </button>
-              <input #input6 type="file" accept=".pdf,application/pdf" hidden (change)="onSeleccionado('anexo6', $event)" />
+              <input #input6 type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden (change)="onSeleccionado('anexo6', $event)" />
             </ng-template>
           </div>
         </div>
@@ -82,13 +105,22 @@
               >
                 {{ subiendo === 'anexo7' ? 'Subiendo…' : 'Examinar' }}
               </button>
-              <input #input7 type="file" accept=".pdf,application/pdf" hidden (change)="onSeleccionado('anexo7', $event)" />
+              <input #input7 type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden (change)="onSeleccionado('anexo7', $event)" />
             </ng-template>
           </div>
         </div>
       </div>
 
-      <div class="modal-footer">
+      <div class="modal-footer" *ngIf="vistaReenvio">
+        <button type="button" class="btn btn-app-secundario" (click)="cancelarReenvio()" [disabled]="procesando">
+          Volver
+        </button>
+        <button type="button" class="btn btn-app-primary" (click)="confirmarReenvio()" [disabled]="procesando">
+          Enviar correo
+        </button>
+      </div>
+
+      <div class="modal-footer" *ngIf="!vistaReenvio">
         <button type="button" class="btn btn-app-secundario" (click)="cerrar()" [disabled]="procesando">
           Cancelar
         </button>

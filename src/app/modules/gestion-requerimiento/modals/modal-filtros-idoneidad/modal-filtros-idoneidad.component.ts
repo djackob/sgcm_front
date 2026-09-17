@@ -12,12 +12,15 @@ import { idDocumentoSistema } from '../../../../shared/funciones/archivo';
 import { RequerimientoBandeja, RequerimientoDetalle } from '../../models/requerimiento.model';
 import {
   CARPETA_MEMO_CCP,
+  CARPETA_EVAL_TDR,
   FILTROS_FORMALES,
   FILTROS_MATRIZ,
   FiltroIdoneidadVista,
   PORTAL_FILTRO,
+  TIPO_EVAL_CUMPLIMIENTO_TDR,
   correoLocadorValido,
   documentoLocador,
+  documentosDelExpediente,
   esFiltroMatriz,
   etiquetaMatrizFiltro,
   etiquetaPid as textoResultadoPid,
@@ -42,6 +45,7 @@ export class ModalFiltrosIdoneidadComponent {
   abierto = false;
   cargando = false;
   guardando = false;
+  enviandoCoordinador = false;
   observando = false;
   subiendoCodigo: string | null = null;
   arrastreCodigo: string | null = null;
@@ -52,6 +56,10 @@ export class ModalFiltrosIdoneidadComponent {
   fila: RequerimientoBandeja | null = null;
   detalle: RequerimientoDetalle | null = null;
   filtros: FiltroIdoneidadVista[] = [];
+
+  evalTdrDocumento = '';
+  evalTdrNombre = '';
+  subiendoEvalTdr = false;
 
   constructor(
     private requerimientoService: RequerimientoService,
@@ -66,6 +74,8 @@ export class ModalFiltrosIdoneidadComponent {
     this.filtros = [];
     this.mostrarObservar = false;
     this.motivoObservacion = '';
+    this.evalTdrDocumento = '';
+    this.evalTdrNombre = '';
     this.abierto = true;
     this.cargando = true;
 
@@ -75,6 +85,9 @@ export class ModalFiltrosIdoneidadComponent {
       ),
       filtros: this.requerimientoService.listarFiltroIdoneidad(fila.IdRequerimiento).pipe(
         catchError(() => of({ Filtros: [] }))
+      ),
+      documentos: this.requerimientoService.listarDocumento(fila.IdExpediente).pipe(
+        catchError(() => of(null))
       )
     }).subscribe({
       next: (respuestas: any) => {
@@ -92,6 +105,12 @@ export class ModalFiltrosIdoneidadComponent {
           Version: respuestas.detalle.Version ?? fila.Version,
           CodigoEstado: respuestas.detalle.CodigoEstado || fila.CodigoEstado
         };
+        const docs = documentosDelExpediente(respuestas.documentos);
+        const evalDoc = docs.find((d: any) => d.CodigoTipoDocumento === TIPO_EVAL_CUMPLIMIENTO_TDR);
+        if (evalDoc) {
+          this.evalTdrDocumento = idDocumentoSistema(evalDoc.GeneradoDocumento) || '';
+          this.evalTdrNombre = evalDoc.NombreDocumento || 'Evaluación TDR.pdf';
+        }
       },
       error: () => {
         this.cargando = false;
@@ -101,10 +120,13 @@ export class ModalFiltrosIdoneidadComponent {
     });
   }
 
-  cerrar(): void {
-    if (this.guardando || this.observando) {
+  cerrar(forzar = false): void {
+    if (!forzar && (this.guardando || this.observando)) {
       return;
     }
+    this.guardando = false;
+    this.enviandoCoordinador = false;
+    this.observando = false;
     this.abierto = false;
   }
 
@@ -190,8 +212,85 @@ export class ModalFiltrosIdoneidadComponent {
   }
 
   get puedeConfirmarCcp(): boolean {
-    return this.sunatOk && this.rnpOk && this.matrizCompleta && !this.hayImpedimento
+    return this.esRevisionJefe
+      && this.sunatOk && this.rnpOk && this.matrizCompleta && this.evalTdrOk
+      && !this.hayImpedimento
       && !this.guardando && !this.observando;
+  }
+
+  get puedeEnviarCoordinador(): boolean {
+    return this.esEtapaEspecialista
+      && this.sunatOk && this.rnpOk && this.matrizCompleta && this.evalTdrOk
+      && !this.hayImpedimento
+      && !this.observando;
+  }
+
+  get evalTdrOk(): boolean {
+    return !!idDocumentoSistema(this.evalTdrDocumento);
+  }
+
+  get urlEvalTdr(): string {
+    const id = idDocumentoSistema(this.evalTdrDocumento);
+    return id ? this.maestraService.urlDescarga(id, CARPETA_EVAL_TDR) : '';
+  }
+
+  onEvalTdrFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    input.value = '';
+    this.cargarEvalTdr(archivo);
+  }
+
+  private cargarEvalTdr(archivo: File | undefined): void {
+    if (!archivo || !this.detalle || !this.fila) {
+      return;
+    }
+    if (!/\.pdf$/i.test(archivo.name) && archivo.type !== 'application/pdf') {
+      this.funciones.mensaje('info', 'Cargue la evaluación en PDF.');
+      return;
+    }
+    this.subiendoEvalTdr = true;
+    this.documentoService.subirArchivo(archivo, CARPETA_EVAL_TDR).subscribe({
+      next: (respuesta: any) => {
+        this.subiendoEvalTdr = false;
+        const documentoSistema = idDocumentoSistema(respuesta?.documento_sistema);
+        if (!documentoSistema) {
+          this.funciones.mensaje('error', 'No se obtuvo el identificador del PDF.');
+          return;
+        }
+        this.requerimientoService.registrarDocumento(
+          this.fila!.IdExpediente,
+          TIPO_EVAL_CUMPLIMIENTO_TDR,
+          documentoSistema,
+          archivo.name
+        ).subscribe({
+          next: (reg: any) => {
+            if (reg?.estado === 0) {
+              this.funciones.mensaje('error', reg?.mensaje || 'No se registró la evaluación TDR.');
+              return;
+            }
+            this.evalTdrDocumento = documentoSistema;
+            this.evalTdrNombre = archivo.name;
+            this.funciones.mensaje('success', 'Evaluación de cumplimiento del TDR cargada.');
+          },
+          error: () => this.funciones.mensaje('error', 'No fue posible registrar la evaluación TDR.')
+        });
+      },
+      error: () => {
+        this.subiendoEvalTdr = false;
+        this.funciones.mensaje('error', 'No fue posible subir el PDF de evaluación TDR.');
+      }
+    });
+  }
+
+  get esRevisionJefe(): boolean {
+    const estado = this.fila?.CodigoEstado || this.detalle?.CodigoEstado || '';
+    return estado === 'REQ_FILTROS_JEFE';
+  }
+
+  get esEtapaEspecialista(): boolean {
+    const estado = this.fila?.CodigoEstado || this.detalle?.CodigoEstado || '';
+    return estado === 'REQ_FILTROS';
   }
 
   get puedeObservar(): boolean {
@@ -331,6 +430,55 @@ export class ModalFiltrosIdoneidadComponent {
     });
   }
 
+  enviarAlCoordinador(): void {
+    if (!this.puedeEnviarCoordinador || !this.detalle || !this.fila) {
+      return;
+    }
+    if (this.sunatBloquea) {
+      this.funciones.mensaje('error', 'SUNAT no figura como Activo y Habido. El flujo queda bloqueado.');
+      return;
+    }
+    this.guardando = true;
+    this.enviandoCoordinador = true;
+    this.requerimientoService.registrarFiltroIdoneidad(this.detalle.IdRequerimiento, this.filtros).subscribe({
+      next: (guardado: any) => {
+        if (guardado?.estado !== 1) {
+          this.guardando = false;
+          this.enviandoCoordinador = false;
+          this.funciones.mensaje('error', guardado?.mensaje || 'No se guardaron los filtros.');
+          return;
+        }
+        this.requerimientoService.derivarFiltrosIdoneidad(
+          this.detalle!.IdRequerimiento,
+          this.fila!.Version,
+          'REQ_ENVIAR_FILTROS_COORD'
+        ).subscribe({
+          next: (respuesta: any) => {
+            this.guardando = false;
+            this.enviandoCoordinador = false;
+            if (respuesta?.estado !== 1) {
+              this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible enviar los filtros al coordinador.');
+              return;
+            }
+            this.abierto = false;
+            this.funciones.mensaje('success', respuesta.mensaje || 'Filtros enviados al coordinador.');
+            this.completado.emit();
+          },
+          error: () => {
+            this.guardando = false;
+            this.enviandoCoordinador = false;
+            this.funciones.mensaje('error', 'No fue posible enviar los filtros al coordinador.');
+          }
+        });
+      },
+      error: () => {
+        this.guardando = false;
+        this.enviandoCoordinador = false;
+        this.funciones.mensaje('error', 'No fue posible guardar los filtros antes de enviarlos.');
+      }
+    });
+  }
+
   irACcp(): void {
     if (!this.puedeConfirmarCcp || !this.detalle || !this.fila) {
       return;
@@ -339,23 +487,13 @@ export class ModalFiltrosIdoneidadComponent {
       this.funciones.mensaje('error', 'SUNAT no figura como Activo y Habido. El flujo queda bloqueado.');
       return;
     }
-    this.guardando = true;
-    this.requerimientoService.registrarFiltroIdoneidad(this.detalle.IdRequerimiento, this.filtros).subscribe({
-      next: (respuesta: any) => {
-        this.guardando = false;
-        if (respuesta?.estado !== 1) {
-          this.funciones.mensaje('error', respuesta?.mensaje || 'No se pudieron guardar los filtros.');
-          return;
-        }
-        const fila = this.fila!;
-        this.abierto = false;
-        this.solicitarCcp.emit(fila);
-      },
-      error: () => {
-        this.guardando = false;
-        this.funciones.mensaje('error', 'No fue posible guardar los filtros.');
-      }
-    });
+
+    /* Siempre abrir el memorando CCP sin regrabar filtros: el especialista ya
+       los dejo registrados. Evita NO_AUTORIZADO con builds que aun llamaban
+       a registrarFiltroIdoneidad siendo jefe. */
+    const fila = this.fila;
+    this.abierto = false;
+    this.solicitarCcp.emit(fila);
   }
 
   pedirObservar(): void {

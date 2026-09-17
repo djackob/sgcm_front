@@ -26,7 +26,6 @@ import {
   TIPO_NOTA_PAGO,
   TIPO_PAPELETA,
   TIPO_RHE_PDF,
-  TIPO_RHE_XML,
   TIPO_SUSP_4TA,
   TransicionPago
 } from './models/pago.model';
@@ -79,6 +78,10 @@ export class GestionPagoComponent implements OnInit {
   visorPdfObjectUrl = '';
   visorPdfTitulo = '';
   visorPdfSubtitulo = '';
+  /* Solo el Anexo 11 se firma digitalmente. El mismo modal sirve para el 9/10
+     y otros PDF; sin esta bandera el botón «Firmar» abría el firmador con el
+     Acta 11 aunque el visor estuviera mostrando el Checklist 9. */
+  visorPdfPuedeFirmar = false;
   comentario = '';
   retrasoJustificado = false;
   confirmarAlerta = false;
@@ -93,7 +96,6 @@ export class GestionPagoComponent implements OnInit {
 
   informeFile: File | null = null;
   rhePdfFile: File | null = null;
-  rheXmlFile: File | null = null;
   suspFile: File | null = null;
   notaPagoFile: File | null = null;
   constanciaFile: File | null = null;
@@ -343,11 +345,10 @@ export class GestionPagoComponent implements OnInit {
     return this.maestra.urlDescarga(idDocumentoSistema(id || ''), CARPETA_PAGO);
   }
 
-  onFile(event: Event, campo: 'informe' | 'rhePdf' | 'rheXml' | 'susp' | 'nota' | 'constancia' | 'papeleta'): void {
+  onFile(event: Event, campo: 'informe' | 'rhePdf' | 'susp' | 'nota' | 'constancia' | 'papeleta'): void {
     const file = (event.target as HTMLInputElement).files?.[0] || null;
     if (campo === 'informe') this.informeFile = file;
     if (campo === 'rhePdf') this.rhePdfFile = file;
-    if (campo === 'rheXml') this.rheXmlFile = file;
     if (campo === 'susp') this.suspFile = file;
     if (campo === 'nota') this.notaPagoFile = file;
     if (campo === 'constancia') this.constanciaFile = file;
@@ -407,8 +408,8 @@ export class GestionPagoComponent implements OnInit {
     if (!this.seleccionado) {
       return;
     }
-    if (!this.informeFile || !this.rhePdfFile || !this.rheXmlFile) {
-      this.funciones.mensaje('info', 'Cargue el informe PDF y el RHE (PDF y XML).');
+    if (!this.informeFile || !this.rhePdfFile) {
+      this.funciones.mensaje('info', 'Cargue el informe PDF y el RHE (PDF).');
       return;
     }
     this.ejecutando = true;
@@ -417,19 +418,16 @@ export class GestionPagoComponent implements OnInit {
     const ups = [
       this.documentos.subirArchivo(this.informeFile, CARPETA_PAGO),
       this.documentos.subirArchivo(this.rhePdfFile, CARPETA_PAGO),
-      this.documentos.subirArchivo(this.rheXmlFile, CARPETA_PAGO),
       this.suspFile ? this.documentos.subirArchivo(this.suspFile, CARPETA_PAGO) : of(null)
     ];
     forkJoin(ups).pipe(
       switchMap((archivos: any[]) => {
         const inf = archivos[0]?.documento_sistema;
         const pdf = archivos[1]?.documento_sistema;
-        const xml = archivos[2]?.documento_sistema;
-        const sus = archivos[3]?.documento_sistema || null;
+        const sus = archivos[2]?.documento_sistema || null;
         return forkJoin({
           a: this.pago.registrarDocumento(id, TIPO_INFORME, inf, this.informeFile!.name),
           b: this.pago.registrarDocumento(id, TIPO_RHE_PDF, pdf, this.rhePdfFile!.name),
-          c: this.pago.registrarDocumento(id, TIPO_RHE_XML, xml, this.rheXmlFile!.name),
           d: sus ? this.pago.registrarDocumento(id, TIPO_SUSP_4TA, sus, this.suspFile!.name)
                  : of({ estado: 1 })
         }).pipe(switchMap(() => this.pago.presentarEntregable({
@@ -437,7 +435,7 @@ export class GestionPagoComponent implements OnInit {
           Version: version,
           InformeDocumento: inf,
           RhePdfDocumento: pdf,
-          RheXmlDocumento: xml,
+          RheXmlDocumento: null,
           Suspension4taDocumento: sus,
           RheSerie: this.rheSerie,
           RheNumero: this.rheNumero
@@ -619,16 +617,22 @@ export class GestionPagoComponent implements OnInit {
   }
 
   private abrirVisorAnexo11(documentoSistema: string, subtitulo: string): void {
-    this.abrirVisorPdf(documentoSistema, 'Anexo 11 · Acta de Conformidad', subtitulo);
+    this.abrirVisorPdf(documentoSistema, 'Anexo 11 · Acta de Conformidad', subtitulo, true);
   }
 
   /** Trae el PDF del file server y lo muestra dentro del modal. */
-  private abrirVisorPdf(documentoSistema: string, titulo: string, subtitulo: string): void {
+  private abrirVisorPdf(
+    documentoSistema: string,
+    titulo: string,
+    subtitulo: string,
+    puedeFirmar = false
+  ): void {
     this.maestra.descargarArchivo(documentoSistema, CARPETA_PAGO).subscribe({
       next: (blob: Blob) => {
         this.cerrarVisorPdf();
         this.visorPdfTitulo = titulo;
         this.visorPdfSubtitulo = subtitulo;
+        this.visorPdfPuedeFirmar = puedeFirmar;
         this.visorPdfObjectUrl = URL.createObjectURL(
           blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' })
         );
@@ -647,6 +651,7 @@ export class GestionPagoComponent implements OnInit {
     this.visorPdfUrl = null;
     this.visorPdfTitulo = '';
     this.visorPdfSubtitulo = '';
+    this.visorPdfPuedeFirmar = false;
   }
 
   /**

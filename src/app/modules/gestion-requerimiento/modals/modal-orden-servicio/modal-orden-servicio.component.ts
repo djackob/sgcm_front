@@ -33,6 +33,7 @@ import {
   resumenMetaClasificador,
   resumenMonto
 } from '../../documentos/orden-servicio.util';
+import { construirGlosaOrdenServicio } from '../../documentos/glosa-os.util';
 import {
   ccpTieneDatos,
   normalizarCcp
@@ -174,6 +175,46 @@ export class ModalOrdenServicioComponent {
 
   get faltaCcp(): boolean {
     return !ccpTieneDatos(this.ccp);
+  }
+
+  get textoGlosa(): string {
+    if (!this.detalle) {
+      return '';
+    }
+    return construirGlosaOrdenServicio(
+      this.detalle,
+      this.tdr,
+      this.proveedor?.CantidadEntregables || this.tdr?.Entregables?.length || null
+    );
+  }
+
+  copiarGlosa(): void {
+    const texto = this.textoGlosa;
+    if (!texto) {
+      return;
+    }
+    const listo = () => this.funciones.mensaje('success', 'Glosa copiada. Péguela en la Orden de Servicio del SIGA Escritorio.');
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(texto).then(listo).catch(() => this.copiarGlosaFallback(texto, listo));
+      return;
+    }
+    this.copiarGlosaFallback(texto, listo);
+  }
+
+  private copiarGlosaFallback(texto: string, listo: () => void): void {
+    const area = document.createElement('textarea');
+    area.value = texto;
+    area.style.position = 'fixed';
+    area.style.left = '-9999px';
+    document.body.appendChild(area);
+    area.select();
+    try {
+      document.execCommand('copy');
+      listo();
+    } catch {
+      this.funciones.mensaje('info', 'Seleccione y copie manualmente el texto de la glosa.');
+    }
+    document.body.removeChild(area);
   }
 
   irARegistrarCcp(): void {

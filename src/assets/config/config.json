@@ -4,8 +4,8 @@
   "env": "anin",
 
   "apiUrl_LOCAL": "http://localhost:5120/",
-  "apiUrl_DESARROLLO": "http://192.168.40.72:9004/",
-  "apiUrl": "http://localhost:5120/",
+  "apiUrl_DESARROLLO": "http://192.168.20.111:9048/",
+  "apiUrl": "http://192.168.20.111:9048/",
 
   "ssoLoginUrl": "https://dsso.anin.gob.pe/login",
   "accesoLocalUrl": "/acceso-local",
@@ -22,7 +22,7 @@
     "ruta_carpeta": "DESARROLLO/cmn",
     "ruta_respuesta": "",
     "ruta_archivo": "https://vasg.anin.gob.pe/",
-    "omitir_dispositivo": true
+    "omitir_dispositivo": false
   },
 
   "MAX_SIZE_UPLOAD": 1073741824

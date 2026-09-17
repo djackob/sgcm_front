@@ -105,7 +105,7 @@ export function construirAnexo3Tdr(
         margin: [0, 2, 0, 14]
       },
 
-      tablaCabecera(detalle, pedidos),
+      tablaCabecera(detalle, pedidos, tdr),
 
       seccion('1.', 'MARCO LEGAL (Obligatorio)', [cuerpo(MARCO_LEGAL)]),
 
@@ -310,6 +310,8 @@ export function pedidosDesdeDetalle(
         || (fila.SecFunc != null ? String(fila.SecFunc) : ''),
       Programa: extraPedido.Programa || '',
       ProdPy: extraPedido.ProdPy || '',
+      TipoActProy: extraPedido.TipoActProy || '',
+      NombreProyectoSiga: extraPedido.NombreProyectoSiga || '',
       CodigoItemPedido: extraPedido.CodigoItemPedido || '',
       NombreItemPedido: extraPedido.NombreItemPedido || ''
     };
@@ -318,7 +320,8 @@ export function pedidosDesdeDetalle(
 
 function tablaCabecera(
   detalle: RequerimientoDetalle | any,
-  pedidos: PedidoFormularioRequerimiento[]
+  pedidos: PedidoFormularioRequerimiento[],
+  tdr: TdrLocacion
 ): any {
   const primero = pedidos[0];
   const numeros = pedidos.map(p => p.NumeroPedido).filter(Boolean).join(' / ');
@@ -335,7 +338,8 @@ function tablaCabecera(
         filaCabecera('Unidad de Organización', unidad),
         filaCabecera('Actividad Operativa', primero?.ActividadOperativa || ''),
         filaCabecera('Meta Presupuestaria', primero?.MetaPresupuestaria || ''),
-        filaCabecera('Denominación de la contratación', detalle?.Denominacion || '')
+        filaCabecera('Denominación de la contratación', detalle?.Denominacion || ''),
+        filaCabecera('Nombre del proyecto', tdr?.NombreProyecto || '')
       ]
     },
     layout: {
@@ -514,12 +518,33 @@ function listaEntregables(tdr: TdrLocacion): any {
   if (!filas.length) {
     return { text: ' ', style: 'cuerpo', margin: [0, 0, 0, 4] };
   }
+  const actividades = tdr.Actividades || [];
   return {
     ol: filas.map(e => {
       const nombre = e.Nombre || 'Entregable';
       const yaTieneDias = /d[ií]as calendario/i.test(nombre);
       const sufijo = !yaTieneDias && e.Dias ? ` (${e.Dias} días calendario)` : '';
-      return { text: nombre + sufijo, style: 'cuerpo' };
+      const idxs = (e.IndicesActividades || [])
+        .map(i => Math.floor(Number(i)))
+        .filter(i => i >= 0 && i < actividades.length);
+      const acts = idxs.length
+        ? {
+            text: 'Actividades: '
+              + idxs.map(i => {
+                  const d = (actividades[i]?.Descripcion || '').trim();
+                  return d ? `${i + 1}) ${d}` : `${i + 1}`;
+                }).join('; '),
+            style: 'cuerpo',
+            margin: [0, 2, 0, 0],
+            fontSize: 9
+          }
+        : null;
+      return {
+        stack: [
+          { text: nombre + sufijo, style: 'cuerpo' },
+          ...(acts ? [acts] : [])
+        ]
+      };
     }),
     margin: [0, 2, 0, 8]
   };

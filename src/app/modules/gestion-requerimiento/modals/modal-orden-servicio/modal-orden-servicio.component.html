@@ -70,6 +70,21 @@
         </section>
 
         <section class="os-bloque">
+          <h3 class="os-bloque__titulo">Glosa contractual para SIGA Escritorio</h3>
+          <p class="os-ayuda">
+            Texto compilado (denominación, plazo, forma de pago, cláusula anticorrupción y lugar).
+            Cópielo e inyéctelo en el módulo de Logística del SIGA al emitir la O/S.
+          </p>
+          <textarea class="campo-control" rows="8" [ngModel]="textoGlosa" readonly></textarea>
+          <div class="os-acciones" style="margin-top: 0.75rem;">
+            <button type="button" class="btn btn-app-secundario btn-sm" (click)="copiarGlosa()" [disabled]="procesando">
+              <i class="mdi mdi-content-copy" aria-hidden="true"></i>
+              Copiar glosa
+            </button>
+          </div>
+        </section>
+
+        <section class="os-bloque">
           <h3 class="os-bloque__titulo">Emisión de la orden</h3>
           <div class="os-form-grid">
             <label class="os-campo">
@@ -104,6 +119,12 @@
               <ul *ngIf="tdr.Entregables?.length; else sinEntregables">
                 <li *ngFor="let ent of tdr.Entregables">
                   {{ ent.Nombre }}<span *ngIf="ent.Dias"> — {{ ent.Dias }} días</span>
+                  <ul *ngIf="ent.IndicesActividades?.length">
+                    <li *ngFor="let ix of ent.IndicesActividades">
+                      Actividad {{ ix + 1 }}:
+                      {{ tdr.Actividades?.[ix]?.Descripcion || '—' }}
+                    </li>
+                  </ul>
                 </li>
               </ul>
               <ng-template #sinEntregables>

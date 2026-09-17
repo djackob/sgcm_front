@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 
 import { MaestraService } from '../../../../shared/services/maestra.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
+import { RequerimientoService } from '../../services/requerimiento.service';
 import {
   PedidoFormularioRequerimiento,
   ProveedorFormularioRequerimiento,
@@ -88,6 +89,8 @@ export class FormProveedorComponent implements OnInit, OnChanges {
 
   buscandoEmpresa = false;
   private rucConsultado = '';
+  /** DNI|RUC con los que se llenó Tipo Registro; si cambian, vuelve el placeholder. */
+  private claveTipoRegistro = '';
 
   avisoEmail = '';
   avisoEmailError = false;
@@ -111,6 +114,7 @@ export class FormProveedorComponent implements OnInit, OnChanges {
 
   constructor(
     private maestraService: MaestraService,
+    private requerimientoService: RequerimientoService,
     private funciones: Funciones,
     private cdr: ChangeDetectorRef
   ) { }
@@ -127,6 +131,9 @@ export class FormProveedorComponent implements OnInit, OnChanges {
     }
     if (changes['proveedor']) {
       this.sincronizarMontoMensualVista();
+      if (this.proveedor?.TipoRegistro) {
+        this.claveTipoRegistro = this.claveDocumentos();
+      }
     }
   }
 
@@ -366,6 +373,7 @@ export class FormProveedorComponent implements OnInit, OnChanges {
   onTipoDocumentoChange(): void {
     this.dniConsultado = '';
     this.proveedor.Dni = '';
+    this.reiniciarTipoRegistro();
     this.limpiarError('tipoDocumento');
     this.limpiarError('dni');
   }
@@ -377,6 +385,7 @@ export class FormProveedorComponent implements OnInit, OnChanges {
       .slice(0, this.longitudDocumento);
     this.proveedor.Dni = limpio;
     this.limpiarError('dni');
+    this.reiniciarTipoRegistroSiCambioDocumento();
 
     /* El carné no tiene servicio de consulta ni longitud fija: no se dispara. */
     if (this.esCarneExtranjeria) {
@@ -391,6 +400,7 @@ export class FormProveedorComponent implements OnInit, OnChanges {
     const ruc = String(this.proveedor.Ruc || '').replace(/\D/g, '').slice(0, 11);
     this.proveedor.Ruc = ruc;
     this.limpiarError('ruc');
+    this.reiniciarTipoRegistroSiCambioDocumento();
 
     /* Sin RUC no hay contribuyente que mostrar: se vuelve a los campos de
        persona natural. Es la salida del modo razón social. */
@@ -420,6 +430,7 @@ export class FormProveedorComponent implements OnInit, OnChanges {
     }
 
     this.buscandoPersona = true;
+    this.clasificarTipoRegistro();
     this.maestraService.consultarInformacionReniec(dni).subscribe({
       next: (rpta: any) => {
         this.buscandoPersona = false;
@@ -451,6 +462,57 @@ export class FormProveedorComponent implements OnInit, OnChanges {
     });
   }
 
+  private claveDocumentos(): string {
+    const ruc = (this.proveedor?.Ruc || '').replace(/\D/g, '');
+    const dni = (this.proveedor?.Dni || '').replace(/[^A-Za-z0-9]/g, '');
+    return `${ruc}|${dni}`;
+  }
+
+  /** Vuelve al placeholder hasta la siguiente búsqueda en SIGA. */
+  private reiniciarTipoRegistro(): void {
+    this.claveTipoRegistro = '';
+    if (!this.proveedor.TipoRegistro) {
+      return;
+    }
+    this.proveedor.TipoRegistro = '';
+    this.limpiarError('tipoRegistro');
+  }
+
+  private reiniciarTipoRegistroSiCambioDocumento(): void {
+    if (this.claveDocumentos() === this.claveTipoRegistro) {
+      return;
+    }
+    this.reiniciarTipoRegistro();
+  }
+
+  /**
+   * Pregunta a SIGA si el RUC o el DNI ya tienen fila en SIG_CONTRATISTAS.
+   * EXISTENTE = hay registro; NUEVO = no hay ninguno.
+   */
+  private clasificarTipoRegistro(): void {
+    const ruc = (this.proveedor.Ruc || '').replace(/\D/g, '');
+    const dni = this.esCarneExtranjeria
+      ? (this.proveedor.Dni || '').replace(/[^A-Za-z0-9]/g, '')
+      : (this.proveedor.Dni || '').replace(/\D/g, '');
+    if (ruc.length !== 11 && dni.length < 8) {
+      return;
+    }
+    this.requerimientoService.clasificarTipoRegistroProveedor(
+      ruc.length === 11 ? ruc : null,
+      dni || null
+    ).subscribe({
+      next: (rpta: any) => {
+        const tipo = String(rpta?.TipoRegistro || '').toUpperCase();
+        if (Number(rpta?.estado) === 1 && (tipo === 'EXISTENTE' || tipo === 'NUEVO')) {
+          this.proveedor.TipoRegistro = tipo as 'NUEVO' | 'EXISTENTE';
+          this.claveTipoRegistro = this.claveDocumentos();
+          this.limpiarError('tipoRegistro');
+          this.cdr.detectChanges();
+        }
+      }
+    });
+  }
+
   /* ---------------------------------------------------------------------- */
   /* RUC por SUNAT                                                          */
   /* ---------------------------------------------------------------------- */
@@ -476,6 +538,7 @@ export class FormProveedorComponent implements OnInit, OnChanges {
     }
 
     this.buscandoEmpresa = true;
+    this.clasificarTipoRegistro();
     this.maestraService.consultarInformacionSunat(ruc).subscribe({
       next: (rpta: any) => {
         this.buscandoEmpresa = false;
@@ -530,6 +593,7 @@ export class FormProveedorComponent implements OnInit, OnChanges {
           this.funciones.mensaje('info',
             'El contribuyente no figura activo y habido en SUNAT. Verifique antes de continuar.');
         }
+        this.clasificarTipoRegistro();
         this.cdr.detectChanges();
       },
       error: () => {

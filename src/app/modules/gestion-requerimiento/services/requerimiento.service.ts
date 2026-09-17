@@ -166,6 +166,15 @@ export class RequerimientoService {
     });
   }
 
+  /** Consulta SIG_CONTRATISTAS: EXISTENTE si el RUC/DNI ya tiene fila; si no, NUEVO. */
+  clasificarTipoRegistroProveedor(ruc?: string | null, dni?: string | null, secEjec = 1750): Observable<any> {
+    return this.apiService.POST('api/requerimiento/clasificarTipoRegistroProveedor', {
+      Ruc: (ruc || '').trim() || null,
+      Dni: (dni || '').trim() || null,
+      SecEjec: secEjec
+    });
+  }
+
   registrarOrdenServicio(idRequerimiento: string, orden: any): Observable<any> {
     return this.apiService.POST('api/requerimiento/registrarOrdenServicio', {
       IdRequerimiento: idRequerimiento,
@@ -175,12 +184,18 @@ export class RequerimientoService {
 
   invitacionCotizacionLocador(
     idRequerimiento: string,
-    adjuntos: { DocumentoSistema: string; Nombre: string; Carpeta: string; CodigoTipoDocumento: string }[]
+    adjuntos: { DocumentoSistema: string; Nombre: string; Carpeta: string; CodigoTipoDocumento: string }[],
+    observacion?: string
   ): Observable<any> {
-    return this.apiService.POST('api/requerimiento/invitacionCotizacionLocador', {
+    const body: any = {
       IdRequerimiento: idRequerimiento,
       Adjuntos: adjuntos
-    });
+    };
+    const texto = (observacion || '').trim();
+    if (texto) {
+      body.Observacion = texto;
+    }
+    return this.apiService.POST('api/requerimiento/invitacionCotizacionLocador', body);
   }
 
   notificarOrdenServicio(idRequerimiento: string, version: number): Observable<any> {

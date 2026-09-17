@@ -103,6 +103,8 @@ export class FormPedidoComponent {
     this.pedido.NumeroPedido = fila.NumeroPedido || '';
     this.pedido.AnoPedido = fila.AnoEje ?? this.pedido.AnoPedido;
     this.pedido.ProdPy = fila.ActProy || '';
+    this.pedido.TipoActProy = '';
+    this.pedido.NombreProyectoSiga = '';
     this.pedido.FuenteFinanc = fila.FuenteFinanc || '';
     this.pedido.Origen = fila.Origen || '';
     this.pedido.Programa = fila.Programa || '';
@@ -134,6 +136,8 @@ export class FormPedidoComponent {
     this.pedido.Clasificador = '';
     this.pedido.CodigoItemPedido = '';
     this.pedido.NombreItemPedido = '';
+    this.pedido.TipoActProy = '';
+    this.pedido.NombreProyectoSiga = '';
   }
 
   private cargarDetallePedido(numeroPedido: string, anoEje: number, seq: number): void {
@@ -172,6 +176,8 @@ export class FormPedidoComponent {
         if (detalle.ActProy) {
           this.pedido.ProdPy = detalle.ActProy;
         }
+        this.pedido.TipoActProy = detalle.TipoActProy || '';
+        this.pedido.NombreProyectoSiga = detalle.NombreActProy || '';
         this.pedido.Clasificador = detalle.Clasificador || '';
         this.pedido.CodigoItemPedido = detalle.CodigoItem || '';
         this.pedido.NombreItemPedido = detalle.NombreItem || '';

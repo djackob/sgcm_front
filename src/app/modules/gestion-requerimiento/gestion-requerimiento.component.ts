@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { map, switchMap } from 'rxjs/operators';
-import { forkJoin, of, throwError } from 'rxjs';
+import { forkJoin, from, of, throwError } from 'rxjs';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ModalRegistroRequerimientoComponent } from './modals/modal-registro/modal-registro.component';
@@ -37,15 +37,14 @@ import {
 import {
   CARPETA_ANEXO_6,
   TIPO_ANEXO_6,
-  construirAnexo6Cotizacion,
-  nombreArchivoAnexo6
-} from './documentos/anexo6.pdfmake';
-import {
   CARPETA_ANEXO_7,
   TIPO_ANEXO_7,
-  construirAnexo7Dj,
-  nombreArchivoAnexo7
-} from './documentos/anexo7.pdfmake';
+  MIME_DOCX,
+  construirAnexo6Word,
+  construirAnexo7Word,
+  nombreArchivoAnexo6Word,
+  nombreArchivoAnexo7Word
+} from './documentos/anexo6-7.docx';
 import {
   CARPETA_INTEGRIDAD,
   TIPO_PAQUETE_INTEGRIDAD,
@@ -328,12 +327,18 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
    * Acciones de la grilla. REQ_REMITIR_DAI está apagado en la semilla y aquí
    * por si alguna fila lo trae. REQ_SUBSANAR no se muestra: tras Observar AU
    * el Especialista edita de frente (lápiz) y usa Firma especialista.
+   * REQ_REGISTRAR_CCP y REQ_EMITIR_OS solo las ejecuta el especialista de
+   * Abastecimiento.
    */
   accionesDe(requerimiento: RequerimientoBandeja): TransicionRequerimiento[] {
     return this.transicionesCompletasDe(requerimiento)
       .filter(t =>
         t.CodigoTransicion !== 'REQ_REMITIR_DAI'
-        && t.CodigoTransicion !== 'REQ_SUBSANAR');
+        && t.CodigoTransicion !== 'REQ_SUBSANAR'
+        && (t.CodigoTransicion !== 'REQ_REGISTRAR_CCP'
+          || this.codigoRol === 'ABAST_ESPECIALISTA')
+        && (t.CodigoTransicion !== 'REQ_EMITIR_OS'
+          || this.codigoRol === 'ABAST_ESPECIALISTA'));
   }
 
   /** Transiciones que vienen en la fila. Si el motor las serializó como
@@ -766,6 +771,13 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     }
 
     if (transicion.CodigoTransicion === 'REQ_REGISTRAR_CCP') {
+      if (this.codigoRol !== 'ABAST_ESPECIALISTA') {
+        this.funciones.mensaje(
+          'info',
+          'Solo el especialista de Abastecimiento registra la CCP y genera el cuadro.'
+        );
+        return;
+      }
       this.modalCargarCcp.abrir(requerimiento);
       return;
     }
@@ -776,6 +788,13 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     }
 
     if (transicion.CodigoTransicion === 'REQ_EMITIR_OS') {
+      if (this.codigoRol !== 'ABAST_ESPECIALISTA') {
+        this.funciones.mensaje(
+          'info',
+          'Solo el especialista de Abastecimiento emite la orden de servicio.'
+        );
+        return;
+      }
       if (requerimiento.CodigoEstado === 'REQ_CCP_CARGADA') {
         this.funciones.mensaje(
           'info',
@@ -928,6 +947,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
 
     if (transicion.CodigoTransicion === 'REQ_ENVIAR_FILTROS_COORD'
       || transicion.CodigoTransicion === 'REQ_ENVIAR_FILTROS_JEFE') {
+      this.modalFiltrosIdoneidad?.cerrar(true);
       this.paso = 'Validando filtros de idoneidad…';
       this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento).pipe(
         switchMap((detalle: any) => {
@@ -1460,6 +1480,10 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     this.responsableDestino = '';
     this.cargandoDestinatarios = false;
     this.comentario = '';
+    if (_transicion?.CodigoTransicion === 'REQ_ENVIAR_FILTROS_COORD'
+      || _transicion?.CodigoTransicion === 'REQ_ENVIAR_FILTROS_JEFE') {
+      this.modalFiltrosIdoneidad?.cerrar(true);
+    }
     const encadenaIndagacion = !!(filaOrigen && this.esLocacion(filaOrigen)
       && this.esHitoIndagacion(_transicion?.CodigoTransicion));
     if (!encadenaIndagacion) {
@@ -1505,11 +1529,11 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
    * integridad, pasa a REQ_INDAGACION_MERCADO si aún está conforme, y envía
    * el paquete al correo del Anexo 5.
    */
-  reenviarInvitacionLocador(requerimiento: RequerimientoBandeja): void {
-    this.dispararIndagacionMercado(requerimiento);
+  reenviarInvitacionLocador(evento: { requerimiento: RequerimientoBandeja; observacion: string }): void {
+    this.dispararIndagacionMercado(evento.requerimiento, evento.observacion);
   }
 
-  private dispararIndagacionMercado(requerimiento: RequerimientoBandeja): void {
+  private dispararIndagacionMercado(requerimiento: RequerimientoBandeja, observacion = ''): void {
     this.ejecutando = true;
     this.paso = 'Preparando la invitación al locador…';
 
@@ -1530,17 +1554,34 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
             'Falta el Anexo 3 (TDR) aprobado en el expediente. No se puede invitar al locador.'
           ));
         }
-        this.paso = 'Generando Anexo 6, Anexo 7 y el paquete de integridad…';
+        this.paso = 'Generando Anexos 6 y 7 (formato de la directiva) y el paquete de integridad…';
+        const nombre6 = nombreArchivoAnexo6Word(detalle);
+        const nombre7 = nombreArchivoAnexo7Word(detalle);
         return forkJoin({
-          a6: this.documentoService.generarYSubir(
-            construirAnexo6Cotizacion(detalle), nombreArchivoAnexo6(detalle), CARPETA_ANEXO_6),
-          a7: this.documentoService.generarYSubir(
-            construirAnexo7Dj(detalle), nombreArchivoAnexo7(detalle), CARPETA_ANEXO_7),
+          a6: from(construirAnexo6Word(detalle)).pipe(
+            switchMap(blob => this.documentoService.subirArchivo(
+              new File([blob], nombre6, { type: MIME_DOCX }),
+              CARPETA_ANEXO_6
+            ))
+          ),
+          a7: from(construirAnexo7Word(detalle)).pipe(
+            switchMap(blob => this.documentoService.subirArchivo(
+              new File([blob], nombre7, { type: MIME_DOCX }),
+              CARPETA_ANEXO_7
+            ))
+          ),
           integridad: this.documentoService.generarYSubir(
             construirPaqueteIntegridad(detalle), nombreArchivoIntegridad(detalle), CARPETA_INTEGRIDAD)
-        }).pipe(map((archivos) => ({ detalle, idAnexo3, nombreAnexo3: anexo3?.NombreDocumento || 'Anexo 3.pdf', archivos })));
+        }).pipe(map((archivos) => ({
+          detalle,
+          idAnexo3,
+          nombreAnexo3: anexo3?.NombreDocumento || 'Anexo 3.pdf',
+          nombre6,
+          nombre7,
+          archivos
+        })));
       }),
-      switchMap(({ detalle, idAnexo3, nombreAnexo3, archivos }) => {
+      switchMap(({ detalle, idAnexo3, nombreAnexo3, nombre6, nombre7, archivos }) => {
         const id6 = idDocumentoSistema(archivos.a6?.documento_sistema);
         const id7 = idDocumentoSistema(archivos.a7?.documento_sistema);
         const idI = idDocumentoSistema(archivos.integridad?.documento_sistema);
@@ -1556,8 +1597,8 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
           detalle,
           adjuntos: [
             { DocumentoSistema: idAnexo3, Nombre: nombreAnexo3, Carpeta: CARPETA_ANEXO_3, CodigoTipoDocumento: TIPO_ANEXO_3 },
-            { DocumentoSistema: id6, Nombre: archivos.a6.documento_original || nombreArchivoAnexo6(detalle), Carpeta: CARPETA_ANEXO_6, CodigoTipoDocumento: TIPO_ANEXO_6 },
-            { DocumentoSistema: id7, Nombre: archivos.a7.documento_original || nombreArchivoAnexo7(detalle), Carpeta: CARPETA_ANEXO_7, CodigoTipoDocumento: TIPO_ANEXO_7 },
+            { DocumentoSistema: id6, Nombre: archivos.a6.documento_original || nombre6, Carpeta: CARPETA_ANEXO_6, CodigoTipoDocumento: TIPO_ANEXO_6 },
+            { DocumentoSistema: id7, Nombre: archivos.a7.documento_original || nombre7, Carpeta: CARPETA_ANEXO_7, CodigoTipoDocumento: TIPO_ANEXO_7 },
             { DocumentoSistema: idI, Nombre: archivos.integridad.documento_original || nombreArchivoIntegridad(detalle), Carpeta: CARPETA_INTEGRIDAD, CodigoTipoDocumento: TIPO_PAQUETE_INTEGRIDAD }
           ]
         })));
@@ -1583,7 +1624,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       switchMap(({ adjuntos }) => {
         this.paso = 'Enviando la solicitud de cotización al locador…';
         return this.requerimientoService.invitacionCotizacionLocador(
-          requerimiento.IdRequerimiento, adjuntos);
+          requerimiento.IdRequerimiento, adjuntos, observacion);
       })
     ).subscribe({
       next: (respuesta: any) => {

@@ -113,6 +113,7 @@
         [(ngModel)]="proveedor.TipoRegistro"
         (ngModelChange)="limpiarError('tipoRegistro')"
       >
+        <option value="">Seleccione tipo registro</option>
         <option *ngFor="let t of tiposRegistro" [value]="t.valor">{{ t.nombre }}</option>
       </select>
       <p class="req-campo-error" *ngIf="errorCampo['tipoRegistro']">{{ errorCampo['tipoRegistro'] }}</p>

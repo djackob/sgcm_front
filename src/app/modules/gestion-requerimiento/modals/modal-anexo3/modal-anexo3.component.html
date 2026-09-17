@@ -62,22 +62,15 @@
               </div>
             </div>
 
-            <div class="campo campo--corto">
-              <label class="campo-etiqueta req-check" for="tdrProyecto">
-                <input id="tdrProyecto" type="checkbox" [(ngModel)]="tdr.EsProyecto" />
-                Proyecto
-              </label>
-            </div>
-
-            <div class="campo req-grid__resto">
-              <label class="campo-etiqueta" for="tdrNombreProyecto">Nombre</label>
+            <div class="campo req-grid__ancho">
+              <label class="campo-etiqueta" for="tdrNombreProyecto">Nombre del proyecto</label>
               <input
                 id="tdrNombreProyecto"
                 type="text"
-                class="campo-control"
-                [class.campo-control--bloqueado]="!tdr.EsProyecto"
-                [(ngModel)]="tdr.NombreProyecto"
-                [readonly]="!tdr.EsProyecto"
+                class="campo-control campo-control--bloqueado"
+                [value]="tdr.NombreProyecto"
+                readonly
+                disabled
               />
             </div>
           </div>
@@ -163,6 +156,7 @@
                 <span class="req-acordeon__titulo">6. ENTREGABLES (Obligatorio)</span>
                 <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
               </span>
+              <p class="tdr-label-fijo">{{ introEntregables }}</p>
               <div class="req-grid">
                 <div class="campo campo--corto">
                   <label class="campo-etiqueta" for="tdrCantEnt">Cantidad de Entregables</label>
@@ -191,11 +185,49 @@
                   />
                 </div>
               </div>
+              <div
+                class="tdr-cobertura"
+                [class.tdr-cobertura--ok]="coberturaActividades.completa"
+                [class.tdr-cobertura--warn]="!coberturaActividades.completa"
+                *ngIf="coberturaActividades.total > 0"
+              >
+                Cobertura de actividades del TDR:
+                {{ coberturaActividades.cubiertas }} / {{ coberturaActividades.total }}
+                <ng-container *ngIf="!coberturaActividades.completa">
+                  — faltan N.° {{ etiquetaFaltantesActividades }}.
+                  En el último entregable la unión de todos debe ser completa.
+                </ng-container>
+                <ng-container *ngIf="coberturaActividades.completa">
+                  — cobertura completa.
+                </ng-container>
+              </div>
               <div class="tdr-fila tdr-fila--entregable" *ngFor="let entregable of tdr.Entregables; let i = index">
                 <span class="tdr-fila__nro">{{ i + 1 }}</span>
-                <div class="campo">
-                  <label class="campo-etiqueta">Nombre del Entregable</label>
-                  <textarea class="campo-control" rows="2" [(ngModel)]="entregable.Nombre"></textarea>
+                <div class="tdr-fila__cuerpo">
+                  <div class="campo">
+                    <label class="campo-etiqueta">Nombre del Entregable</label>
+                    <textarea class="campo-control" rows="2" [(ngModel)]="entregable.Nombre"></textarea>
+                  </div>
+                  <div class="campo">
+                    <label class="campo-etiqueta">Actividades del TDR que abarca (*)</label>
+                    <p class="req-nota" *ngIf="!tdr.Actividades?.length">
+                      Primero registre actividades en la sección 5.1.
+                    </p>
+                    <div class="tdr-acts" *ngIf="tdr.Actividades?.length">
+                      <label class="req-check" *ngFor="let act of tdr.Actividades; let j = index">
+                        <input
+                          type="checkbox"
+                          [checked]="actividadMarcada(i, j)"
+                          (change)="toggleActividadEntregable(i, j, $any($event.target).checked)"
+                          [disabled]="!(act.Descripcion || '').trim()"
+                        />
+                        <span>{{ j + 1 }}. {{ etiquetaActividad(j) }}</span>
+                      </label>
+                    </div>
+                    <p class="req-nota" *ngIf="i === (tdr.Entregables.length - 1)">
+                      Último entregable: revise que, sumando todos los hitos, no quede ninguna actividad del TDR sin abarcar.
+                    </p>
+                  </div>
                 </div>
                 <div class="campo campo--corto">
                   <label class="campo-etiqueta">Días Calendario (acumulativo)</label>

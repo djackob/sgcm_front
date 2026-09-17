@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 
 import { RequerimientoService } from '../../services/requerimiento.service';
@@ -19,17 +20,19 @@ interface ArchivoCargado {
 @Component({
   selector: 'app-modal-respuesta-locador',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './modal-respuesta-locador.component.html',
   styleUrl: './modal-respuesta-locador.component.scss'
 })
 export class ModalRespuestaLocadorComponent {
 
   @Output() completado = new EventEmitter<RequerimientoBandeja>();
-  @Output() reinvitar = new EventEmitter<RequerimientoBandeja>();
+  @Output() reinvitar = new EventEmitter<{ requerimiento: RequerimientoBandeja; observacion: string }>();
 
   abierto = false;
   procesando = false;
+  vistaReenvio = false;
+  observacionReenvio = '';
   subiendo: 'anexo6' | 'anexo7' | null = null;
   arrastrando: 'anexo6' | 'anexo7' | null = null;
   paso = '';
@@ -49,6 +52,8 @@ export class ModalRespuestaLocadorComponent {
     this.archivo6 = null;
     this.archivo7 = null;
     this.paso = '';
+    this.vistaReenvio = false;
+    this.observacionReenvio = '';
     this.abierto = true;
   }
 
@@ -56,6 +61,8 @@ export class ModalRespuestaLocadorComponent {
     if (this.procesando) {
       return;
     }
+    this.vistaReenvio = false;
+    this.observacionReenvio = '';
     this.abierto = false;
   }
 
@@ -112,9 +119,28 @@ export class ModalRespuestaLocadorComponent {
     if (!this.fila || this.procesando) {
       return;
     }
+    this.vistaReenvio = true;
+    this.observacionReenvio = '';
+  }
+
+  cancelarReenvio(): void {
+    if (this.procesando) {
+      return;
+    }
+    this.vistaReenvio = false;
+    this.observacionReenvio = '';
+  }
+
+  confirmarReenvio(): void {
+    if (!this.fila || this.procesando) {
+      return;
+    }
     const fila = this.fila;
+    const observacion = (this.observacionReenvio || '').trim();
+    this.vistaReenvio = false;
+    this.observacionReenvio = '';
     this.abierto = false;
-    this.reinvitar.emit(fila);
+    this.reinvitar.emit({ requerimiento: fila, observacion });
   }
 
   registrar(): void {

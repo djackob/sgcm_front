@@ -1,13 +1,12 @@
-import { Component, EventEmitter, OnDestroy, Output } from '@angular/core';
+import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, Observable, of } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { switchMap } from 'rxjs/operators';
 
 import { RequerimientoService } from '../../services/requerimiento.service';
 import { DocumentoService } from '../../../../core/services/documento.service';
 import { MaestraService } from '../../../../shared/services/maestra.service';
-import { ConfigService } from '../../../../core/services/config.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import { idDocumentoSistema } from '../../../../shared/funciones/archivo';
 import { RequerimientoBandeja, RequerimientoDetalle } from '../../models/requerimiento.model';
@@ -37,7 +36,7 @@ import {
   templateUrl: './modal-solicitar-ccp.component.html',
   styleUrl: './modal-solicitar-ccp.component.scss'
 })
-export class ModalSolicitarCcpComponent implements OnDestroy {
+export class ModalSolicitarCcpComponent {
 
   @Output() completado = new EventEmitter<void>();
 
@@ -53,15 +52,7 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
   cuerpoMemorando = '';
   notasMemorando = '';
   numeroMemorando = '';
-  /** PDF subido al file server (sin firmar). */
-  documentoMemoSubido = '';
-  /** PDF firmado por sfirma. */
-  documentoMemoFirmado = '';
   nombreDocumentoMemo = '';
-
-  private popupFirma: Window | null = null;
-  private popupMonitorId: number | null = null;
-  private messageListener: ((event: MessageEvent) => void) | null = null;
 
   readonly mensajeBloqueo =
     'El postor registra impedimentos en los filtros de idoneidad. No es posible solicitar CCP.';
@@ -73,11 +64,6 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
     private funciones: Funciones
   ) { }
 
-  ngOnDestroy(): void {
-    this.quitarListenerFirma();
-    this.cerrarPopupFirma();
-  }
-
   abrir(fila: RequerimientoBandeja): void {
     this.fila = fila;
     this.detalle = null;
@@ -85,13 +71,10 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
     this.cuerpoMemorando = '';
     this.notasMemorando = '';
     this.numeroMemorando = '';
-    this.documentoMemoSubido = '';
-    this.documentoMemoFirmado = '';
     this.nombreDocumentoMemo = '';
     this.paso = '';
     this.abierto = true;
     this.cargando = true;
-    this.registrarListenerFirma();
 
     forkJoin({
       detalle: this.requerimientoService.obtenerRequerimiento(fila.IdRequerimiento),
@@ -121,8 +104,6 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
       return;
     }
     this.abierto = false;
-    this.quitarListenerFirma();
-    this.cerrarPopupFirma();
   }
 
   get bloqueado(): boolean {
@@ -188,38 +169,6 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
 
   actualizarMemorando(): void {
     this.cuerpoMemorando = construirTextoMemorando(this.detalle, this.notasMemorando);
-    this.documentoMemoSubido = '';
-    this.documentoMemoFirmado = '';
-  }
-
-  firmarMemorando(): void {
-    if (!this.detalle || !this.fila || this.bloqueado || this.procesando) {
-      return;
-    }
-
-    this.procesando = true;
-    this.paso = 'Generando y guardando el memorando…';
-
-    this.generarYRegistrarMemorando().pipe(
-      switchMap((documentoSistema) =>
-        this.maestraService.descargarArchivoConFallback(documentoSistema, CARPETA_MEMO_CCP, ['cmn']).pipe(
-          map(() => documentoSistema)
-        )
-      )
-    ).subscribe({
-      next: (documentoSistema: string) => {
-        this.documentoMemoSubido = documentoSistema;
-        this.abrirFirmaPopup(documentoSistema);
-      },
-      error: (err) => {
-        this.procesando = false;
-        this.paso = '';
-        this.funciones.mensaje(
-          'error',
-          err?.message || 'No fue posible guardar el memorando en el servidor para firmarlo.'
-        );
-      }
-    });
   }
 
   confirmarSolicitud(): void {
@@ -227,58 +176,43 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
       return;
     }
 
-    const enviar = (memo: string, sinFirma: boolean) => {
-      this.procesando = true;
-      this.paso = 'Enviando la solicitud a OPP…';
-      this.requerimientoService.confirmarFiltrosIdoneidad(
-        this.fila!.IdRequerimiento,
-        this.detalle!.Version ?? this.fila!.Version,
-        {
-          CuerpoMemorando: this.cuerpoMemorando,
-          NotasMemorando: this.notasMemorando,
-          GeneradoDocumentoMemo: memo,
-          NombreDocumentoMemo: this.nombreDocumentoMemo || nombreArchivoMemoCcp(this.detalle!, this.numeroMemorando),
-          NumeroMemorando: this.numeroMemorando,
-          EnviarSinFirma: sinFirma ? 1 : 0
-        }
-      ).subscribe({
-        next: (respuesta: any) => {
-          this.procesando = false;
-          this.paso = '';
-          if (respuesta?.estado !== 1) {
-            this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible solicitar la CCP.');
-            return;
-          }
-          this.funciones.mensaje('success', respuesta.mensaje || 'Se solicitó la CCP a OPP.');
-          this.abierto = false;
-          this.completado.emit();
-        },
-        error: (err) => {
-          this.procesando = false;
-          this.paso = '';
-          this.funciones.mensaje(
-            'error',
-            err?.error?.mensaje || err?.mensaje || 'No fue posible solicitar la CCP.'
-          );
-        }
-      });
-    };
-
-    if (this.documentoMemoFirmado) {
-      enviar(this.documentoMemoFirmado, false);
-      return;
-    }
-    if (this.documentoMemoSubido) {
-      enviar(this.documentoMemoSubido, true);
-      return;
-    }
-
     this.procesando = true;
     this.paso = 'Generando el memorando…';
     this.generarYRegistrarMemorando().subscribe({
       next: (documentoSistema) => {
-        this.documentoMemoSubido = documentoSistema;
-        enviar(documentoSistema, true);
+        this.paso = 'Enviando la solicitud a OPP…';
+        this.requerimientoService.confirmarFiltrosIdoneidad(
+          this.fila!.IdRequerimiento,
+          this.detalle!.Version ?? this.fila!.Version,
+          {
+            CuerpoMemorando: this.cuerpoMemorando,
+            NotasMemorando: this.notasMemorando,
+            GeneradoDocumentoMemo: documentoSistema,
+            NombreDocumentoMemo: this.nombreDocumentoMemo || nombreArchivoMemoCcp(this.detalle!, this.numeroMemorando),
+            NumeroMemorando: this.numeroMemorando,
+            EnviarSinFirma: 1
+          }
+        ).subscribe({
+          next: (respuesta: any) => {
+            this.procesando = false;
+            this.paso = '';
+            if (respuesta?.estado !== 1) {
+              this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible solicitar la CCP.');
+              return;
+            }
+            this.funciones.mensaje('success', respuesta.mensaje || 'Se solicitó la CCP a OPP.');
+            this.abierto = false;
+            this.completado.emit();
+          },
+          error: (err) => {
+            this.procesando = false;
+            this.paso = '';
+            this.funciones.mensaje(
+              'error',
+              err?.error?.mensaje || err?.mensaje || 'No fue posible solicitar la CCP.'
+            );
+          }
+        });
       },
       error: (err) => {
         this.procesando = false;
@@ -334,213 +268,5 @@ export class ModalSolicitarCcpComponent implements OnDestroy {
         );
       })
     );
-  }
-
-  private carpetaFirmaMemorando(): string {
-    const configurada = String(ConfigService.settings?.firma?.ruta_carpeta || 'DESARROLLO/cmn')
-      .replace(/\\/g, '/')
-      .replace(/^\/+|\/+$/g, '');
-    const partes = configurada.split('/').filter(Boolean);
-    if (partes.length >= 2) {
-      partes[partes.length - 1] = CARPETA_MEMO_CCP;
-      return partes.join('/');
-    }
-    return partes.length === 1 && partes[0] === 'cmn'
-      ? CARPETA_MEMO_CCP
-      : `${configurada}/${CARPETA_MEMO_CCP}`.replace(/^\/+/, '');
-  }
-
-  private abrirFirmaPopup(documentoSistema: string): void {
-    const archivo = idDocumentoSistema(documentoSistema);
-    if (!archivo) {
-      this.procesando = false;
-      this.paso = '';
-      return;
-    }
-
-    const firma = ConfigService.settings?.firma;
-    if (!firma?.ruta_iframe || !firma.ruta_archivo) {
-      this.procesando = false;
-      this.paso = '';
-      this.funciones.mensaje(
-        'error',
-        'Falta la configuración de firma digital en config.json (firma.ruta_iframe / ruta_archivo).'
-      );
-      return;
-    }
-
-    if (this.popupFirma && !this.popupFirma.closed) {
-      this.cerrarPopupFirma();
-    }
-
-    this.paso = 'Abriendo el firmador digital…';
-    const descripcion = `${this.fila?.Codigo || ''} · Memorando CCP`;
-    const origenApp = window.location.origin.replace(/\/+$/, '');
-    const rutaRespuesta =
-      (firma.ruta_respuesta || `${origenApp}/assets/formats/doc_firmado.html?firmado=&strdoc=`)
-      + archivo;
-    const carpetaFirma = this.carpetaFirmaMemorando();
-    const baseArchivo = String(firma.ruta_archivo).replace(/\/+$/, '') + '/';
-    const rutaArchivo = baseArchivo + carpetaFirma + '/' + archivo;
-
-    const urlFirma =
-      firma.ruta_iframe +
-      '?v=1.' +
-      String(new Date().getTime()) +
-      '&strcarpeta=' +
-      encodeURIComponent(carpetaFirma) +
-      '&rutarespuesta=' +
-      encodeURIComponent(rutaRespuesta) +
-      '&ruta_archivo=' +
-      encodeURIComponent(rutaArchivo) +
-      '&descripcion=' +
-      encodeURIComponent(descripcion) +
-      '&sistema=' +
-      encodeURIComponent('SCM');
-
-    const width = 400;
-    const height = 250;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-
-    this.popupFirma = window.open(
-      urlFirma,
-      'firma_onpe',
-      `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=no,location=no,toolbar=no,menubar=no`
-    );
-
-    if (!this.popupFirma) {
-      this.procesando = false;
-      this.paso = '';
-      this.funciones.mensaje(
-        'info',
-        'Permita las ventanas emergentes para firmar digitalmente.'
-      );
-      return;
-    }
-
-    this.procesando = false;
-    this.paso = 'Complete la firma digital del memorando.';
-    this.iniciarMonitoreoPopup();
-  }
-
-  private registrarListenerFirma(): void {
-    this.quitarListenerFirma();
-    this.messageListener = (event: MessageEvent) => this.recibirMensajeFirma(event);
-    window.addEventListener('message', this.messageListener);
-  }
-
-  private quitarListenerFirma(): void {
-    if (this.messageListener) {
-      window.removeEventListener('message', this.messageListener);
-      this.messageListener = null;
-    }
-  }
-
-  private recibirMensajeFirma(event: MessageEvent): void {
-    const origenFirma = this.origenNormalizado(ConfigService.settings?.firma?.ruta_iframe);
-    const origenApp = this.origenNormalizado(window.location.origin);
-    const origenEvento = this.origenNormalizado(event.origin);
-    if (origenEvento !== origenFirma && origenEvento !== origenApp) {
-      return;
-    }
-
-    const rpta = this.leerRespuestaFirma(event.data);
-    if (!rpta) {
-      return;
-    }
-
-    if (rpta.estado == 1) {
-      const idFirmado = idDocumentoSistema(rpta.documento_sistema) || String(rpta.documento_sistema || '');
-      if (!idFirmado || !this.fila) {
-        this.funciones.mensaje('error', 'sfirma no devolvió el identificador del PDF firmado.');
-        this.procesando = false;
-        this.paso = '';
-        return;
-      }
-      this.cerrarPopupFirma();
-      this.paso = 'Registrando la firma del memorando…';
-      this.requerimientoService.firmarDocumento(this.fila.IdExpediente, TIPO_MEMO_CCP, {
-        GeneradoDocumento: idFirmado
-      }).subscribe({
-        next: () => {
-          this.documentoMemoFirmado = idFirmado;
-          this.procesando = false;
-          this.paso = '';
-          this.funciones.mensaje('success', 'Memorando firmado. Ya puede confirmar la solicitud.');
-        },
-        error: () => {
-          this.documentoMemoFirmado = idFirmado;
-          this.procesando = false;
-          this.paso = '';
-          this.funciones.mensaje(
-            'info',
-            'El PDF firmado quedó en el servidor. Confirme la solicitud para continuar.'
-          );
-        }
-      });
-      return;
-    }
-
-    this.procesando = false;
-    this.paso = '';
-    this.funciones.mensaje('info', 'Proceso de firma digital cancelado.');
-  }
-
-  private cerrarPopupFirma(): void {
-    this.detenerMonitoreoPopup();
-    if (this.popupFirma && !this.popupFirma.closed) {
-      this.popupFirma.close();
-    }
-    this.popupFirma = null;
-  }
-
-  private iniciarMonitoreoPopup(): void {
-    this.detenerMonitoreoPopup();
-    this.popupMonitorId = window.setInterval(() => {
-      if (!this.popupFirma) {
-        this.detenerMonitoreoPopup();
-        return;
-      }
-      if (this.popupFirma.closed) {
-        this.popupFirma = null;
-        this.detenerMonitoreoPopup();
-      }
-    }, 500);
-  }
-
-  private detenerMonitoreoPopup(): void {
-    if (this.popupMonitorId !== null) {
-      window.clearInterval(this.popupMonitorId);
-      this.popupMonitorId = null;
-    }
-  }
-
-  private origenNormalizado(valor: string | undefined | null): string {
-    return (valor || '').replace(/\/+$/, '');
-  }
-
-  private leerRespuestaFirma(data: any): any | null {
-    try {
-      if (data?.archivo) {
-        const interior = typeof data.archivo === 'string' ? JSON.parse(data.archivo) : data.archivo;
-        const rptaSg = interior?.rpta_sg ?? interior;
-        return typeof rptaSg === 'string' ? JSON.parse(rptaSg) : rptaSg;
-      }
-      if (typeof data === 'string' && data) {
-        const parsed = JSON.parse(data);
-        const rptaSg = parsed?.rpta_sg ?? parsed;
-        return typeof rptaSg === 'string' ? JSON.parse(rptaSg) : rptaSg;
-      }
-      if (data?.rpta_sg) {
-        return typeof data.rpta_sg === 'string' ? JSON.parse(data.rpta_sg) : data.rpta_sg;
-      }
-      if (data?.documento_sistema) {
-        return data;
-      }
-    } catch {
-      return null;
-    }
-    return null;
   }
 }

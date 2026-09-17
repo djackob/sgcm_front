@@ -2,6 +2,8 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AccordionModule } from 'ngx-bootstrap/accordion';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { BreadcrumbComponent } from '../../../../shared/components/breadcrumb/breadcrumb.component';
 import { FormPedidoComponent } from '../../components/form-pedido/form-pedido.component';
@@ -35,10 +37,13 @@ import {
   SOLUCION_CONTROVERSIAS,
   TdrLocacion,
   ajustarEntregables,
+  aplicarNombreProyectoTdr,
   crearTdrLocacion,
   diasAcumuladosEntregable,
   plazoEntregables,
   recalcularNombresEntregables,
+  reindexarActividadesTrasQuitar,
+  resumenCoberturaActividades,
   textoFormaPago,
   validarActividadesTdr,
   validarEntregablesTdr
@@ -249,12 +254,12 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
             this.tdr.UnidadConformidad = (detalle.CentroCostoNombre || this.tdr.UnidadConformidad || '').trim();
             this.tdr.Actividades = [...(this.tdr.Actividades || [])];
             this.sincronizarEntregablesConAnexo5();
-            this.cargando = false;
+            this.completarNombreProyecto(detalle);
           },
           error: () => {
             this.tdr = combinarTdr(detalle, null);
             this.sincronizarEntregablesConAnexo5();
-            this.cargando = false;
+            this.completarNombreProyecto(detalle);
           }
         });
       },
@@ -279,6 +284,42 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
 
   quitarActividad(indice: number): void {
     this.tdr.Actividades = this.tdr.Actividades.filter((_, i) => i !== indice);
+    reindexarActividadesTrasQuitar(this.tdr, indice);
+    this.tdr.Entregables = (this.tdr.Entregables || []).slice();
+  }
+
+  actividadMarcada(entregableIndex: number, actividadIndex: number): boolean {
+    const idxs = this.tdr.Entregables?.[entregableIndex]?.IndicesActividades || [];
+    return idxs.includes(actividadIndex);
+  }
+
+  toggleActividadEntregable(entregableIndex: number, actividadIndex: number, marcada: boolean): void {
+    const entregable = this.tdr.Entregables?.[entregableIndex];
+    if (!entregable) {
+      return;
+    }
+    const set = new Set(entregable.IndicesActividades || []);
+    if (marcada) {
+      set.add(actividadIndex);
+    } else {
+      set.delete(actividadIndex);
+    }
+    entregable.IndicesActividades = [...set].sort((a, b) => a - b);
+    this.tdr.Entregables = this.tdr.Entregables.slice();
+  }
+
+  get coberturaActividades() {
+    return resumenCoberturaActividades(this.tdr);
+  }
+
+  get etiquetaFaltantesActividades(): string {
+    return this.coberturaActividades.faltantes.map(n => n + 1).join(', ');
+  }
+
+  etiquetaActividad(indice: number): string {
+    const texto = (this.tdr.Actividades?.[indice]?.Descripcion || '').trim();
+    const corto = texto.length > 80 ? `${texto.slice(0, 77)}…` : texto;
+    return corto || `(Sin texto — actividad ${indice + 1})`;
   }
 
   onCantidadEntregables(): void {
@@ -388,6 +429,53 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
     this.cantidadEntregables = this.tdr.Entregables?.length || 1;
   }
 
+  /**
+   * El nombre sale de SIGA (CUI o idea). Pedidos antiguos pueden no traer
+   * NombreProyectoSiga: se consulta PEDIDO_DETALLE y se pinta siempre.
+   */
+  private completarNombreProyecto(detalle: RequerimientoDetalle | any): void {
+    const pendientes = this.pedidos.filter(p =>
+      !!(p.NumeroPedido || '').trim() && !(p.NombreProyectoSiga || '').trim()
+    );
+    if (!pendientes.length) {
+      aplicarNombreProyectoTdr(this.tdr, this.pedidos);
+      this.cargando = false;
+      return;
+    }
+
+    forkJoin(pendientes.map(pedido =>
+      this.requerimientoService.listarPedidoDetalleSiga(
+        pedido.AnoPedido || detalle.AnoEje,
+        pedido.NumeroPedido,
+        detalle.CentroCosto,
+        detalle.SecEjec,
+        detalle.CodigoTipoContratacion
+      ).pipe(
+        catchError(() => of(null))
+      )
+    )).subscribe({
+      next: (detalles) => {
+        pendientes.forEach((pedido, i) => {
+          const fila = detalles[i];
+          if (!fila) {
+            return;
+          }
+          if (fila.ActProy) {
+            pedido.ProdPy = fila.ActProy;
+          }
+          pedido.TipoActProy = fila.TipoActProy || pedido.TipoActProy || '';
+          pedido.NombreProyectoSiga = fila.NombreActProy || pedido.NombreProyectoSiga || '';
+        });
+        aplicarNombreProyectoTdr(this.tdr, this.pedidos);
+        this.cargando = false;
+      },
+      error: () => {
+        aplicarNombreProyectoTdr(this.tdr, this.pedidos);
+        this.cargando = false;
+      }
+    });
+  }
+
   grabar(): void {
     if (!this.detalle || this.guardando) {
       return;
@@ -453,6 +541,7 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
     }
 
     this.tdr.IntroActividades = INTRO_ACTIVIDADES;
+    aplicarNombreProyectoTdr(this.tdr, this.pedidos);
     this.guardando = true;
     const definicion = construirAnexo3Tdr(this.detalle, this.tdr, this.pedidos);
     const nombre = nombreArchivoAnexo3(this.detalle);

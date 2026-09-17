@@ -248,6 +248,8 @@ export interface PedidoSigaDetalle {
   NivelTarea?: string;
   NombreTarea: string;
   ActProy?: string;
+  TipoActProy?: string;
+  NombreActProy?: string;
   Origen?: string;
   FuenteFinanc?: string;
   Programa?: string;
@@ -271,6 +273,8 @@ export interface PedidoFormularioRequerimiento {
   MetaPresupuestaria: string;
   Programa: string;
   ProdPy: string;
+  TipoActProy: string;
+  NombreProyectoSiga: string;
   CodigoItemPedido: string;
   NombreItemPedido: string;
 }
@@ -288,6 +292,8 @@ export function crearPedidoFormularioRequerimiento(): PedidoFormularioRequerimie
     MetaPresupuestaria: '',
     Programa: '',
     ProdPy: '',
+    TipoActProy: '',
+    NombreProyectoSiga: '',
     CodigoItemPedido: '',
     NombreItemPedido: ''
   };
@@ -317,7 +323,7 @@ export interface ProveedorFormularioRequerimiento {
    * pantalla pide el RUC en un campo aparte.
    */
   Ruc: string;
-  TipoRegistro: 'NUEVO' | 'EXISTENTE';
+  TipoRegistro: 'NUEVO' | 'EXISTENTE' | '';
   /**
    * Nombre de la persona jurídica. Sustituye a los tres campos de persona
    * natural cuando el proveedor se identifica por RUC: una empresa no tiene
@@ -348,7 +354,7 @@ export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequ
     TipoDocumento: 'DNI',
     Dni: '',
     Ruc: '',
-    TipoRegistro: 'NUEVO',
+    TipoRegistro: '',
     RazonSocial: '',
     Nombres: '',
     ApellidoPaterno: '',

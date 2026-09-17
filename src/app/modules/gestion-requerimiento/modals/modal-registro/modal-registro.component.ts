@@ -110,6 +110,12 @@ export class ModalRegistroRequerimientoComponent {
   denominacion = '';
   /** Último Nombre Item Pedido copiado a denominación; evita pisar edición manual. */
   private denominacionDesdePedido = '';
+
+  /** Varios pedidos SIGA: denominación única y constante en el encabezado TDR. */
+  get denominacionBloqueada(): boolean {
+    return this.pedidos.filter(p => (p.NumeroPedido || '').trim()).length > 1;
+  }
+
   codigoTipoContratacion: TipoContratacionRequerimiento = 'LOCACION';
   codigoDec: 'ABASTECIMIENTO' | 'DAI' = 'ABASTECIMIENTO';
   condicionCmn: 'INCLUIDO' | 'NO_INCLUIDO' = 'INCLUIDO';
@@ -325,6 +331,8 @@ export class ModalRegistroRequerimientoComponent {
       MetaPresupuestaria: fila.SecFunc != null ? String(fila.SecFunc) : '',
       Programa: '',
       ProdPy: '',
+      TipoActProy: '',
+      NombreProyectoSiga: '',
       CodigoItemPedido: '',
       NombreItemPedido: ''
     }));
@@ -461,7 +469,7 @@ export class ModalRegistroRequerimientoComponent {
       TipoDocumento: prov?.TipoDocumento || 'DNI',
       Dni: prov?.Dni || '',
       Ruc: prov?.Ruc || this.rucSugerido || '',
-      TipoRegistro: prov?.TipoRegistro || 'NUEVO',
+      TipoRegistro: prov?.TipoRegistro || '',
       Nombres: prov?.Nombres || '',
       RazonSocial: prov?.RazonSocial || '',
       ApellidoPaterno: prov?.ApellidoPaterno || '',
@@ -486,6 +494,8 @@ export class ModalRegistroRequerimientoComponent {
     pedido.ActividadOperativa = extra?.ActividadOperativa || pedido.ActividadOperativa || '';
     pedido.Programa = extra?.Programa || pedido.Programa || '';
     pedido.ProdPy = extra?.ProdPy || pedido.ProdPy || '';
+    pedido.TipoActProy = extra?.TipoActProy || pedido.TipoActProy || '';
+    pedido.NombreProyectoSiga = extra?.NombreProyectoSiga || pedido.NombreProyectoSiga || '';
     pedido.CodigoItemPedido = extra?.CodigoItemPedido || pedido.CodigoItemPedido || '';
     pedido.NombreItemPedido = extra?.NombreItemPedido
       || pedido.NombreItemPedido
@@ -778,6 +788,8 @@ export class ModalRegistroRequerimientoComponent {
       ActividadOperativa: p.ActividadOperativa,
       Programa: p.Programa,
       ProdPy: p.ProdPy,
+      TipoActProy: p.TipoActProy,
+      NombreProyectoSiga: p.NombreProyectoSiga,
       CodigoItemPedido: p.CodigoItemPedido,
       NombreItemPedido: p.NombreItemPedido
     }));
@@ -878,9 +890,9 @@ export class ModalRegistroRequerimientoComponent {
     this.avisoMontoCampo = null;
     const error = this.primerError();
     if (error) {
-      /* El tope UIT ya se ve flotante bajo Monto Mensual al tipear. */
       if (this.esErrorMontoUit(error)) {
         this.avisoMontoCampo = error;
+        this.funciones.mensaje('error', error);
         return;
       }
       this.errorGuardadoVisible = error;

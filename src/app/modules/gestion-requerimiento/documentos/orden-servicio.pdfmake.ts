@@ -63,7 +63,15 @@ export function construirOrdenServicio(
     .map((e, i) => {
       const nombre = (e.Nombre || `Entregable ${i + 1}`).trim();
       const dias = e.Dias ? ` — plazo: ${e.Dias} días calendario` : '';
-      return `• ${nombre}${dias}`;
+      const acts = (e.IndicesActividades || [])
+        .map(ix => Math.floor(Number(ix)))
+        .filter(ix => ix >= 0 && ix < (tdr.Actividades || []).length)
+        .map(ix => {
+          const d = (tdr.Actividades![ix]?.Descripcion || '').trim();
+          return d ? `${ix + 1}) ${d}` : `${ix + 1}`;
+        });
+      const actsTxt = acts.length ? ` — Actividades: ${acts.join('; ')}` : '';
+      return `• ${nombre}${dias}${actsTxt}`;
     });
 
   const clausulas = [

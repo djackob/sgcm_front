@@ -175,7 +175,11 @@
                   maxlength="500"
                   [(ngModel)]="denominacion"
                   (ngModelChange)="limpiarErrorCampo('denominacion')"
+                  [readonly]="denominacionBloqueada"
                 ></textarea>
+                <p class="req-nota" *ngIf="denominacionBloqueada">
+                  Con varios pedidos SIGA la denominación del servicio es única y constante; las metas se desglosan en la grilla.
+                </p>
                 <p class="req-campo-error" *ngIf="errorCampo['denominacion']">{{ errorCampo['denominacion'] }}</p>
               </div>
             </div>
