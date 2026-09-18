@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { Router } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 
@@ -97,8 +98,26 @@ export class GestionEjecucionComponent implements OnInit {
     private documentosSrv: DocumentoService,
     private maestra: MaestraService,
     private funciones: Funciones,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private router: Router
   ) { }
+
+  /* Los flujos alternos del contrato -modificacion, ampliacion, resolucion-
+     nacen desde aqui para que siempre queden atados a un contrato vigente. La
+     pantalla de destino recibe el contrato y el tipo ya elegidos. */
+  get puedeAbrirAlternos(): boolean {
+    return !!this.seleccionado && !this.seleccionado.EsFinal && (this.esProveedor || this.codigoRol.startsWith('AREA_'));
+  }
+
+  irAModificacion(tipo: 'MODIFICACION' | 'AMPLIACION_PLAZO'): void {
+    if (!this.seleccionado) { return; }
+    this.router.navigate(['/gestion-modificacion'], { queryParams: { contrato: this.seleccionado.IdContrato, tipo } });
+  }
+
+  irAResolucion(): void {
+    if (!this.seleccionado) { return; }
+    this.router.navigate(['/gestion-resolucion'], { queryParams: { contrato: this.seleccionado.IdContrato } });
+  }
 
   ngOnInit(): void {
     const perfil = this.sesion.getUsuario()?.detalle?.[0]?.perfil?.[0];

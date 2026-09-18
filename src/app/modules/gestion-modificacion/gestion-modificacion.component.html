@@ -1,0 +1,400 @@
+<div class="container-componentes p-3">
+  <header class="cabecera-pagina">
+    <div class="cabecera">
+      <app-breadcrumb [items]="breadcrumb" />
+      <h1 class="page-title">Modificación y ampliación de plazo</h1>
+    </div>
+  </header>
+
+  <section class="content-card">
+    <div class="contenido-cabecera">
+      <h2 class="contenido-titulo">Solicitudes</h2>
+      <span class="contenido-conteo">{{ total }} solicitud(es)</span>
+    </div>
+    <div class="req-filtros">
+      <div class="req-filtros__campo">
+        <label class="campo-etiqueta" for="filtroTexto">Buscar</label>
+        <input id="filtroTexto" type="text" class="campo-control" placeholder="Solicitud, contrato, orden, proveedor o asunto"
+               [(ngModel)]="filtro.Texto" (keyup.enter)="buscar()" />
+      </div>
+      <div class="req-filtros__campo req-filtros__campo--corto">
+        <label class="campo-etiqueta">Tipo</label>
+        <select class="campo-control" [(ngModel)]="filtro.Tipo" (change)="buscar()">
+          <option value="">Todas</option>
+          <option value="MODIFICACION">Modificación</option>
+          <option value="AMPLIACION_PLAZO">Ampliación de plazo</option>
+        </select>
+      </div>
+      <label class="req-check">
+        <input type="checkbox" [(ngModel)]="filtro.SoloVigentes" (change)="buscar()" /> Solo en trámite
+      </label>
+      <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
+        <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
+      </button>
+      <button type="button" class="btn btn-app-secundario btn-sm" *ngIf="puedeIniciar && !nueva" (click)="abrirNueva()">
+        <i class="mdi mdi-plus" aria-hidden="true"></i> Nueva solicitud
+      </button>
+    </div>
+
+    <!-- Nueva solicitud: sobre un contrato vigente de Ejecucion. -->
+    <div class="mod-form" *ngIf="nueva">
+      <h3>Nueva solicitud</h3>
+      <div class="req-filtros">
+        <div class="req-filtros__campo">
+          <label class="campo-etiqueta">Contrato</label>
+          <div class="mod-buscador">
+            <input class="campo-control" placeholder="Buscar contrato" [(ngModel)]="buscarContrato" (keyup.enter)="cargarContratos()" />
+            <button type="button" class="btn-icon-outline" title="Buscar" (click)="cargarContratos()"><i class="mdi mdi-magnify" aria-hidden="true"></i></button>
+          </div>
+          <select class="campo-control" [(ngModel)]="formNueva.IdContrato">
+            <option value="">—</option>
+            <option *ngFor="let c of contratos" [value]="c.IdContrato">{{ c.Codigo }} · {{ c.NumeroOrdenSiga || c.CodigoRequerimiento }} · {{ c.NombreProveedor }} · fin {{ fecha(c.FechaFinPrevista) }}</option>
+          </select>
+        </div>
+        <div class="req-filtros__campo req-filtros__campo--corto">
+          <label class="campo-etiqueta">Tipo</label>
+          <select class="campo-control" [(ngModel)]="formNueva.Tipo" [disabled]="esAu">
+            <option value="MODIFICACION">Modificación</option>
+            <option value="AMPLIACION_PLAZO" *ngIf="esProveedor">Ampliación de plazo</option>
+          </select>
+        </div>
+      </div>
+      <label class="campo-etiqueta">Asunto</label>
+      <input class="campo-control" maxlength="300" [(ngModel)]="formNueva.Asunto" />
+      <label class="campo-etiqueta">Sustento</label>
+      <textarea class="campo-control" rows="3" [(ngModel)]="formNueva.Sustento"></textarea>
+      <ng-container *ngIf="formNueva.Tipo === 'AMPLIACION_PLAZO'">
+        <div class="req-filtros">
+          <div class="req-filtros__campo req-filtros__campo--corto">
+            <label class="campo-etiqueta">Fin del hecho generador</label>
+            <input type="date" class="campo-control" [(ngModel)]="formNueva.FechaFinHechoGenerador" />
+          </div>
+          <div class="req-filtros__campo req-filtros__campo--corto">
+            <label class="campo-etiqueta">Días solicitados</label>
+            <input type="number" min="1" class="campo-control" [(ngModel)]="formNueva.DiasSolicitados" />
+          </div>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="formNueva.Tipo === 'MODIFICACION'">
+        <label class="campo-etiqueta">Qué se modifica</label>
+        <textarea class="campo-control" rows="2" [(ngModel)]="formNueva.DetalleModificacion"></textarea>
+      </ng-container>
+      <div class="campo">
+        <label class="campo-etiqueta">Carta o documento de sustento (PDF)</label>
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton"><i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
+            <input type="file" accept="application/pdf" (change)="onFile($event, 'solicitud')" /></label>
+          <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!solicitudFile">{{ solicitudFile?.name || 'Sin archivo seleccionado' }}</span>
+        </div>
+      </div>
+      <div class="mod-form__acciones">
+        <button type="button" class="btn btn-app-secundario btn-sm" (click)="nueva = false">Cancelar</button>
+        <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="registrarSolicitud()">
+          <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i> Presentar solicitud
+        </button>
+      </div>
+    </div>
+
+    <div class="req-cargando" *ngIf="cargando"><i class="mdi mdi-loading mdi-spin"></i> Cargando…</div>
+    <div class="table-responsive" *ngIf="!cargando">
+      <table class="table scm-table">
+        <thead>
+          <tr><th>Solicitud</th><th>Contrato</th><th>Proveedor</th><th>Tipo</th><th>Plazo</th><th>Estado</th><th>Acción</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of solicitudes" [class.fila-pendiente]="item.MeToca">
+            <td data-column-name="Solicitud">
+              <a href="javascript:void(0)" class="cell-link" (click)="abrir(item)">
+                <span class="mod-punto-pendiente" *ngIf="item.MeToca" title="Pendiente de atención por su perfil"></span>{{ item.Codigo }}
+              </a>
+              <span class="cell-subtitle mod-asunto">{{ item.Asunto }}</span>
+            </td>
+            <td data-column-name="Contrato">
+              <span class="cell-title">{{ item.ContratoCodigo }}</span>
+              <span class="cell-subtitle">{{ item.NumeroOrdenSiga || item.CodigoRequerimiento }} · {{ item.UnidadOrigen }}</span>
+            </td>
+            <td data-column-name="Proveedor"><span class="cell-title">{{ item.NombreProveedor || '—' }}</span></td>
+            <td data-column-name="Tipo">
+              <span class="status-pill status-pill--neutral">{{ tipoNombre(item.Tipo) }}</span>
+              <span class="cell-subtitle" *ngIf="item.Tipo === 'AMPLIACION_PLAZO'">
+                {{ item.DiasSolicitados }} d solicitados<ng-container *ngIf="item.DiasOtorgados != null"> · {{ item.DiasOtorgados }} otorgados</ng-container>
+                <ng-container *ngIf="item.PresentadaEnPlazo === false"> · fuera de plazo</ng-container>
+              </span>
+              <span class="cell-subtitle" *ngIf="item.Tipo === 'MODIFICACION'">{{ item.Origen === 'PROVEEDOR' ? 'Pide el proveedor' : 'Inicia el área usuaria' }}</span>
+            </td>
+            <td data-column-name="Plazo">
+              <span class="cell-title" *ngIf="item.PlazoVigente">{{ item.PlazoVigente }}</span>
+              <span class="mod-plazo" *ngIf="item.DiasPlazo != null" [ngClass]="'mod-plazo--' + tonoPlazo(item.DiasPlazo)">{{ textoPlazo(item.DiasPlazo) }}</span>
+              <span class="cell-muted" *ngIf="item.DiasPlazo == null && !item.PlazoVigente">—</span>
+            </td>
+            <td data-column-name="Estado">
+              <a href="javascript:void(0)" (click)="abrirTrazabilidad(item)">
+                <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">{{ item.Estado }}</span>
+              </a>
+              <span class="cell-subtitle" *ngIf="item.EsFinal && item.NotificadaEn">Notificada {{ fecha(item.NotificadaEn) }}</span>
+            </td>
+            <td data-column-name="Acción" class="td-acciones">
+              <div class="action-cell">
+                <button type="button" class="btn-icon-outline btn-accion" title="Abrir la solicitud" aria-label="Abrir la solicitud" (click)="abrir(item)">
+                  <i class="mdi mdi-folder-open-outline" aria-hidden="true"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="solicitudes.length === 0">
+            <td colspan="7"><div class="req-vacio"><i class="mdi mdi-inbox-outline" aria-hidden="true"></i><h3>Sin solicitudes</h3></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mod-paginacion" *ngIf="total > filtro.Limite">
+      <span class="cell-muted">{{ desde }}–{{ hasta }} de {{ total }}</span>
+      <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="filtro.Desplazamiento === 0" (click)="pagina(-1)">Anterior</button>
+      <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="hasta >= total" (click)="pagina(1)">Siguiente</button>
+    </div>
+  </section>
+
+  <!-- Detalle -->
+  <div class="modal-fondo" *ngIf="seleccionado" role="presentation">
+    <div class="modal-app-dialog modal-app-dialog--ancho" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-app">
+        <div class="modal-cabecera">
+          <div class="modal-cabecera-info">
+            <h2 class="modal-titulo">{{ seleccionado.Codigo }} · {{ tipoNombre(seleccionado.Tipo) }}</h2>
+            <p class="modal-subtitulo">
+              {{ seleccionado.Asunto }} ·
+              <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(seleccionado.CodigoEstado)">{{ seleccionado.Estado }}</span>
+            </p>
+          </div>
+          <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarDetalle()"><i class="mdi mdi-close" aria-hidden="true"></i></button>
+        </div>
+
+        <nav class="detalle-tabs">
+          <button type="button" class="detalle-tabs__boton" [class.detalle-tabs__activo]="pestana === 'solicitud'" (click)="pestana = 'solicitud'">Solicitud</button>
+          <button type="button" class="detalle-tabs__boton" [class.detalle-tabs__activo]="pestana === 'trazabilidad'" (click)="pestana = 'trazabilidad'">
+            Trazabilidad <span class="detalle-tabs__conteo" *ngIf="historial.length">{{ historial.length }}</span>
+          </button>
+        </nav>
+
+        <div class="modal-cuerpo" [hidden]="pestana !== 'solicitud'">
+          <dl class="mod-datos">
+            <div><dt>Contrato</dt><dd>{{ seleccionado.ContratoCodigo }}<span class="cell-subtitle">{{ seleccionado.CodigoRequerimiento }} · {{ seleccionado.NumeroOrdenSiga || '—' }}</span></dd></div>
+            <div><dt>Objeto</dt><dd>{{ seleccionado.Denominacion }}</dd></div>
+            <div><dt>Proveedor</dt><dd>{{ seleccionado.NombreProveedor || '—' }}<span class="cell-subtitle">{{ seleccionado.RucProveedor ? 'RUC ' + seleccionado.RucProveedor : (seleccionado.DniProveedor ? 'DNI ' + seleccionado.DniProveedor : '') }}</span></dd></div>
+            <div><dt>Plazo vigente</dt><dd>{{ fecha(seleccionado.FechaInicio) }} → {{ fecha(seleccionado.FechaFinPrevista) }}<span class="cell-subtitle">{{ seleccionado.PlazoDias }} días · S/ {{ monto(seleccionado.MontoContrato) }}</span></dd></div>
+            <div><dt>Presentada</dt><dd>{{ fecha(seleccionado.FechaPresentacion) }}<span class="cell-subtitle">{{ seleccionado.Origen === 'PROVEEDOR' ? 'por el proveedor' : 'por el área usuaria' }}</span></dd></div>
+            <ng-container *ngIf="esAmp">
+              <div><dt>Hecho generador</dt><dd>hasta {{ fecha(seleccionado.FechaFinHechoGenerador) }}<span class="cell-subtitle">límite de presentación {{ fecha(seleccionado.FechaLimitePresentacion) }} · {{ seleccionado.PresentadaEnPlazo ? 'en plazo' : 'fuera de plazo' }}</span></dd></div>
+              <div><dt>Días</dt><dd>{{ seleccionado.DiasSolicitados }} solicitados<ng-container *ngIf="seleccionado.DiasOtorgados != null"> · {{ seleccionado.DiasOtorgados }} otorgados</ng-container></dd></div>
+              <div *ngIf="seleccionado.NuevaFechaFin"><dt>Nuevo fin</dt><dd>{{ fecha(seleccionado.NuevaFechaFin) }}<span class="cell-subtitle">antes {{ fecha(seleccionado.FechaFinAnterior) }}</span></dd></div>
+              <div *ngIf="seleccionado.VenceDecision && !seleccionado.EsFinal"><dt>Decisión de la DEC hasta</dt><dd>{{ fecha(seleccionado.VenceDecision) }}<span class="cell-subtitle" *ngIf="seleccionado.DecisionVencida">plazo vencido: se entiende aceptada</span></dd></div>
+            </ng-container>
+            <div *ngIf="seleccionado.ResultadoAu"><dt>Área usuaria</dt><dd>{{ seleccionado.ResultadoAu }}<span class="cell-subtitle">{{ seleccionado.OpinionAuPor }} · {{ fecha(seleccionado.OpinionAuEn) }}</span></dd></div>
+            <div *ngIf="seleccionado.ResultadoDec"><dt>DEC</dt><dd>{{ seleccionado.ResultadoDec }}<span class="cell-subtitle">{{ seleccionado.DecisionPor }} · {{ fecha(seleccionado.DecisionEn) }}<ng-container *ngIf="seleccionado.AceptacionTacita"> · aceptación tácita</ng-container></span></dd></div>
+            <div *ngIf="seleccionado.NumeroActa"><dt>Acta</dt><dd>{{ seleccionado.NumeroActa }}<span class="cell-subtitle" *ngIf="seleccionado.SuscritaProveedorEn">suscrita por el proveedor el {{ fecha(seleccionado.SuscritaProveedorEn) }}</span></dd></div>
+            <div *ngIf="seleccionado.NotificadaEn"><dt>Notificada</dt><dd>{{ fecha(seleccionado.NotificadaEn) }}<span class="cell-subtitle">{{ seleccionado.MedioNotificacion }}</span></dd></div>
+          </dl>
+
+          <p class="mod-texto"><b>Sustento:</b> {{ seleccionado.Sustento }}
+            <a href="javascript:void(0)" class="cell-link" *ngIf="seleccionado.SolicitudDocumento" (click)="verArchivo(seleccionado.SolicitudDocumento, 'Solicitud')">Ver documento</a></p>
+          <p class="mod-texto" *ngIf="seleccionado.DetalleModificacion"><b>Modificación:</b> {{ seleccionado.DetalleModificacion }}</p>
+          <p class="mod-texto" *ngIf="seleccionado.InformeAu"><b>Informe del área usuaria:</b> {{ seleccionado.InformeAu }}
+            <a href="javascript:void(0)" class="cell-link" *ngIf="seleccionado.InformeAuDocumento" (click)="verArchivo(seleccionado.InformeAuDocumento, 'Informe del área usuaria')">Ver documento</a></p>
+          <p class="mod-texto" *ngIf="seleccionado.MotivoDec"><b>Decisión de la DEC:</b> {{ seleccionado.MotivoDec }}
+            <a href="javascript:void(0)" class="cell-link" *ngIf="seleccionado.CartaDocumento" (click)="verArchivo(seleccionado.CartaDocumento, 'Carta de respuesta')">Ver carta</a></p>
+
+          <!-- Opinion del area usuaria -->
+          <div class="mod-form" *ngIf="seleccionado.PuedeOpinarAu">
+            <h3>{{ seleccionado.CodigoEstado === 'MOD_EN_SUSTENTO_AU' ? 'Sustento y justificación' : 'Opinión del área usuaria' }}</h3>
+            <div class="mod-radio" *ngIf="seleccionado.CodigoEstado !== 'MOD_EN_SUSTENTO_AU'">
+              <label class="req-check"><input type="radio" name="opinion" value="PROCEDE" [(ngModel)]="formOpinion.Resultado" /> Procede</label>
+              <label class="req-check"><input type="radio" name="opinion" value="NO_PROCEDE" [(ngModel)]="formOpinion.Resultado" /> No procede</label>
+            </div>
+            <label class="campo-etiqueta" *ngIf="!esAmp">Qué se modifica</label>
+            <textarea class="campo-control" rows="2" *ngIf="!esAmp" [(ngModel)]="formOpinion.DetalleModificacion"></textarea>
+            <label class="campo-etiqueta">Informe</label>
+            <textarea class="campo-control" rows="3" [(ngModel)]="formOpinion.Informe"></textarea>
+            <div class="campo">
+              <label class="campo-etiqueta">Informe (PDF)</label>
+              <div class="campo-archivo">
+                <label class="campo-archivo__boton"><i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
+                  <input type="file" accept="application/pdf" (change)="onFile($event, 'informe')" /></label>
+                <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!informeFile">{{ informeFile?.name || 'Sin archivo seleccionado' }}</span>
+              </div>
+            </div>
+            <div class="mod-form__acciones">
+              <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="opinar()">
+                {{ seleccionado.CodigoEstado === 'MOD_EN_SUSTENTO_AU' ? 'Elevar al jefe' : (formOpinion.Resultado === 'PROCEDE' ? 'Procede' : 'No procede') }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Decision de la DEC -->
+          <div class="mod-form" *ngIf="seleccionado.PuedeDecidirDec">
+            <h3>Decisión de la DEC</h3>
+            <div class="mod-radio">
+              <label class="req-check" *ngIf="seleccionado.CodigoEstado !== 'AMP_PRESENTADA'"><input type="radio" name="decision" value="APROBADA" [(ngModel)]="formDecision.Resultado" /> {{ esAmp ? 'Aprobar' : 'Procedente' }}</label>
+              <label class="req-check"><input type="radio" name="decision" value="DENEGADA" [(ngModel)]="formDecision.Resultado" /> Denegar</label>
+            </div>
+            <div class="req-filtros" *ngIf="esAmp && formDecision.Resultado === 'APROBADA'">
+              <div class="req-filtros__campo req-filtros__campo--corto">
+                <label class="campo-etiqueta">Días que se otorgan</label>
+                <input type="number" min="1" [max]="seleccionado.DiasSolicitados || 1" class="campo-control" [(ngModel)]="formDecision.DiasOtorgados" />
+              </div>
+            </div>
+            <div class="req-filtros" *ngIf="decisionLlevaCarta">
+              <div class="req-filtros__campo">
+                <label class="campo-etiqueta">N.° de carta</label>
+                <input class="campo-control" maxlength="40" [(ngModel)]="formDecision.NumeroCarta" />
+              </div>
+            </div>
+            <label class="campo-etiqueta">Motivo</label>
+            <textarea class="campo-control" rows="3" [(ngModel)]="formDecision.Motivo"></textarea>
+            <div class="mod-form__acciones">
+              <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="decidir()">
+                <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i>
+                {{ formDecision.Resultado === 'APROBADA' ? (esAmp ? 'Aprobar ampliación' : 'Declarar procedente') : 'Denegar' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Acta: la genera y firma el jefe de Abastecimiento -->
+          <div class="mod-form" *ngIf="seleccionado.PuedeEmitirActa">
+            <h3>Acta de modificación</h3>
+            <div class="req-filtros">
+              <div class="req-filtros__campo">
+                <label class="campo-etiqueta">N.° de acta</label>
+                <input class="campo-control" maxlength="40" [(ngModel)]="formActa.NumeroActa" />
+              </div>
+              <div class="req-filtros__campo">
+                <label class="campo-etiqueta">Registro Pladicop</label>
+                <input class="campo-control" maxlength="60" [(ngModel)]="formActa.RegistroPladicop" />
+              </div>
+            </div>
+            <div class="mod-form__acciones">
+              <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="ejecutando" (click)="documentoActa ? verActa() : generarActa()">
+                <i class="mdi mdi-file-document-outline" aria-hidden="true"></i> {{ documentoActa ? 'Ver acta' : 'Generar acta' }}
+              </button>
+              <button type="button" class="btn btn-app-secundario btn-sm" *ngIf="documentoActa" [disabled]="ejecutando" (click)="generarActa()">Volver a generar</button>
+            </div>
+          </div>
+
+          <!-- Proveedor: el acta que va a suscribir -->
+          <div class="mod-form" *ngIf="esProveedor && seleccionado.CodigoEstado === 'MOD_POR_SUSCRIPCION' && seleccionado.ActaDocumento">
+            <div class="mod-form__acciones">
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="verArchivo(seleccionado.ActaDocumento, 'Acta de modificación')">
+                <i class="mdi mdi-file-document-outline" aria-hidden="true"></i> Ver acta {{ seleccionado.NumeroActa }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Notificacion al proveedor -->
+          <div class="mod-form" *ngIf="seleccionado.PuedeNotificar">
+            <h3>Notificación al proveedor</h3>
+            <div class="mod-form__acciones">
+              <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="notificarCorreo()">
+                <i class="mdi mdi-email-outline" aria-hidden="true"></i> Notificar por correo
+              </button>
+            </div>
+            <div class="req-filtros">
+              <div class="req-filtros__campo req-filtros__campo--corto">
+                <label class="campo-etiqueta">Otro medio</label>
+                <select class="campo-control" [(ngModel)]="medioManual">
+                  <option value="MESA_PARTES">Mesa de partes</option>
+                  <option value="PLADICOP">Pladicop</option>
+                  <option value="NOTARIAL">Notarial</option>
+                </select>
+              </div>
+              <div class="req-filtros__campo">
+                <label class="campo-etiqueta">Cargo o número</label>
+                <input class="campo-control" maxlength="300" [(ngModel)]="detalleManual" />
+              </div>
+              <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="ejecutando" (click)="notificarManual()">Registrar</button>
+            </div>
+          </div>
+
+          <section class="seccion" *ngIf="seleccionado.Plazos?.length">
+            <h3 class="contenido-titulo">Plazos</h3>
+            <div class="table-responsive">
+              <table class="table scm-table">
+                <tbody>
+                  <tr *ngFor="let pl of seleccionado.Plazos">
+                    <td data-column-name="Plazo"><span class="cell-title">{{ pl.Nombre }}</span></td>
+                    <td data-column-name="Vence">{{ fecha(pl.AmpliadoHasta || pl.Vencimiento) }}</td>
+                    <td data-column-name="Estado"><span class="status-pill" [ngClass]="pl.Estado === 'CUMPLIDO' ? 'status-pill--success' : (pl.Estado === 'VENCIDO' ? 'status-pill--warning' : 'status-pill--info')">{{ pl.Estado }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="modal-cuerpo" [hidden]="pestana !== 'trazabilidad'">
+          <section class="seccion">
+            <h3 class="contenido-titulo">Historial · {{ trazaTitulo }}</h3>
+            <ol class="linea-tiempo">
+              <li *ngFor="let paso of historial">
+                <span class="linea-tiempo__punto"></span>
+                <div class="linea-tiempo__cuerpo">
+                  <span class="linea-tiempo__titulo">{{ paso.CodigoEstadoOrigen || 'Inicio' }} → {{ paso.CodigoEstadoDestino }}</span>
+                  <span class="linea-tiempo__meta">{{ paso.Actor }} · {{ paso.ActorRol }} · {{ paso.Unidad }} · {{ paso.OcurridoEn | date: 'dd/MM/yyyy HH:mm' }}</span>
+                  <p class="linea-tiempo__comentario" *ngIf="paso.Comentario">{{ paso.Comentario }}</p>
+                </div>
+              </li>
+              <li *ngIf="historial.length === 0" class="cell-muted">Sin movimientos registrados.</li>
+            </ol>
+          </section>
+          <section class="seccion" *ngIf="documentos.length">
+            <h3 class="contenido-titulo">Documentos</h3>
+            <div class="table-responsive">
+              <table class="table scm-table">
+                <tbody>
+                  <tr *ngFor="let doc of documentos">
+                    <td data-column-name="Documento"><span class="cell-title">{{ doc.Nombre || doc.CodigoTipoDocumento }}</span><span class="cell-subtitle">{{ doc.CodigoTipoDocumento }}</span></td>
+                    <td data-column-name="Estado"><span class="status-pill" [ngClass]="doc.Estado === 'FIRMADO' ? 'status-pill--success' : 'status-pill--neutral'">{{ doc.Estado === 'FIRMADO' ? 'Firmado' : 'Sin firma' }}</span></td>
+                    <td data-column-name="Acción" class="td-acciones">
+                      <div class="action-cell">
+                        <button type="button" class="btn-icon-outline btn-accion" title="Ver el documento" aria-label="Ver el documento" (click)="verDocumento(doc)"><i class="mdi mdi-file-document-outline" aria-hidden="true"></i></button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-app-secundario" (click)="cerrarDetalle()">Cerrar</button>
+          <button type="button" class="btn btn-app-primary" *ngFor="let t of transicionesDirectas" [disabled]="ejecutando" (click)="ejecutar(t)">
+            <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i> {{ t.NombreAccion }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-fondo" *ngIf="visorPdfUrl" role="presentation">
+  <div class="modal-app-dialog modal-app-dialog--pdf" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">{{ visorPdfTitulo }}</h2>
+          <p class="modal-subtitulo">{{ seleccionado?.Codigo }}<ng-container *ngIf="paso"> · {{ paso }}</ng-container></p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarVisorPdf()"><i class="mdi mdi-close" aria-hidden="true"></i></button>
+      </div>
+      <div class="modal-cuerpo">
+        <div class="mod-pdf-marco"><iframe [src]="visorPdfUrl" [title]="visorPdfTitulo || 'Documento PDF'"></iframe></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-app-secundario" *ngIf="visorPuedeFirmar && !omitirFirma && !actaFirmada" [disabled]="ejecutando" (click)="firmarActaDesdeVisor()">
+          <i class="mdi mdi-draw-pen" aria-hidden="true"></i> Firmar digitalmente
+        </button>
+        <span class="status-pill status-pill--success" *ngIf="visorPuedeFirmar && actaFirmada">Firmado digitalmente</span>
+        <button type="button" class="btn btn-app-primary" (click)="cerrarVisorPdf()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>

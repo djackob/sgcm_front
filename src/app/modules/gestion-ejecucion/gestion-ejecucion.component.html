@@ -208,6 +208,18 @@
             </div>
           </div>
 
+          <div class="eje-barra eje-barra--alternos" *ngIf="puedeAbrirAlternos">
+            <button type="button" class="btn btn-app-secundario btn-sm" (click)="irAModificacion('MODIFICACION')">
+              <i class="mdi mdi-file-document-edit-outline" aria-hidden="true"></i> Solicitar modificación
+            </button>
+            <button type="button" class="btn btn-app-secundario btn-sm" *ngIf="esProveedor" (click)="irAModificacion('AMPLIACION_PLAZO')">
+              <i class="mdi mdi-calendar-plus" aria-hidden="true"></i> Solicitar ampliación de plazo
+            </button>
+            <button type="button" class="btn btn-app-secundario btn-sm" (click)="irAResolucion()">
+              <i class="mdi mdi-file-cancel-outline" aria-hidden="true"></i> {{ esProveedor ? 'Solicitar resolución' : 'Informar causal de resolución' }}
+            </button>
+          </div>
+
           <section class="seccion" *ngIf="seleccionado.Plazos?.length">
             <h3 class="contenido-titulo">Plazos</h3>
             <div class="table-responsive">

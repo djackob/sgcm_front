@@ -36,6 +36,18 @@ export const routes: Routes = [
       .then(m => m.GestionEjecucionComponent),
   },
   {
+    /* sigcm.Modulo.Ruta del modulo MODIFICACION (S039). */
+    path: 'gestion-modificacion',
+    loadComponent: () => import('../gestion-modificacion/gestion-modificacion.component')
+      .then(m => m.GestionModificacionComponent),
+  },
+  {
+    /* sigcm.Modulo.Ruta del modulo RESOLUCION (S040). */
+    path: 'gestion-resolucion',
+    loadComponent: () => import('../gestion-resolucion/gestion-resolucion.component')
+      .then(m => m.GestionResolucionComponent),
+  },
+  {
     path: 'gestion-pago',
     loadComponent: () => import('../gestion-pago/gestion-pago.component')
       .then(m => m.GestionPagoComponent),
