@@ -4,11 +4,18 @@
       <app-breadcrumb [items]="breadcrumb" />
       <h1 class="page-title">Modificación y ampliación de plazo</h1>
     </div>
+
+    <div class="cabecera-opciones">
+      <button type="button" class="btn btn-app-primary" *ngIf="puedeIniciar" (click)="abrirNueva()">
+        <i class="mdi mdi-plus" aria-hidden="true"></i>
+        Nueva solicitud
+      </button>
+    </div>
   </header>
 
   <section class="content-card">
     <div class="contenido-cabecera">
-      <h2 class="contenido-titulo">Solicitudes</h2>
+      <h2 class="contenido-titulo">Bandeja de solicitudes</h2>
       <span class="contenido-conteo">{{ total }} solicitud(es)</span>
     </div>
     <div class="req-filtros">
@@ -25,73 +32,11 @@
           <option value="AMPLIACION_PLAZO">Ampliación de plazo</option>
         </select>
       </div>
-      <label class="req-check">
-        <input type="checkbox" [(ngModel)]="filtro.SoloVigentes" (change)="buscar()" /> Solo en trámite
-      </label>
-      <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
-        <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
-      </button>
-      <button type="button" class="btn btn-app-secundario btn-sm" *ngIf="puedeIniciar && !nueva" (click)="abrirNueva()">
-        <i class="mdi mdi-plus" aria-hidden="true"></i> Nueva solicitud
-      </button>
-    </div>
-
-    <!-- Nueva solicitud: sobre un contrato vigente de Ejecucion. -->
-    <div class="mod-form" *ngIf="nueva">
-      <h3>Nueva solicitud</h3>
-      <div class="req-filtros">
-        <div class="req-filtros__campo">
-          <label class="campo-etiqueta">Contrato</label>
-          <div class="mod-buscador">
-            <input class="campo-control" placeholder="Buscar contrato" [(ngModel)]="buscarContrato" (keyup.enter)="cargarContratos()" />
-            <button type="button" class="btn-icon-outline" title="Buscar" (click)="cargarContratos()"><i class="mdi mdi-magnify" aria-hidden="true"></i></button>
-          </div>
-          <select class="campo-control" [(ngModel)]="formNueva.IdContrato">
-            <option value="">—</option>
-            <option *ngFor="let c of contratos" [value]="c.IdContrato">{{ c.Codigo }} · {{ c.NumeroOrdenSiga || c.CodigoRequerimiento }} · {{ c.NombreProveedor }} · fin {{ fecha(c.FechaFinPrevista) }}</option>
-          </select>
-        </div>
-        <div class="req-filtros__campo req-filtros__campo--corto">
-          <label class="campo-etiqueta">Tipo</label>
-          <select class="campo-control" [(ngModel)]="formNueva.Tipo" [disabled]="esAu">
-            <option value="MODIFICACION">Modificación</option>
-            <option value="AMPLIACION_PLAZO" *ngIf="esProveedor">Ampliación de plazo</option>
-          </select>
-        </div>
-      </div>
-      <label class="campo-etiqueta">Asunto</label>
-      <input class="campo-control" maxlength="300" [(ngModel)]="formNueva.Asunto" />
-      <label class="campo-etiqueta">Sustento</label>
-      <textarea class="campo-control" rows="3" [(ngModel)]="formNueva.Sustento"></textarea>
-      <ng-container *ngIf="formNueva.Tipo === 'AMPLIACION_PLAZO'">
-        <div class="req-filtros">
-          <div class="req-filtros__campo req-filtros__campo--corto">
-            <label class="campo-etiqueta">Fin del hecho generador</label>
-            <input type="date" class="campo-control" [(ngModel)]="formNueva.FechaFinHechoGenerador" />
-          </div>
-          <div class="req-filtros__campo req-filtros__campo--corto">
-            <label class="campo-etiqueta">Días solicitados</label>
-            <input type="number" min="1" class="campo-control" [(ngModel)]="formNueva.DiasSolicitados" />
-          </div>
-        </div>
-      </ng-container>
-      <ng-container *ngIf="formNueva.Tipo === 'MODIFICACION'">
-        <label class="campo-etiqueta">Qué se modifica</label>
-        <textarea class="campo-control" rows="2" [(ngModel)]="formNueva.DetalleModificacion"></textarea>
-      </ng-container>
-      <div class="campo">
-        <label class="campo-etiqueta">Carta o documento de sustento (PDF)</label>
-        <div class="campo-archivo">
-          <label class="campo-archivo__boton"><i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
-            <input type="file" accept="application/pdf" (change)="onFile($event, 'solicitud')" /></label>
-          <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!solicitudFile">{{ solicitudFile?.name || 'Sin archivo seleccionado' }}</span>
-        </div>
-      </div>
-      <div class="mod-form__acciones">
-        <button type="button" class="btn btn-app-secundario btn-sm" (click)="nueva = false">Cancelar</button>
-        <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="registrarSolicitud()">
-          <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i> Presentar solicitud
+      <div class="mod-filtros__acciones">
+        <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
+          <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
         </button>
+        <button type="button" class="btn btn-app-secundario btn-sm" (click)="limpiarFiltros()">Limpiar</button>
       </div>
     </div>
 
@@ -153,6 +98,80 @@
       <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="hasta >= total" (click)="pagina(1)">Siguiente</button>
     </div>
   </section>
+
+  <!-- Nueva solicitud: modal, como el registro del CMN y del requerimiento.
+       Se pide sobre un contrato vigente de Ejecucion. -->
+  <div class="modal-fondo" *ngIf="nueva" role="presentation">
+    <div class="modal-app-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-app">
+        <div class="modal-cabecera">
+          <div class="modal-cabecera-info">
+            <h2 class="modal-titulo">Nueva solicitud</h2>
+            <p class="modal-subtitulo">{{ esProveedor ? 'Modificación del contrato o ampliación de plazo' : 'Modificación del contrato' }}</p>
+          </div>
+          <button type="button" class="modal-cerrar" title="Cerrar" (click)="nueva = false"><i class="mdi mdi-close" aria-hidden="true"></i></button>
+        </div>
+        <div class="modal-cuerpo mod-form mod-form--modal">
+      <div class="req-filtros">
+        <div class="req-filtros__campo">
+          <label class="campo-etiqueta">Contrato</label>
+          <div class="mod-buscador">
+            <input class="campo-control" placeholder="Buscar contrato" [(ngModel)]="buscarContrato" (keyup.enter)="cargarContratos()" />
+            <button type="button" class="btn-icon-outline" title="Buscar" (click)="cargarContratos()"><i class="mdi mdi-magnify" aria-hidden="true"></i></button>
+          </div>
+          <select class="campo-control" [(ngModel)]="formNueva.IdContrato">
+            <option value="">—</option>
+            <option *ngFor="let c of contratos" [value]="c.IdContrato">{{ c.Codigo }} · {{ c.NumeroOrdenSiga || c.CodigoRequerimiento }} · {{ c.NombreProveedor }} · fin {{ fecha(c.FechaFinPrevista) }}</option>
+          </select>
+        </div>
+        <div class="req-filtros__campo req-filtros__campo--corto">
+          <label class="campo-etiqueta">Tipo</label>
+          <select class="campo-control" [(ngModel)]="formNueva.Tipo" [disabled]="esAu">
+            <option value="MODIFICACION">Modificación</option>
+            <option value="AMPLIACION_PLAZO" *ngIf="esProveedor">Ampliación de plazo</option>
+          </select>
+        </div>
+      </div>
+      <label class="campo-etiqueta">Asunto</label>
+      <input class="campo-control" maxlength="300" [(ngModel)]="formNueva.Asunto" />
+      <label class="campo-etiqueta">Sustento</label>
+      <textarea class="campo-control" rows="3" [(ngModel)]="formNueva.Sustento"></textarea>
+      <ng-container *ngIf="formNueva.Tipo === 'AMPLIACION_PLAZO'">
+        <div class="req-filtros">
+          <div class="req-filtros__campo req-filtros__campo--corto">
+            <label class="campo-etiqueta">Fin del hecho generador</label>
+            <input type="date" class="campo-control" [(ngModel)]="formNueva.FechaFinHechoGenerador" />
+          </div>
+          <div class="req-filtros__campo req-filtros__campo--corto">
+            <label class="campo-etiqueta">Días solicitados</label>
+            <input type="number" min="1" class="campo-control" [(ngModel)]="formNueva.DiasSolicitados" />
+          </div>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="formNueva.Tipo === 'MODIFICACION'">
+        <label class="campo-etiqueta">Qué se modifica</label>
+        <textarea class="campo-control" rows="2" [(ngModel)]="formNueva.DetalleModificacion"></textarea>
+      </ng-container>
+      <div class="campo">
+        <label class="campo-etiqueta">Carta o documento de sustento (PDF)</label>
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton"><i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
+            <input type="file" accept="application/pdf" (change)="onFile($event, 'solicitud')" /></label>
+          <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!solicitudFile">{{ solicitudFile?.name || 'Sin archivo seleccionado' }}</span>
+        </div>
+      </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-app-secundario" (click)="nueva = false">Cancelar</button>
+          <button type="button" class="btn btn-app-primary" [disabled]="ejecutando" (click)="registrarSolicitud()">
+            <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i> Presentar solicitud
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
 
   <!-- Detalle -->
   <div class="modal-fondo" *ngIf="seleccionado" role="presentation">

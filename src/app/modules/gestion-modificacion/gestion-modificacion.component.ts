@@ -38,7 +38,9 @@ export class GestionModificacionComponent implements OnInit {
   esProveedor = false;
   esAu = false;
 
-  filtro = { SoloMiBandeja: true, SoloVigentes: true, Tipo: '', Texto: '', Limite: 50, Desplazamiento: 0 };
+  /* Sin check de «Solo en trámite»: la bandeja muestra todo, como la del CMN y
+     la del requerimiento, y marca con MeToca lo pendiente. */
+  filtro = { SoloMiBandeja: true, SoloVigentes: false, Tipo: '', Texto: '', Limite: 50, Desplazamiento: 0 };
   cargando = false;
   total = 0;
   solicitudes: SolicitudBandeja[] = [];
@@ -136,6 +138,11 @@ export class GestionModificacionComponent implements OnInit {
   }
 
   buscar(): void { this.filtro.Desplazamiento = 0; this.cargar(); }
+
+  limpiarFiltros(): void {
+    this.filtro = { ...this.filtro, Tipo: '', Texto: '', Desplazamiento: 0 };
+    this.cargar();
+  }
   pagina(delta: number): void { this.filtro.Desplazamiento = Math.max(0, this.filtro.Desplazamiento + delta * this.filtro.Limite); this.cargar(); }
 
   /* ------------------------------------------------------------ nueva solicitud */

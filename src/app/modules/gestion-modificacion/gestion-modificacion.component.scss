@@ -109,6 +109,23 @@
   &__acciones { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem; }
 }
 
+/* El formulario de alta vive en un modal: sin marco propio ni fondo, que ya
+   los pone .modal-app. */
+.mod-form--modal {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  gap: 0.6rem;
+}
+
+.mod-filtros__acciones {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  padding-bottom: 0.1rem;
+}
+
 .mod-buscador {
   display: flex;
   gap: 0.4rem;

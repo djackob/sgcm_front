@@ -4,11 +4,18 @@
       <app-breadcrumb [items]="breadcrumb" />
       <h1 class="page-title">Resolución del contrato menor</h1>
     </div>
+
+    <div class="cabecera-opciones">
+      <button type="button" class="btn btn-app-primary" *ngIf="puedeIniciar" (click)="abrirNuevo()">
+        <i class="mdi mdi-plus" aria-hidden="true"></i>
+        {{ esProveedor ? 'Solicitar resolución' : 'Informar causal de resolución' }}
+      </button>
+    </div>
   </header>
 
   <section class="content-card">
     <div class="contenido-cabecera">
-      <h2 class="contenido-titulo">Procedimientos</h2>
+      <h2 class="contenido-titulo">Bandeja de procedimientos</h2>
       <span class="contenido-conteo">{{ total }} procedimiento(s)</span>
     </div>
     <div class="req-filtros">
@@ -23,66 +30,11 @@
           <option *ngFor="let c of causales" [value]="c.codigo">{{ c.nombre }}</option>
         </select>
       </div>
-      <label class="req-check"><input type="checkbox" [(ngModel)]="filtro.SoloVigentes" (change)="buscar()" /> Solo en trámite</label>
-      <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()"><i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar</button>
-      <button type="button" class="btn btn-app-secundario btn-sm" *ngIf="puedeIniciar && !nuevo" (click)="abrirNuevo()">
-        <i class="mdi mdi-plus" aria-hidden="true"></i> {{ esProveedor ? 'Solicitar resolución' : 'Informar causal' }}
-      </button>
-    </div>
-
-    <div class="res-form" *ngIf="nuevo">
-      <h3>{{ esProveedor ? 'Solicitud de resolución' : 'Informe de causal de resolución' }}</h3>
-      <div class="req-filtros">
-        <div class="req-filtros__campo">
-          <label class="campo-etiqueta">Contrato</label>
-          <div class="res-buscador">
-            <input class="campo-control" placeholder="Buscar contrato" [(ngModel)]="buscarContrato" (keyup.enter)="cargarContratos()" />
-            <button type="button" class="btn-icon-outline" title="Buscar" (click)="cargarContratos()"><i class="mdi mdi-magnify" aria-hidden="true"></i></button>
-          </div>
-          <select class="campo-control" [(ngModel)]="formNuevo.IdContrato">
-            <option value="">—</option>
-            <option *ngFor="let c of contratos" [value]="c.IdContrato">{{ c.Codigo }} · {{ c.NumeroOrdenSiga || c.CodigoRequerimiento }} · {{ c.NombreProveedor }}</option>
-          </select>
-        </div>
-        <div class="req-filtros__campo">
-          <label class="campo-etiqueta">Causal</label>
-          <select class="campo-control" [(ngModel)]="formNuevo.Causal">
-            <option value="">—</option>
-            <option *ngFor="let c of causalesDisponibles" [value]="c.codigo">{{ c.nombre }}</option>
-          </select>
-        </div>
-      </div>
-      <div class="req-filtros">
-        <div class="req-filtros__campo req-filtros__campo--corto">
-          <label class="campo-etiqueta">Alcance</label>
-          <select class="campo-control" [(ngModel)]="formNuevo.Alcance">
-            <option value="TOTAL">Total</option>
-            <option value="PARCIAL">Parcial</option>
-          </select>
-        </div>
-        <div class="req-filtros__campo" *ngIf="formNuevo.Alcance === 'PARCIAL'">
-          <label class="campo-etiqueta">Parte del contrato que se resuelve</label>
-          <input class="campo-control" maxlength="1000" [(ngModel)]="formNuevo.ParteResuelta" />
-        </div>
-      </div>
-      <label class="campo-etiqueta">Hechos que configuran la causal</label>
-      <textarea class="campo-control" rows="3" [(ngModel)]="formNuevo.Hechos"></textarea>
-      <div class="campo">
-        <label class="campo-etiqueta">{{ esProveedor ? 'Carta de solicitud (PDF)' : 'Informe (PDF)' }}</label>
-        <div class="campo-archivo">
-          <label class="campo-archivo__boton"><i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
-            <input type="file" accept="application/pdf" (change)="onFile($event, 'documento')" /></label>
-          <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!documentoFile">{{ documentoFile?.name || 'Sin archivo seleccionado' }}</span>
-        </div>
-      </div>
-      <div class="res-form__acciones">
-        <button type="button" class="btn btn-app-secundario btn-sm" (click)="nuevo = false">Cancelar</button>
-        <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="registrarProcedimiento()">
-          <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i> {{ esProveedor ? 'Presentar solicitud' : 'Registrar informe' }}
-        </button>
+      <div class="res-filtros__acciones">
+        <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()"><i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar</button>
+        <button type="button" class="btn btn-app-secundario btn-sm" (click)="limpiarFiltros()">Limpiar</button>
       </div>
     </div>
-
     <div class="req-cargando" *ngIf="cargando"><i class="mdi mdi-loading mdi-spin"></i> Cargando…</div>
     <div class="table-responsive" *ngIf="!cargando">
       <table class="table scm-table">
@@ -127,6 +79,74 @@
       <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="hasta >= total" (click)="pagina(1)">Siguiente</button>
     </div>
   </section>
+
+  <!-- Inicio del procedimiento: modal, como el registro del CMN y del
+       requerimiento. Sobre un contrato vigente de Ejecucion. -->
+  <div class="modal-fondo" *ngIf="nuevo" role="presentation">
+    <div class="modal-app-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-app">
+        <div class="modal-cabecera">
+          <div class="modal-cabecera-info">
+            <h2 class="modal-titulo">{{ esProveedor ? 'Solicitud de resolución' : 'Informe de causal de resolución' }}</h2>
+            <p class="modal-subtitulo">Directiva N.° 002-2026-ANIN, numeral 7.3.7</p>
+          </div>
+          <button type="button" class="modal-cerrar" title="Cerrar" (click)="nuevo = false"><i class="mdi mdi-close" aria-hidden="true"></i></button>
+        </div>
+        <div class="modal-cuerpo res-form res-form--modal">
+          <div class="req-filtros">
+            <div class="req-filtros__campo">
+              <label class="campo-etiqueta">Contrato</label>
+              <div class="res-buscador">
+                <input class="campo-control" placeholder="Buscar contrato" [(ngModel)]="buscarContrato" (keyup.enter)="cargarContratos()" />
+                <button type="button" class="btn-icon-outline" title="Buscar" (click)="cargarContratos()"><i class="mdi mdi-magnify" aria-hidden="true"></i></button>
+              </div>
+              <select class="campo-control" [(ngModel)]="formNuevo.IdContrato">
+                <option value="">—</option>
+                <option *ngFor="let c of contratos" [value]="c.IdContrato">{{ c.Codigo }} · {{ c.NumeroOrdenSiga || c.CodigoRequerimiento }} · {{ c.NombreProveedor }}</option>
+              </select>
+            </div>
+            <div class="req-filtros__campo">
+              <label class="campo-etiqueta">Causal</label>
+              <select class="campo-control" [(ngModel)]="formNuevo.Causal">
+                <option value="">—</option>
+                <option *ngFor="let c of causalesDisponibles" [value]="c.codigo">{{ c.nombre }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="req-filtros">
+            <div class="req-filtros__campo req-filtros__campo--corto">
+              <label class="campo-etiqueta">Alcance</label>
+              <select class="campo-control" [(ngModel)]="formNuevo.Alcance">
+                <option value="TOTAL">Total</option>
+                <option value="PARCIAL">Parcial</option>
+              </select>
+            </div>
+            <div class="req-filtros__campo" *ngIf="formNuevo.Alcance === 'PARCIAL'">
+              <label class="campo-etiqueta">Parte del contrato que se resuelve</label>
+              <input class="campo-control" maxlength="1000" [(ngModel)]="formNuevo.ParteResuelta" />
+            </div>
+          </div>
+          <label class="campo-etiqueta">Hechos que configuran la causal</label>
+          <textarea class="campo-control" rows="3" [(ngModel)]="formNuevo.Hechos"></textarea>
+          <div class="campo">
+            <label class="campo-etiqueta">{{ esProveedor ? 'Carta de solicitud (PDF)' : 'Informe (PDF)' }}</label>
+            <div class="campo-archivo">
+              <label class="campo-archivo__boton"><i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
+                <input type="file" accept="application/pdf" (change)="onFile($event, 'documento')" /></label>
+              <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!documentoFile">{{ documentoFile?.name || 'Sin archivo seleccionado' }}</span>
+            </div>
+          </div>
+          <div class="res-form__acciones">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-app-secundario" (click)="nuevo = false">Cancelar</button>
+          <button type="button" class="btn btn-app-primary" [disabled]="ejecutando" (click)="registrarProcedimiento()">
+            <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i> {{ esProveedor ? 'Presentar solicitud' : 'Registrar informe' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-fondo" *ngIf="seleccionado" role="presentation">
     <div class="modal-app-dialog modal-app-dialog--ancho" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">

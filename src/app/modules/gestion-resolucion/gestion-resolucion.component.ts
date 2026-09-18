@@ -43,7 +43,8 @@ export class GestionResolucionComponent implements OnInit {
   esAu = false;
   causales = CAUSALES;
 
-  filtro = { SoloMiBandeja: true, SoloVigentes: true, Causal: '', Texto: '', Limite: 50, Desplazamiento: 0 };
+  /* Sin check de «Solo en trámite»: la bandeja muestra todo y marca lo pendiente. */
+  filtro = { SoloMiBandeja: true, SoloVigentes: false, Causal: '', Texto: '', Limite: 50, Desplazamiento: 0 };
   cargando = false;
   total = 0;
   procedimientos: ProcedimientoBandeja[] = [];
@@ -127,6 +128,11 @@ export class GestionResolucionComponent implements OnInit {
   }
 
   buscar(): void { this.filtro.Desplazamiento = 0; this.cargar(); }
+
+  limpiarFiltros(): void {
+    this.filtro = { ...this.filtro, Causal: '', Texto: '', Desplazamiento: 0 };
+    this.cargar();
+  }
   pagina(delta: number): void { this.filtro.Desplazamiento = Math.max(0, this.filtro.Desplazamiento + delta * this.filtro.Limite); this.cargar(); }
 
   /* -------------------------------------------------------- nuevo procedimiento */
