@@ -1,0 +1,631 @@
+<div class="container-componentes p-3">
+  <header class="cabecera-pagina">
+    <div class="cabecera">
+      <app-breadcrumb [items]="breadcrumb" />
+      <h1 class="page-title">{{ esProveedor ? 'Mis contratos en ejecución' : 'Ejecución contractual' }}</h1>
+    </div>
+  </header>
+
+  <section class="content-card">
+    <div class="contenido-cabecera">
+      <h2 class="contenido-titulo">Contratos</h2>
+      <span class="contenido-conteo">{{ total }} contrato(s)</span>
+    </div>
+    <div class="req-filtros">
+      <div class="req-filtros__campo">
+        <label class="campo-etiqueta" for="filtroTexto">Buscar</label>
+        <input id="filtroTexto" type="text" class="campo-control" placeholder="Contrato, requerimiento, orden o proveedor"
+               [(ngModel)]="filtro.Texto" (keyup.enter)="buscar()" />
+      </div>
+      <label class="req-check">
+        <input type="checkbox" [(ngModel)]="filtro.SoloVigentes" (change)="buscar()" />
+        Solo vigentes
+      </label>
+      <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
+        <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
+      </button>
+    </div>
+    <div class="req-cargando" *ngIf="cargando">
+      <i class="mdi mdi-loading mdi-spin"></i> Cargando…
+    </div>
+    <div class="table-responsive" *ngIf="!cargando">
+      <table class="table scm-table">
+        <thead>
+          <tr>
+            <th>Contrato</th>
+            <th>Orden</th>
+            <th>Proveedor</th>
+            <th>Prestación</th>
+            <th>Plazo</th>
+            <th>Avance</th>
+            <th>Estado</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- fila-pendiente marca lo que le toca a este perfil; la base lo
+               devuelve ordenado primero. -->
+          <tr *ngFor="let item of contratos" [class.fila-pendiente]="item.MeToca">
+            <td data-column-name="Contrato">
+              <a href="javascript:void(0)" class="cell-link" (click)="abrir(item)">
+                <span class="eje-punto-pendiente" *ngIf="item.MeToca" title="Pendiente de atención por su perfil"></span>
+                {{ item.Codigo }}
+              </a>
+              <span class="cell-subtitle">{{ item.CodigoRequerimiento }} · {{ item.UnidadOrigen }}</span>
+            </td>
+            <td data-column-name="Orden">
+              <span class="cell-title">{{ item.NumeroOrdenSiga || '—' }}</span>
+              <span class="cell-subtitle">S/ {{ monto(item.MontoContrato) }}</span>
+            </td>
+            <td data-column-name="Proveedor">
+              <span class="cell-title">{{ item.NombreProveedor || '—' }}</span>
+              <span class="cell-subtitle" *ngIf="item.RucProveedor || item.DniProveedor">
+                {{ item.RucProveedor ? 'RUC ' + item.RucProveedor : 'DNI ' + item.DniProveedor }}
+              </span>
+            </td>
+            <td data-column-name="Prestación">
+              <span class="status-pill status-pill--neutral">{{ item.TipoPrestacionNombre || item.TipoPrestacion }}</span>
+              <span class="cell-subtitle" *ngIf="item.TipoPrestacion === 'BIEN'">{{ lugar(item.LugarEntrega) }}</span>
+            </td>
+            <td data-column-name="Plazo">
+              <span class="cell-title">{{ fecha(item.FechaInicio) }} → {{ fecha(item.FechaFinPrevista) }}</span>
+              <span class="eje-plazo" [ngClass]="'eje-plazo--' + tonoPlazo(item.DiasRestantes)">
+                {{ textoPlazo(item.DiasRestantes) }}
+              </span>
+            </td>
+            <td data-column-name="Avance">
+              <span class="cell-title">{{ item.EntregablesConformes }} / {{ item.TotalEntregables }} conformes</span>
+              <span class="cell-subtitle">
+                <ng-container *ngIf="item.TipoPrestacion === 'BIEN'">
+                  {{ item.TotalEntregas }} entrega(s)<ng-container *ngIf="item.EntregasPendientes">, {{ item.EntregasPendientes }} en curso</ng-container>
+                </ng-container>
+                <ng-container *ngIf="item.IncidenciasAbiertas"> · {{ item.IncidenciasAbiertas }} incidencia(s)</ng-container>
+              </span>
+            </td>
+            <td data-column-name="Estado">
+              <a href="javascript:void(0)" (click)="abrirTrazabilidad(item)">
+                <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">{{ item.Estado }}</span>
+              </a>
+            </td>
+            <td data-column-name="Acción" class="td-acciones">
+              <div class="action-cell">
+                <button type="button" class="btn-icon-outline btn-accion" title="Abrir el contrato"
+                        aria-label="Abrir el contrato" (click)="abrir(item)">
+                  <i class="mdi mdi-folder-open-outline" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="btn-icon-outline btn-accion" *ngIf="item.TipoPrestacion === 'BIEN'"
+                        title="Entregas de bienes" aria-label="Entregas de bienes" (click)="abrir(item, 'entregas')">
+                  <i class="mdi mdi-truck-delivery-outline" aria-hidden="true"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="contratos.length === 0">
+            <td colspan="8">
+              <div class="req-vacio">
+                <i class="mdi mdi-inbox-outline" aria-hidden="true"></i>
+                <h3>Sin contratos</h3>
+                <p class="cell-muted">No hay contratos en ejecución para este perfil.</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="eje-paginacion" *ngIf="total > filtro.Limite">
+      <span class="cell-muted">{{ desde }}–{{ hasta }} de {{ total }}</span>
+      <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="filtro.Desplazamiento === 0" (click)="pagina(-1)">Anterior</button>
+      <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="hasta >= total" (click)="pagina(1)">Siguiente</button>
+    </div>
+  </section>
+
+  <!-- El detalle abre en modal, como en los otros tres modulos. -->
+  <div class="modal-fondo" *ngIf="seleccionado" role="presentation">
+    <div class="modal-app-dialog modal-app-dialog--ancho" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-app">
+        <div class="modal-cabecera">
+          <div class="modal-cabecera-info">
+            <h2 class="modal-titulo">{{ seleccionado.Codigo }} · {{ seleccionado.CodigoRequerimiento }}</h2>
+            <p class="modal-subtitulo">
+              {{ seleccionado.Denominacion }} ·
+              <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(seleccionado.CodigoEstado)">{{ seleccionado.Estado }}</span>
+            </p>
+          </div>
+          <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarDetalle()">
+            <i class="mdi mdi-close" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <nav class="detalle-tabs">
+          <button type="button" class="detalle-tabs__boton" [class.detalle-tabs__activo]="pestana === 'contrato'" (click)="pestana = 'contrato'">
+            Contrato
+          </button>
+          <button type="button" class="detalle-tabs__boton" *ngIf="esBien" [class.detalle-tabs__activo]="pestana === 'entregas'" (click)="pestana = 'entregas'">
+            Entregas
+            <span class="detalle-tabs__conteo" *ngIf="entregasPendientesDeMi">{{ entregasPendientesDeMi }}</span>
+          </button>
+          <button type="button" class="detalle-tabs__boton" [class.detalle-tabs__activo]="pestana === 'entregables'" (click)="pestana = 'entregables'">
+            Entregables
+            <span class="detalle-tabs__conteo" *ngIf="seleccionado.Entregables?.length">{{ conformes }}/{{ seleccionado.Entregables.length }}</span>
+          </button>
+          <button type="button" class="detalle-tabs__boton" [class.detalle-tabs__activo]="pestana === 'incidencias'" (click)="pestana = 'incidencias'">
+            Incidencias
+            <span class="detalle-tabs__conteo" *ngIf="incidenciasAbiertas">{{ incidenciasAbiertas }}</span>
+          </button>
+          <button type="button" class="detalle-tabs__boton" [class.detalle-tabs__activo]="pestana === 'trazabilidad'" (click)="pestana = 'trazabilidad'">
+            Trazabilidad
+            <span class="detalle-tabs__conteo" *ngIf="historial.length">{{ historial.length }}</span>
+          </button>
+        </nav>
+
+        <!-- ====================================================== Contrato -->
+        <div class="modal-cuerpo" [hidden]="pestana !== 'contrato'">
+          <dl class="eje-datos">
+            <div><dt>Orden</dt><dd>{{ seleccionado.NumeroOrdenSiga || '—' }}</dd></div>
+            <div><dt>Prestación</dt><dd>{{ seleccionado.TipoPrestacionNombre || seleccionado.TipoPrestacion }}</dd></div>
+            <div><dt>Proveedor</dt><dd>{{ seleccionado.NombreProveedor || '—' }}<span class="cell-subtitle" *ngIf="seleccionado.RucProveedor || seleccionado.DniProveedor">{{ seleccionado.RucProveedor ? 'RUC ' + seleccionado.RucProveedor : 'DNI ' + seleccionado.DniProveedor }}</span></dd></div>
+            <div><dt>Monto</dt><dd>S/ {{ monto(seleccionado.MontoContrato) }}</dd></div>
+            <div><dt>Notificada</dt><dd>{{ fecha(seleccionado.FechaNotificacion) }}</dd></div>
+            <div><dt>Inicio</dt><dd>{{ fecha(seleccionado.FechaInicio) }}</dd></div>
+            <div><dt>Plazo</dt><dd>{{ seleccionado.PlazoDias }} días</dd></div>
+            <div>
+              <dt>Fin previsto</dt>
+              <dd>
+                {{ fecha(seleccionado.FechaFinPrevista) }}
+                <span class="eje-plazo" [ngClass]="'eje-plazo--' + tonoPlazo(seleccionado.DiasRestantes)">{{ textoPlazo(seleccionado.DiasRestantes) }}</span>
+              </dd>
+            </div>
+            <div *ngIf="seleccionado.FechaFinReal"><dt>Fin real</dt><dd>{{ fecha(seleccionado.FechaFinReal) }}</dd></div>
+            <div><dt>Área usuaria</dt><dd>{{ seleccionado.UnidadOrigenNombre }}</dd></div>
+            <div><dt>Supervisor</dt><dd>{{ seleccionado.Supervisor || '—' }}</dd></div>
+            <div *ngIf="esBien"><dt>Lugar de entrega</dt><dd>{{ lugar(seleccionado.LugarEntrega) }}<span class="cell-subtitle" *ngIf="seleccionado.DireccionEntrega">{{ seleccionado.DireccionEntrega }}</span></dd></div>
+          </dl>
+
+          <!-- Lugar de entrega y supervisor: lo fija el AU (o la DEC) y de ahi
+               sale la ruta de cada entrega. Sin lugar no se puede anunciar. -->
+          <div class="eje-form" *ngIf="seleccionado.PuedeEditarContrato">
+            <div class="req-filtros">
+              <div class="req-filtros__campo" *ngIf="esBien">
+                <label class="campo-etiqueta">Lugar de entrega</label>
+                <select class="campo-control" [(ngModel)]="formContrato.LugarEntrega">
+                  <option value="">—</option>
+                  <option value="SEDE_CENTRAL">Sede Central (Almacén)</option>
+                  <option value="SEDE_DESCONCENTRADA">Sede desconcentrada</option>
+                </select>
+              </div>
+              <div class="req-filtros__campo" *ngIf="esBien && formContrato.LugarEntrega === 'SEDE_DESCONCENTRADA'">
+                <label class="campo-etiqueta">Dirección de entrega</label>
+                <input class="campo-control" [(ngModel)]="formContrato.DireccionEntrega" maxlength="300" />
+              </div>
+              <div class="req-filtros__campo">
+                <label class="campo-etiqueta">Supervisor del área usuaria</label>
+                <select class="campo-control" [(ngModel)]="formContrato.IdSupervisor">
+                  <option value="">—</option>
+                  <option *ngFor="let p of supervisores" [value]="p.IdUsuario">{{ p.Nombre }}</option>
+                </select>
+              </div>
+              <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="ejecutando" (click)="guardarContrato()">Guardar</button>
+            </div>
+          </div>
+
+          <section class="seccion" *ngIf="seleccionado.Plazos?.length">
+            <h3 class="contenido-titulo">Plazos</h3>
+            <div class="table-responsive">
+              <table class="table scm-table">
+                <tbody>
+                  <tr *ngFor="let pl of seleccionado.Plazos">
+                    <td data-column-name="Plazo"><span class="cell-title">{{ pl.Nombre }}</span></td>
+                    <td data-column-name="Vence">{{ fecha(pl.AmpliadoHasta || pl.Vencimiento) }}</td>
+                    <td data-column-name="Estado">
+                      <span class="status-pill" [ngClass]="pl.Estado === 'CUMPLIDO' ? 'status-pill--success' : (pl.Estado === 'VENCIDO' ? 'status-pill--warning' : 'status-pill--info')">{{ pl.Estado }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- ====================================================== Entregas -->
+        <div class="modal-cuerpo" [hidden]="pestana !== 'entregas'">
+          <div class="eje-barra" *ngIf="seleccionado.PuedeAnunciarEntrega && panelEntrega !== 'anunciar'">
+            <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="abrirAnuncio()">
+              <i class="mdi mdi-truck-plus-outline" aria-hidden="true"></i> Anunciar entrega
+            </button>
+          </div>
+
+          <div class="eje-form" *ngIf="panelEntrega === 'anunciar'">
+            <h3>Anunciar entrega</h3>
+            <div class="req-filtros">
+              <div class="req-filtros__campo req-filtros__campo--corto">
+                <label class="campo-etiqueta">Entregable</label>
+                <select class="campo-control" [(ngModel)]="formAnuncio.NumeroEntregable">
+                  <option [ngValue]="null">—</option>
+                  <option *ngFor="let x of seleccionado.Entregables" [ngValue]="x.NumeroEntregable">{{ x.NumeroEntregable }} · {{ x.NombreEntregable }}</option>
+                </select>
+              </div>
+              <div class="req-filtros__campo req-filtros__campo--corto">
+                <label class="campo-etiqueta">Fecha prevista</label>
+                <input type="date" class="campo-control" [(ngModel)]="formAnuncio.FechaPrevista" />
+              </div>
+              <div class="req-filtros__campo">
+                <label class="campo-etiqueta">N.° guía de remisión</label>
+                <input class="campo-control" [(ngModel)]="formAnuncio.NumeroGuiaRemision" maxlength="40" />
+              </div>
+            </div>
+            <label class="campo-etiqueta">Bienes que entrega</label>
+            <textarea class="campo-control" rows="2" maxlength="1000" [(ngModel)]="formAnuncio.Detalle"></textarea>
+            <div class="campo">
+              <label class="campo-etiqueta">Guía de remisión (PDF)</label>
+              <div class="campo-archivo">
+                <label class="campo-archivo__boton">
+                  <i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
+                  <input type="file" accept="application/pdf" (change)="onFile($event, 'guia')" />
+                </label>
+                <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!guiaFile">{{ guiaFile?.name || 'Sin archivo seleccionado' }}</span>
+              </div>
+            </div>
+            <div class="eje-form__acciones">
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="cerrarPanelEntrega()">Cancelar</button>
+              <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="anunciarEntrega()">
+                <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i> Registrar entrega
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table scm-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Guía</th>
+                  <th>Bienes</th>
+                  <th>Ruta</th>
+                  <th>Verificación</th>
+                  <th>Estado</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let en of seleccionado.Entregas" [class.fila-pendiente]="en.MeToca">
+                  <td data-column-name="#">
+                    <span class="cell-title">{{ en.NumeroEntrega }}</span>
+                    <span class="cell-subtitle" *ngIf="en.NumeroEntregable">Entregable {{ en.NumeroEntregable }}</span>
+                  </td>
+                  <td data-column-name="Guía">
+                    <a href="javascript:void(0)" class="cell-link" *ngIf="en.GuiaDocumento" (click)="verArchivo(en.GuiaDocumento, 'Guía de remisión ' + en.NumeroGuiaRemision)">{{ en.NumeroGuiaRemision }}</a>
+                    <span class="cell-title" *ngIf="!en.GuiaDocumento">{{ en.NumeroGuiaRemision }}</span>
+                    <span class="cell-subtitle">Prevista {{ fecha(en.FechaPrevista) }}</span>
+                  </td>
+                  <td data-column-name="Bienes">
+                    <span class="cell-title eje-detalle">{{ en.Detalle }}</span>
+                    <span class="cell-subtitle" *ngIf="en.NumeroPecosa">Pecosa {{ en.NumeroPecosa }}</span>
+                  </td>
+                  <td data-column-name="Ruta">
+                    <span class="cell-title">{{ en.Lugar === 'SEDE_CENTRAL' ? 'Almacén' : 'Sede' }}</span>
+                    <span class="cell-subtitle" *ngIf="en.Verificador">{{ en.Verificador }}</span>
+                  </td>
+                  <td data-column-name="Verificación">
+                    <span class="status-pill" *ngIf="en.ResultadoVerificacion"
+                          [ngClass]="en.ResultadoVerificacion === 'CONFORME' ? 'status-pill--success' : 'status-pill--warning'">{{ en.ResultadoVerificacion }}</span>
+                    <span class="cell-subtitle" *ngIf="en.FechaRecepcion">Recibida {{ fecha(en.FechaRecepcion) }}</span>
+                    <span class="cell-subtitle" *ngIf="en.FechaRetiro">Retirada {{ fecha(en.FechaRetiro) }}</span>
+                  </td>
+                  <td data-column-name="Estado">
+                    <a href="javascript:void(0)" (click)="verTrazabilidadEntrega(en)">
+                      <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(en.CodigoEstado)">{{ en.Estado }}</span>
+                    </a>
+                  </td>
+                  <td data-column-name="Acción" class="td-acciones">
+                    <!-- Las acciones salen de Transiciones, entrega por entrega.
+                         Compiten por el ancho de la celda: icono con title. -->
+                    <div class="action-cell">
+                      <button type="button" class="btn-icon-outline btn-accion" *ngFor="let t of en.Transiciones"
+                              [title]="t.NombreAccion" [attr.aria-label]="t.NombreAccion" [disabled]="ejecutando"
+                              (click)="accionEntrega(en, t)">
+                        <i class="mdi" aria-hidden="true"
+                           [ngClass]="{
+                             'mdi-door-open': t.CodigoTransicion.startsWith('EJE_ENT_AUTORIZAR'),
+                             'mdi-account-check-outline': t.CodigoTransicion === 'EJE_ENT_DESIGNAR_VERIFICADOR',
+                             'mdi-check-decagram-outline': t.CodigoTransicion.startsWith('EJE_ENT_RECEPCIONAR'),
+                             'mdi-alert-octagon-outline': t.CodigoTransicion.startsWith('EJE_ENT_OBSERVAR'),
+                             'mdi-package-variant-closed-check': t.CodigoTransicion === 'EJE_ENT_ENTREGAR_AU',
+                             'mdi-file-check-outline': t.CodigoTransicion === 'EJE_ENT_REGISTRAR_GUIA_ALMACEN',
+                             'mdi-truck-remove-outline': t.CodigoTransicion === 'EJE_ENT_RETIRAR'
+                           }"></i>
+                      </button>
+                      <button type="button" class="btn-icon-outline" *ngIf="en.GuiaSuscritaDocumento" title="Ver la guía suscrita"
+                              aria-label="Ver la guía suscrita" (click)="verArchivo(en.GuiaSuscritaDocumento, 'Guía de remisión suscrita')">
+                        <i class="mdi mdi-file-document-check-outline" aria-hidden="true"></i>
+                      </button>
+                      <button type="button" class="btn-icon-outline" *ngIf="en.ActaIncumplimientoDocumento" title="Ver el acta de incumplimiento"
+                              aria-label="Ver el acta de incumplimiento" (click)="verArchivo(en.ActaIncumplimientoDocumento, 'Acta de incumplimiento')">
+                        <i class="mdi mdi-file-alert-outline" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="!seleccionado.Entregas?.length">
+                  <td colspan="7">
+                    <div class="req-vacio">
+                      <i class="mdi mdi-truck-outline" aria-hidden="true"></i>
+                      <h3>Sin entregas</h3>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Formularios de las acciones que traen datos. -->
+          <div class="eje-form" *ngIf="panelEntrega === 'designar' && entregaActiva">
+            <h3>Entrega {{ entregaActiva.NumeroEntrega }} · Designar responsable de verificación</h3>
+            <div class="req-filtros">
+              <div class="req-filtros__campo">
+                <label class="campo-etiqueta">Responsable del área usuaria</label>
+                <select class="campo-control" [(ngModel)]="idVerificador">
+                  <option value="">—</option>
+                  <option *ngFor="let p of verificadores" [value]="p.IdUsuario">{{ p.Nombre }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="eje-form__acciones">
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="cerrarPanelEntrega()">Cancelar</button>
+              <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="designarVerificador()">Designar</button>
+            </div>
+          </div>
+
+          <div class="eje-form" *ngIf="panelEntrega === 'verificar' && entregaActiva">
+            <h3>Entrega {{ entregaActiva.NumeroEntrega }} · Verificación</h3>
+            <div class="eje-radio">
+              <label class="req-check"><input type="radio" name="resultado" value="CONFORME" [(ngModel)]="formVerificacion.Resultado" /> Conforme</label>
+              <label class="req-check"><input type="radio" name="resultado" value="OBSERVADO" [(ngModel)]="formVerificacion.Resultado" /> Observado</label>
+            </div>
+            <label class="campo-etiqueta">Detalle de la verificación</label>
+            <textarea class="campo-control" rows="3" [(ngModel)]="formVerificacion.Detalle"></textarea>
+            <div class="campo" *ngIf="formVerificacion.Resultado === 'CONFORME'">
+              <label class="campo-etiqueta">Guía de remisión suscrita (PDF)</label>
+              <div class="campo-archivo">
+                <label class="campo-archivo__boton">
+                  <i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
+                  <input type="file" accept="application/pdf" (change)="onFile($event, 'guiaSuscrita')" />
+                </label>
+                <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!guiaSuscritaFile">{{ guiaSuscritaFile?.name || 'Sin archivo seleccionado' }}</span>
+              </div>
+            </div>
+            <div class="campo" *ngIf="formVerificacion.Resultado === 'OBSERVADO'">
+              <label class="campo-etiqueta">Acta de incumplimiento suscrita (PDF)</label>
+              <div class="campo-archivo">
+                <label class="campo-archivo__boton">
+                  <i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
+                  <input type="file" accept="application/pdf" (change)="onFile($event, 'acta')" />
+                </label>
+                <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!actaFile">{{ actaFile?.name || 'Sin archivo seleccionado' }}</span>
+              </div>
+            </div>
+            <div class="eje-form__acciones">
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="cerrarPanelEntrega()">Cancelar</button>
+              <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="verificarEntrega()">
+                {{ formVerificacion.Resultado === 'CONFORME' ? 'Recepcionar' : 'Observar y solicitar retiro' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="eje-form" *ngIf="panelEntrega === 'pecosa' && entregaActiva">
+            <h3>Entrega {{ entregaActiva.NumeroEntrega }} · Entregar al área usuaria</h3>
+            <div class="req-filtros">
+              <div class="req-filtros__campo">
+                <label class="campo-etiqueta">N.° Pecosa</label>
+                <input class="campo-control" [(ngModel)]="formPecosa.NumeroPecosa" maxlength="40" />
+              </div>
+            </div>
+            <div class="campo">
+              <label class="campo-etiqueta">Pecosa (PDF)</label>
+              <div class="campo-archivo">
+                <label class="campo-archivo__boton">
+                  <i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
+                  <input type="file" accept="application/pdf" (change)="onFile($event, 'pecosa')" />
+                </label>
+                <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!pecosaFile">{{ pecosaFile?.name || 'Sin archivo seleccionado' }}</span>
+              </div>
+            </div>
+            <div class="eje-form__acciones">
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="cerrarPanelEntrega()">Cancelar</button>
+              <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="entregarBienAu()">Entregar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- =================================================== Entregables -->
+        <div class="modal-cuerpo" [hidden]="pestana !== 'entregables'">
+          <div class="table-responsive">
+            <table class="table scm-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Entregable</th>
+                  <th>Límite</th>
+                  <th>Presentado</th>
+                  <th class="text-end">Monto</th>
+                  <th>Estado de pago</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let x of seleccionado.Entregables">
+                  <td data-column-name="#">{{ x.NumeroEntregable }}</td>
+                  <td data-column-name="Entregable">
+                    <span class="cell-title">{{ x.NombreEntregable }}</span>
+                    <span class="cell-subtitle">{{ x.Codigo }}</span>
+                  </td>
+                  <td data-column-name="Límite">{{ fecha(x.FechaLimiteCronograma) }}</td>
+                  <td data-column-name="Presentado">
+                    {{ fecha(x.FechaPresentacion) }}
+                    <span class="cell-subtitle" *ngIf="x.DiasAtraso">{{ x.DiasAtraso }} d de atraso · S/ {{ monto(x.MontoPenalidad) }}</span>
+                  </td>
+                  <td data-column-name="Monto" class="text-end">S/ {{ monto(x.MontoEntregable) }}</td>
+                  <td data-column-name="Estado de pago">
+                    <span class="status-pill" [ngClass]="x.EsFinal ? 'status-pill--success' : (x.ConConformidad ? 'status-pill--info' : 'status-pill--neutral')">{{ x.Estado }}</span>
+                  </td>
+                </tr>
+                <tr *ngIf="!seleccionado.Entregables?.length">
+                  <td colspan="6">
+                    <div class="req-vacio"><i class="mdi mdi-inbox-outline" aria-hidden="true"></i><h3>Sin entregables</h3></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- =================================================== Incidencias -->
+        <div class="modal-cuerpo" [hidden]="pestana !== 'incidencias'">
+          <div class="eje-form" *ngIf="seleccionado.PuedeRegistrarIncidencia">
+            <h3>Comunicar a la DEC</h3>
+            <div class="req-filtros">
+              <div class="req-filtros__campo req-filtros__campo--corto">
+                <label class="campo-etiqueta">Tipo</label>
+                <select class="campo-control" [(ngModel)]="formIncidencia.Tipo">
+                  <option value="INCIDENCIA">Incidencia</option>
+                  <option value="INCUMPLIMIENTO">Incumplimiento</option>
+                  <option value="RIESGO">Riesgo</option>
+                </select>
+              </div>
+              <div class="req-filtros__campo">
+                <label class="campo-etiqueta">Documento SGD</label>
+                <input class="campo-control" [(ngModel)]="formIncidencia.DocumentoSgd" maxlength="60" />
+              </div>
+            </div>
+            <label class="campo-etiqueta">Circunstancias detectadas</label>
+            <textarea class="campo-control" rows="3" [(ngModel)]="formIncidencia.Detalle"></textarea>
+            <div class="campo">
+              <label class="campo-etiqueta">Informe (PDF)</label>
+              <div class="campo-archivo">
+                <label class="campo-archivo__boton">
+                  <i class="mdi mdi-paperclip" aria-hidden="true"></i> Elegir archivo
+                  <input type="file" accept="application/pdf" (change)="onFile($event, 'informe')" />
+                </label>
+                <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!informeIncidenciaFile">{{ informeIncidenciaFile?.name || 'Sin archivo seleccionado' }}</span>
+              </div>
+            </div>
+            <div class="eje-form__acciones">
+              <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="registrarIncidencia()">Registrar incidencia</button>
+            </div>
+          </div>
+
+          <div class="observacion" *ngFor="let i of seleccionado.Incidencias">
+            <div class="observacion__cabecera">
+              <span class="status-pill" [ngClass]="i.Estado === 'ATENDIDA' ? 'status-pill--success' : 'status-pill--warning'">{{ i.Estado }}</span>
+              <span class="status-pill status-pill--neutral">{{ tipoIncidencia(i.Tipo) }}</span>
+              <span class="cell-muted">{{ i.RegistradaPor }} · {{ i.RegistradaEn | date: 'dd/MM/yyyy HH:mm' }}<ng-container *ngIf="i.DocumentoSgd"> · {{ i.DocumentoSgd }}</ng-container></span>
+              <a href="javascript:void(0)" class="cell-link" *ngIf="i.InformeDocumento" (click)="verArchivo(i.InformeDocumento, 'Informe de incidencia')">Informe</a>
+            </div>
+            <p class="observacion__motivo">{{ i.Detalle }}</p>
+            <p class="observacion__respuesta" *ngIf="i.Respuesta"><b>Atención DEC:</b> {{ i.Respuesta }} <span class="cell-muted">· {{ i.AtendidaPor }} · {{ i.AtendidaEn | date: 'dd/MM/yyyy HH:mm' }}</span></p>
+            <div class="eje-form__acciones" *ngIf="seleccionado.PuedeAtenderIncidencia && i.Estado === 'COMUNICADA' && incidenciaEnAtencion?.IdIncidencia !== i.IdIncidencia">
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="atender(i)">Atender</button>
+            </div>
+            <div class="eje-form" *ngIf="incidenciaEnAtencion?.IdIncidencia === i.IdIncidencia">
+              <label class="campo-etiqueta">Atención</label>
+              <textarea class="campo-control" rows="2" [(ngModel)]="respuestaIncidencia"></textarea>
+              <div class="eje-form__acciones">
+                <button type="button" class="btn btn-app-secundario btn-sm" (click)="incidenciaEnAtencion = null">Cancelar</button>
+                <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="atenderIncidencia()">Registrar atención</button>
+              </div>
+            </div>
+          </div>
+          <div class="req-vacio" *ngIf="!seleccionado.Incidencias?.length">
+            <i class="mdi mdi-shield-check-outline" aria-hidden="true"></i>
+            <h3>Sin incidencias</h3>
+          </div>
+        </div>
+
+        <!-- ================================================== Trazabilidad -->
+        <div class="modal-cuerpo" [hidden]="pestana !== 'trazabilidad'">
+          <section class="seccion">
+            <h3 class="contenido-titulo">Historial · {{ trazaTitulo }}</h3>
+            <ol class="linea-tiempo">
+              <li *ngFor="let paso of historial">
+                <span class="linea-tiempo__punto"></span>
+                <div class="linea-tiempo__cuerpo">
+                  <span class="linea-tiempo__titulo">{{ paso.CodigoEstadoOrigen || 'Inicio' }} → {{ paso.CodigoEstadoDestino }}</span>
+                  <span class="linea-tiempo__meta">{{ paso.Actor }} · {{ paso.ActorRol }} · {{ paso.Unidad }} · {{ paso.OcurridoEn | date: 'dd/MM/yyyy HH:mm' }}</span>
+                  <p class="linea-tiempo__comentario" *ngIf="paso.Comentario">{{ paso.Comentario }}</p>
+                </div>
+              </li>
+              <li *ngIf="historial.length === 0" class="cell-muted">Sin movimientos registrados.</li>
+            </ol>
+          </section>
+
+          <section class="seccion" *ngIf="observaciones.length">
+            <h3 class="contenido-titulo">Observaciones</h3>
+            <div class="observacion" *ngFor="let obs of observaciones">
+              <div class="observacion__cabecera">
+                <span class="status-pill status-pill--warning">{{ obs.Estado }}</span>
+                <span class="cell-muted">Origen {{ obs.CodigoRolOrigen }}</span>
+              </div>
+              <p class="observacion__motivo">{{ obs.Motivo }}</p>
+              <p class="observacion__respuesta" *ngIf="obs.Respuesta"><b>Subsanación:</b> {{ obs.Respuesta }}</p>
+            </div>
+          </section>
+
+          <section class="seccion" *ngIf="documentos.length">
+            <h3 class="contenido-titulo">Documentos</h3>
+            <div class="table-responsive">
+              <table class="table scm-table">
+                <tbody>
+                  <tr *ngFor="let doc of documentos">
+                    <td data-column-name="Documento">
+                      <span class="cell-title">{{ doc.Nombre || doc.CodigoTipoDocumento }}</span>
+                      <span class="cell-subtitle">{{ doc.CodigoTipoDocumento }}</span>
+                    </td>
+                    <td data-column-name="Acción" class="td-acciones">
+                      <div class="action-cell">
+                        <button type="button" class="btn-icon-outline btn-accion" title="Ver el documento" aria-label="Ver el documento" (click)="verDocumento(doc)">
+                          <i class="mdi mdi-file-document-outline" aria-hidden="true"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- Las acciones del contrato van al pie y con su nombre. -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-app-secundario" (click)="cerrarDetalle()">Cerrar</button>
+          <button type="button" class="btn btn-app-primary" *ngFor="let t of seleccionado.Transiciones" [disabled]="ejecutando" (click)="ejecutarContrato(t)">
+            <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i>
+            {{ t.NombreAccion }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visor PDF: guias, actas, Pecosas e informes -->
+<div class="modal-fondo" *ngIf="visorPdfUrl" role="presentation">
+  <div class="modal-app-dialog modal-app-dialog--pdf" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">{{ visorPdfTitulo }}</h2>
+          <p class="modal-subtitulo">{{ seleccionado?.Codigo }}</p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarVisorPdf()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-cuerpo">
+        <div class="eje-pdf-marco">
+          <iframe [src]="visorPdfUrl" [title]="visorPdfTitulo || 'Documento PDF'"></iframe>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-app-primary" (click)="cerrarVisorPdf()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>

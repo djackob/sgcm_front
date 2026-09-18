@@ -30,6 +30,12 @@ export const routes: Routes = [
       .then(m => m.GestionRequerimientoComponent),
   },
   {
+    /* sigcm.Modulo.Ruta del modulo EJECUCION (S038). */
+    path: 'gestion-ejecucion',
+    loadComponent: () => import('../gestion-ejecucion/gestion-ejecucion.component')
+      .then(m => m.GestionEjecucionComponent),
+  },
+  {
     path: 'gestion-pago',
     loadComponent: () => import('../gestion-pago/gestion-pago.component')
       .then(m => m.GestionPagoComponent),
