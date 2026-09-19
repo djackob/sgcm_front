@@ -15,6 +15,28 @@
   font-size: 0.88rem;
 }
 
+.req-objeto-barra {
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #e2e8f0;
+
+  .campo {
+    max-width: 28rem;
+  }
+
+  .req-nota {
+    margin: 0.35rem 0 0;
+  }
+}
+
+.req-doc-tecnico-aviso {
+  padding: 1.25rem 0.25rem 0.5rem;
+
+  .req-nota {
+    margin-bottom: 0.5rem;
+  }
+}
+
 .req-seccion {
   display: flex;
   align-items: center;
@@ -131,9 +153,9 @@
 
 .req-bloque__cabecera {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
   margin-bottom: 0.85rem;
 }
 

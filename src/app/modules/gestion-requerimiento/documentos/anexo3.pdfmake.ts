@@ -29,6 +29,7 @@ import {
   SOLUCION_CONTROVERSIAS,
   TdrLocacion,
   VICIOS_OCULTOS,
+  parrafosInformePrevioConformidad,
   plazoEntregables,
   textoFormaPago
 } from './anexo3-tdr.plantilla';
@@ -152,9 +153,7 @@ export function construirAnexo3Tdr(
       subseccion('8.1.', 'Área usuaria que emite la conformidad:', [
         cuerpo(unidadConformidad),
         cuerpo(CONFORMIDAD_FIJA),
-        ...(tdr.ExigeInformePrevio && (tdr.UnidadInforme || '').trim()
-          ? [cuerpo(`Previo a la emisión de la conformidad, se requiere informe técnico / visto bueno de: ${tdr.UnidadInforme.trim()}.`)]
-          : [])
+        ...parrafosInformePrevioConformidad(tdr).map(p => cuerpo(p))
       ]),
 
       seccion('9.', 'FORMA DE PAGO (Obligatorio)', [
@@ -328,19 +327,65 @@ function tablaCabecera(
   const unidad = [detalle?.CentroCostoNombre, detalle?.CentroCosto]
     .filter(Boolean)
     .join(' — ');
+  const multimeta = pedidos.length > 1;
+
+  const cuerpo: any[][] = [
+    filaCabecera('N° DE PEDIDO DE SERVICIO:', numeros),
+    filaCabecera('Fecha', fechaGuion(primero?.FechaPedido)),
+    filaCabecera('Unidad de Organización', unidad),
+    filaCabecera('Denominación de la contratación', detalle?.Denominacion || ''),
+  ];
+
+  if (tdr?.NombreProyecto) {
+    cuerpo.push(filaCabecera('Nombre del proyecto', tdr.NombreProyecto));
+  }
+
+  /* Ruta presupuestaria explícita (directiva enriquecida). Multimeta: una
+     fila por pedido; un solo pedido: los 4 datos + ítem/CUI en cabecera. */
+  cuerpo.push([
+    {
+      text: multimeta
+        ? 'Ruta presupuestaria (por pedido SIGA)'
+        : 'Ruta presupuestaria',
+      style: 'cabeceraEtiqueta',
+      colSpan: 2,
+      fillColor: '#EEEEEE'
+    },
+    {}
+  ]);
+
+  if (multimeta) {
+    for (const p of pedidos) {
+      const nro = p.NumeroPedido || '—';
+      cuerpo.push(filaCabecera(
+        `Pedido ${nro}`,
+        [
+          `Actividad Operativa: ${p.ActividadOperativa || '—'}`,
+          `Meta Presupuestaria: ${p.MetaPresupuestaria || '—'}`,
+          `Fuente de Financiamiento: ${p.FuenteFinanc || '—'}`,
+          `Clasificador de Gasto: ${p.Clasificador || '—'}`,
+          p.CodigoItemPedido ? `Ítem: ${p.CodigoItemPedido}` : '',
+          p.ProdPy ? `CUI: ${p.ProdPy}` : ''
+        ].filter(Boolean).join('\n')
+      ));
+    }
+  } else {
+    cuerpo.push(filaCabecera('Actividad Operativa', primero?.ActividadOperativa || ''));
+    cuerpo.push(filaCabecera('Meta Presupuestaria', primero?.MetaPresupuestaria || ''));
+    cuerpo.push(filaCabecera('Fuente de Financiamiento', primero?.FuenteFinanc || ''));
+    cuerpo.push(filaCabecera('Clasificador de Gasto', primero?.Clasificador || ''));
+    if (primero?.CodigoItemPedido) {
+      cuerpo.push(filaCabecera('Código del Ítem del Pedido', primero.CodigoItemPedido));
+    }
+    if (primero?.ProdPy) {
+      cuerpo.push(filaCabecera('Código Único de Inversión / CUI', primero.ProdPy));
+    }
+  }
 
   return {
     table: {
       widths: [165, '*'],
-      body: [
-        filaCabecera('N° DE PEDIDO DE SERVICIO:', numeros),
-        filaCabecera('Fecha', fechaGuion(primero?.FechaPedido)),
-        filaCabecera('Unidad de Organización', unidad),
-        filaCabecera('Actividad Operativa', primero?.ActividadOperativa || ''),
-        filaCabecera('Meta Presupuestaria', primero?.MetaPresupuestaria || ''),
-        filaCabecera('Denominación de la contratación', detalle?.Denominacion || ''),
-        filaCabecera('Nombre del proyecto', tdr?.NombreProyecto || '')
-      ]
+      body: cuerpo
     },
     layout: {
       hLineWidth: () => 0.7,

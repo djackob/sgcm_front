@@ -150,6 +150,14 @@ export interface PaqueteAnexo4Cmn extends RespuestaSigcm {
   TotalItems: number;
   MontoTotal: number;
   Solicitudes: SolicitudDelPaqueteCmn[];
+  /** Snapshot de firmantes al generar (T5). Vacío → PDF auxiliar usa solo jefe. */
+  Firmantes?: FirmanteAnexo4Cmn[];
+}
+
+export interface FirmanteAnexo4Cmn {
+  CodigoRol: string;
+  OrdenFirma: number;
+  EtiquetaCargo?: string | null;
 }
 
 /** Un expediente del lote, para mover varios con una sola acción. */

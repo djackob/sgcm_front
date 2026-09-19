@@ -103,13 +103,16 @@ export class PlantillaComponent implements OnInit, OnDestroy {
   }
 
   MostrarMenu() {
-    const elemento: HTMLElement = document.getElementsByTagName('nav')[0];
-    elemento.classList.remove('inactive');
+    /* El menú de usuario (nav.sub-menu) también es un <nav>; hay que apuntar
+       al lateral. Si se tomaba el primero, tras abrir el perfil el clic del
+       hamburguesa no abría el menú y parecía que las opciones no respondían. */
+    const elemento = document.querySelector('nav.menu') as HTMLElement | null;
+    elemento?.classList.remove('inactive');
   }
 
   OcultarMenu() {
-    const elemento: HTMLElement = document.getElementsByTagName('nav')[0];
-    elemento.classList.add('inactive');
+    const elemento = document.querySelector('nav.menu') as HTMLElement | null;
+    elemento?.classList.add('inactive');
   }
 
   ExpandirMenu(id_menu: number) {

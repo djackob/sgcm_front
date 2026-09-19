@@ -135,20 +135,11 @@ export function construirAnexo4(paquete: PaqueteAnexo4Cmn): any {
         ]
       },
 
-      /* Dos espacios de firma: a la izquierda el jefe y a la derecha el
-         encargado de la Unidad de Abastecimiento. */
+      /* Firmantes del PDF auxiliar: los del snapshot del paquete (T5) o, por
+         defecto, solo el jefe de Abastecimiento. */
       {
         margin: [0, 34, 0, 0],
-        columns: [
-          bloqueFirma('Firma', 'Jefe de la Unidad de Abastecimiento'),
-          bloqueFirma('Firma', 'Encargado de la Unidad de Abastecimiento')
-        ]
-      },
-      {
-        margin: [0, 18, 0, 0],
-        text: `Anexo N.° 04 ${paquete.Codigo} generado por ${paquete.GeneradoPor || ''} · ${formatearFecha(paquete.FechaGeneracion)}`,
-        style: 'nota',
-        alignment: 'center'
+        columns: bloquesFirmaAnexo4(paquete)
       }
     ],
 
@@ -254,6 +245,34 @@ function bloqueFirma(etiqueta: string, cargo: string): any {
       { text: cargo, style: 'firmaCargo' }
     ]
   };
+}
+
+/** Uno o dos bloques según config/snapshot; sin pie «generado por». */
+function bloquesFirmaAnexo4(paquete: PaqueteAnexo4Cmn): any[] {
+  const firmantes = (paquete.Firmantes || [])
+    .slice()
+    .sort((a, b) => (a.OrdenFirma || 0) - (b.OrdenFirma || 0));
+
+  if (firmantes.length === 0) {
+    return [bloqueFirma('Firma', 'Jefe de la Unidad de Abastecimiento')];
+  }
+
+  return firmantes.map(f =>
+    bloqueFirma('Firma', f.EtiquetaCargo || etiquetaCargoPorRol(f.CodigoRol))
+  );
+}
+
+function etiquetaCargoPorRol(codigoRol: string | null | undefined): string {
+  switch ((codigoRol || '').toUpperCase()) {
+    case 'ABAST_JEFE':
+      return 'Jefe de la Unidad de Abastecimiento';
+    case 'ABAST_COORDINADOR':
+      return 'Coordinador de la Unidad de Abastecimiento';
+    case 'ABAST_ESPECIALISTA':
+      return 'Especialista de la Unidad de Abastecimiento';
+    default:
+      return codigoRol || 'Responsable de Abastecimiento';
+  }
 }
 
 function areasDistintas(solicitudes: SolicitudDelPaqueteCmn[]): number {

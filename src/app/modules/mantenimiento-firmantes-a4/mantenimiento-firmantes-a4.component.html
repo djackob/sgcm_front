@@ -1,0 +1,81 @@
+<div class="panel-firmantes">
+  <header class="panel-firmantes__cabecera">
+    <div>
+      <h1 class="panel-firmantes__titulo">Firmantes del Anexo 4</h1>
+      <p class="panel-firmantes__bajada">
+        Quién debe firmar digitalmente el Anexo 4. Los cambios aplican a
+        paquetes <b>nuevos</b>; los ya generados conservan su snapshot.
+      </p>
+    </div>
+    <div class="panel-firmantes__acciones">
+      <button type="button" class="btn btn-app-secundario" [disabled]="cargando" (click)="cargar()">
+        <i class="mdi mdi-refresh" aria-hidden="true"></i> Recargar
+      </button>
+      <button type="button" class="btn btn-app-primary" [disabled]="guardando || cargando" (click)="guardar()">
+        <i class="mdi" [ngClass]="guardando ? 'mdi-loading mdi-spin' : 'mdi-content-save-outline'" aria-hidden="true"></i>
+        Guardar
+      </button>
+    </div>
+  </header>
+
+  <div class="panel-firmantes__error" *ngIf="error">
+    <i class="mdi mdi-alert-outline" aria-hidden="true"></i> {{ error }}
+  </div>
+
+  <div class="panel-firmantes__estado" *ngIf="cargando">
+    <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando…
+  </div>
+
+  <ng-container *ngIf="!cargando && !error">
+    <table class="table scm-table">
+      <thead>
+        <tr>
+          <th style="width:4rem">Orden</th>
+          <th>Rol</th>
+          <th>Cargo en el PDF</th>
+          <th style="width:10rem">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let f of firmantes; let i = index">
+          <td>{{ f.OrdenFirma }}</td>
+          <td>
+            <select class="campo-control" [(ngModel)]="f.CodigoRol" [name]="'rol' + i">
+              <option *ngFor="let r of rolesPara(i)" [value]="r.CodigoRol">{{ r.Nombre }}</option>
+            </select>
+          </td>
+          <td>
+            <input
+              class="campo-control"
+              type="text"
+              [(ngModel)]="f.EtiquetaCargo"
+              [name]="'cargo' + i"
+              placeholder="Etiqueta bajo la línea de firma"
+            />
+          </td>
+          <td class="panel-firmantes__fila-acciones">
+            <button type="button" class="btn-icono" title="Subir" [disabled]="i === 0" (click)="subir(i)">
+              <i class="mdi mdi-arrow-up" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="btn-icono" title="Bajar" [disabled]="i === firmantes.length - 1" (click)="bajar(i)">
+              <i class="mdi mdi-arrow-down" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="btn-icono" title="Quitar" [disabled]="firmantes.length <= 1" (click)="quitar(i)">
+              <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <button
+      type="button"
+      class="btn btn-app-secundario"
+      *ngIf="firmantes.length < 2"
+      (click)="agregar()"
+    >
+      <i class="mdi mdi-plus" aria-hidden="true"></i>
+      Agregar segundo firmante
+    </button>
+  </ng-container>
+</div>

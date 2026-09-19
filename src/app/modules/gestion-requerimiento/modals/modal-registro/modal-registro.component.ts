@@ -26,6 +26,7 @@ import {
   PedidoSiga,
   ProveedorFormularioRequerimiento,
   TipoContratacionRequerimiento,
+  DOCUMENTO_TECNICO,
   crearItemFormularioRequerimiento,
   crearPedidoFormularioRequerimiento,
   crearProveedorFormularioRequerimiento,
@@ -117,6 +118,8 @@ export class ModalRegistroRequerimientoComponent {
   }
 
   codigoTipoContratacion: TipoContratacionRequerimiento = 'LOCACION';
+  /** Monto de cabecera para Bien / Servicio / Consultoría (sin Anexo 5). */
+  montoEstimado: number | null = null;
   codigoDec: 'ABASTECIMIENTO' | 'DAI' = 'ABASTECIMIENTO';
   condicionCmn: 'INCLUIDO' | 'NO_INCLUIDO' = 'INCLUIDO';
   idSolicitudCmn: string | null = null;
@@ -253,6 +256,9 @@ export class ModalRegistroRequerimientoComponent {
         this.centroCostoNombre = respuesta.CentroCostoNombre || this.centroCostoNombre;
         this.denominacion = respuesta.Denominacion || '';
         this.codigoTipoContratacion = respuesta.CodigoTipoContratacion || 'LOCACION';
+        this.montoEstimado = this.codigoTipoContratacion === 'LOCACION'
+          ? null
+          : (Number(respuesta.Monto) > 0 ? Number(respuesta.Monto) : null);
         this.codigoDec = respuesta.CodigoDec || 'ABASTECIMIENTO';
         this.condicionCmn = respuesta.CondicionCmn || 'INCLUIDO';
         this.idSolicitudCmn = respuesta.IdSolicitudCmn || null;
@@ -269,6 +275,7 @@ export class ModalRegistroRequerimientoComponent {
         this.pedidos = this.pedidosDesdeDetalle(respuesta.Pedidos || []);
         this.items = this.itemsDesdeDetalle(respuesta.Items || []);
         this.aplicarDatosAdicionales(respuesta.DatosAdicionales);
+        this.pestanaTrabajo = 'anexo5';
 
         this.cargarTope();
         this.cargarPedidosSiga();
@@ -288,6 +295,7 @@ export class ModalRegistroRequerimientoComponent {
     this.denominacion = '';
     this.denominacionDesdePedido = '';
     this.codigoTipoContratacion = 'LOCACION';
+    this.montoEstimado = null;
     this.codigoDec = 'ABASTECIMIENTO';
     this.condicionCmn = 'INCLUIDO';
     this.idSolicitudCmn = null;
@@ -492,6 +500,11 @@ export class ModalRegistroRequerimientoComponent {
   private aplicarExtraPedido(pedido: PedidoFormularioRequerimiento, extra: any): void {
     pedido.AnoPedido = extra?.AnoPedido ?? pedido.AnoPedido ?? this.anoEje;
     pedido.ActividadOperativa = extra?.ActividadOperativa || pedido.ActividadOperativa || '';
+    pedido.MetaPresupuestaria = extra?.MetaPresupuestaria
+      || pedido.MetaPresupuestaria
+      || (pedido.SecFunc != null ? String(pedido.SecFunc) : '');
+    pedido.FuenteFinanc = extra?.FuenteFinanc || pedido.FuenteFinanc || '';
+    pedido.Clasificador = extra?.Clasificador || pedido.Clasificador || '';
     pedido.Programa = extra?.Programa || pedido.Programa || '';
     pedido.ProdPy = extra?.ProdPy || pedido.ProdPy || '';
     pedido.TipoActProy = extra?.TipoActProy || pedido.TipoActProy || '';
@@ -500,9 +513,6 @@ export class ModalRegistroRequerimientoComponent {
     pedido.NombreItemPedido = extra?.NombreItemPedido
       || pedido.NombreItemPedido
       || this.items.map(i => i.Descripcion || i.DescripcionServicio).filter(Boolean).join(', ');
-    if (!pedido.MetaPresupuestaria && pedido.SecFunc != null) {
-      pedido.MetaPresupuestaria = String(pedido.SecFunc);
-    }
   }
 
   private leerJson(valor: any): any {
@@ -707,6 +717,9 @@ export class ModalRegistroRequerimientoComponent {
     if (this.esLocacion && this.montoProveedorTotal > 0) {
       return this.montoProveedorTotal;
     }
+    if (!this.esLocacion && Number(this.montoEstimado) > 0) {
+      return Number(this.montoEstimado);
+    }
     const suma = this.items.reduce((total, item) => total + this.totalItem(item), 0);
     return suma > 0 ? suma : this.montoProveedorTotal;
   }
@@ -720,14 +733,54 @@ export class ModalRegistroRequerimientoComponent {
     return this.codigoTipoContratacion === 'LOCACION';
   }
 
-  mostrarAnexo3(): void {
+  get etiquetaPestanaFormulario(): string {
+    return this.esLocacion ? 'Anexo 5 · Propuesta' : 'Datos del requerimiento';
+  }
+
+  get etiquetaPestanaDocumento(): string {
+    return this.etiquetaDocumentoTecnico;
+  }
+
+  get etiquetaDocumentoTecnico(): string {
+    const docs = DOCUMENTO_TECNICO[this.codigoTipoContratacion] || [];
+    const doc = this.esLocacion
+      ? (docs.find(d => d.codigo === 'REQ_TDR_LOCACION') || docs[1] || docs[0])
+      : docs[0];
+    return doc ? `${doc.anexo} · ${doc.etiqueta}` : 'Documento técnico';
+  }
+
+  /** Al cambiar el objeto se ocultan Anexo 5 / proveedor y se recargan pedidos SIGA. */
+  alCambiarObjeto(): void {
+    this.pestanaTrabajo = 'anexo5';
+    this.errorGuardadoVisible = null;
+    this.avisoMontoCampo = null;
+    if (this.esLocacion) {
+      this.montoEstimado = null;
+      if (!this.proveedores.length) {
+        this.proveedores = [crearProveedorFormularioRequerimiento()];
+      }
+    } else {
+      this.acordeonProveedor = false;
+    }
+    this.cargarPedidosSiga();
+  }
+
+  mostrarDocumentoTecnico(): void {
     if (!this.idRequerimientoEdicion) {
-      this.funciones.mensaje('info',
-        'Guarde primero el Anexo 5 (propuesta) para que los datos viajen al TDR.');
+      this.funciones.mensaje('info', this.esLocacion
+        ? 'Guarde primero el Anexo 5 (propuesta) para que los datos viajen al TDR.'
+        : `Guarde primero los datos del requerimiento para continuar con ${this.etiquetaDocumentoTecnico}.`);
       return;
     }
     this.pestanaTrabajo = 'anexo3';
-    this.tdrEmbebido?.abrir(this.idRequerimientoEdicion);
+    if (this.esLocacion) {
+      this.tdrEmbebido?.abrir(this.idRequerimientoEdicion);
+    }
+  }
+
+  /** @deprecated usar mostrarDocumentoTecnico */
+  mostrarAnexo3(): void {
+    this.mostrarDocumentoTecnico();
   }
 
   alCompletarTdr(_payload: { IdRequerimiento: string; IdExpediente: string; Version: number }): void {
@@ -750,6 +803,23 @@ export class ModalRegistroRequerimientoComponent {
   private asegurarItemsDesdeFormulario(): void {
     const conCatalogo = this.items.some(item => !!item.ItemBien);
     if (conCatalogo) {
+      return;
+    }
+
+    if (!this.esLocacion) {
+      const monto = Number(this.montoEstimado);
+      const descripcion = this.denominacion.trim();
+      const pedido = this.pedidos.find(p => (p.NumeroPedido || '').trim()) || this.pedidos[0];
+      if (!(monto > 0) || !descripcion) {
+        return;
+      }
+      const item = crearItemFormularioRequerimiento();
+      item.DescripcionServicio = descripcion.slice(0, 350);
+      item.Descripcion = descripcion;
+      item.Cantidad = 1;
+      item.PrecioUnitario = monto;
+      item.NumeroPedido = (pedido?.NumeroPedido || '').trim();
+      this.items = [item];
       return;
     }
 
@@ -786,6 +856,9 @@ export class ModalRegistroRequerimientoComponent {
     const pedidosExtra = this.pedidos.map(p => ({
       AnoPedido: p.AnoPedido,
       ActividadOperativa: p.ActividadOperativa,
+      MetaPresupuestaria: p.MetaPresupuestaria,
+      FuenteFinanc: p.FuenteFinanc,
+      Clasificador: p.Clasificador,
       Programa: p.Programa,
       ProdPy: p.ProdPy,
       TipoActProy: p.TipoActProy,
@@ -824,6 +897,10 @@ export class ModalRegistroRequerimientoComponent {
       this.errorCampo['denominacion'] = 'Campo obligatorio.';
       hayObligatorios = true;
     }
+    if (!this.esLocacion && !(Number(this.montoEstimado) > 0)) {
+      this.errorCampo['montoEstimado'] = 'Campo obligatorio.';
+      hayObligatorios = true;
+    }
 
     const pedidosOk = (this.formsPedido?.toArray() || [])
       .map(f => f.marcarErroresObligatorios())
@@ -854,15 +931,23 @@ export class ModalRegistroRequerimientoComponent {
     this.asegurarItemsDesdeFormulario();
 
     if (!this.items.some(item => item.ItemBien || item.DescripcionServicio.trim())) {
-      this.acordeonProveedor = true;
-      if (this.formsProveedor?.length) {
-        this.formsProveedor.forEach(f => f.marcarErroresObligatorios());
+      if (this.esLocacion) {
+        this.acordeonProveedor = true;
+        this.formsProveedor?.forEach(f => f.marcarErroresObligatorios());
+      } else {
+        this.errorCampo['montoEstimado'] = 'Campo obligatorio.';
+        this.acordeonDocumento = true;
       }
       return null;
     }
     if (this.montoTotal <= 0) {
-      this.acordeonProveedor = true;
-      this.formsProveedor?.forEach(f => f.marcarErroresObligatorios());
+      if (this.esLocacion) {
+        this.acordeonProveedor = true;
+        this.formsProveedor?.forEach(f => f.marcarErroresObligatorios());
+      } else {
+        this.errorCampo['montoEstimado'] = 'Campo obligatorio.';
+        this.acordeonDocumento = true;
+      }
       return null;
     }
     if (this.esLocacion && this.montoTope != null && this.montoProveedorTotal > this.montoTope) {

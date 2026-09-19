@@ -130,12 +130,14 @@ export class FormPedidoComponent {
   private limpiarDetallePedido(): void {
     this.cargandoDetalle = false;
     this.pedido.ActividadOperativa = '';
+    this.pedido.MetaPresupuestaria = '';
     this.pedido.Programa = '';
     this.pedido.FuenteFinanc = '';
     this.pedido.Origen = '';
     this.pedido.Clasificador = '';
     this.pedido.CodigoItemPedido = '';
     this.pedido.NombreItemPedido = '';
+    this.pedido.ProdPy = '';
     this.pedido.TipoActProy = '';
     this.pedido.NombreProyectoSiga = '';
   }

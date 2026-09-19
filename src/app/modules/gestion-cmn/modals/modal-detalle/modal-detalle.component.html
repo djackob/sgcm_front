@@ -83,9 +83,46 @@
             </div>
             <div>
               <span class="detalle-ficha__etiqueta">Tipo de solicitud</span>
-              <span class="detalle-ficha__valor">{{ (detalle.TipoInclusion | titlecase) || '—' }}</span>
+              <ng-container *ngIf="!puedeCambiarTipo; else editarTipo">
+                <span class="detalle-ficha__valor">{{ (detalle.TipoInclusion | titlecase) || '—' }}</span>
+              </ng-container>
+              <ng-template #editarTipo>
+                <select
+                  class="campo-control detalle-ficha__control"
+                  [(ngModel)]="tipoInclusionEdicion"
+                  name="tipoInclusionDetalle"
+                >
+                  <option value="">Seleccione…</option>
+                  <option value="ORDINARIA">Ordinaria</option>
+                  <option value="EXTRAORDINARIA">Extraordinaria</option>
+                </select>
+              </ng-template>
             </div>
           </div>
+
+          <section class="seccion" *ngIf="puedeCambiarTipo">
+            <ng-container *ngIf="esExtraordinariaEdicion">
+              <h3 class="contenido-titulo">Justificación de la urgencia</h3>
+              <textarea
+                class="campo-control"
+                rows="3"
+                [(ngModel)]="justificacionUrgenciaEdicion"
+                name="justificacionDetalle"
+                placeholder="Explique por qué la necesidad no admite el calendario ordinario."
+              ></textarea>
+            </ng-container>
+            <div class="detalle-tipo-acciones">
+              <button
+                type="button"
+                class="btn btn-app-primary"
+                [disabled]="guardandoTipo || !tipoInclusionEdicion"
+                (click)="guardarTipoInclusion()"
+              >
+                <i class="mdi" [ngClass]="guardandoTipo ? 'mdi-loading mdi-spin' : 'mdi-content-save-outline'" aria-hidden="true"></i>
+                Guardar tipo
+              </button>
+            </div>
+          </section>
 
           <section class="seccion">
             <h3 class="contenido-titulo">Sustento</h3>
@@ -96,7 +133,7 @@
                Abastecimiento tiene que leer para validar la urgencia contra las
                directivas del MEF, así que va junto al sustento y no escondido en
                la lista de documentos. -->
-          <section class="seccion" *ngIf="detalle.JustificacionUrgencia">
+          <section class="seccion" *ngIf="!puedeCambiarTipo && detalle.JustificacionUrgencia">
             <h3 class="contenido-titulo">Justificación de la urgencia</h3>
             <p class="detalle-sustento">{{ detalle.JustificacionUrgencia }}</p>
           </section>

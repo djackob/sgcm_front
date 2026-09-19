@@ -295,6 +295,15 @@
                     readonly
                   />
                 </ng-template>
+                <p
+                  class="campo-ayuda"
+                  *ngIf="item.TipoMovimiento === 'INCLUSION' && item.Clasificador"
+                >
+                  Saldo disponible en SIGA (año {{ anoEje }}):
+                  <b>S/ {{ saldoDisponibleItem(item) | number: '1.2-2' }}</b>
+                  · Solicitado en esta solicitud:
+                  <b>S/ {{ montoSolicitadoTecho(item) | number: '1.2-2' }}</b>
+                </p>
               </div>
 
               <div class="campo">

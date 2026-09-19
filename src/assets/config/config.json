@@ -5,7 +5,7 @@
 
   "apiUrl_LOCAL": "http://localhost:5120/",
   "apiUrl_DESARROLLO": "http://192.168.20.111:9048/",
-  "apiUrl": "http://192.168.20.111:9048/",
+  "apiUrl": "http://localhost:5120/",
 
   "ssoLoginUrl": "https://dsso.anin.gob.pe/login",
   "accesoLocalUrl": "/acceso-local",

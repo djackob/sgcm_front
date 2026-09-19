@@ -52,113 +52,136 @@
       />
       <p class="req-campo-error" *ngIf="errorCampo['ano']">{{ errorCampo['ano'] }}</p>
     </div>
+  </div>
 
-    <div class="campo req-grid__resto">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-actividad'">Actividad Operativa</label>
-      <input
-        [id]="prefijo + '-actividad'"
-        type="text"
-        class="campo-control campo-control--bloqueado"
-        [name]="prefijo + '-actividad'"
-        [(ngModel)]="pedido.ActividadOperativa"
-        readonly
-        tabindex="-1"
-        placeholder="Se completa al seleccionar el pedido"
-      />
-    </div>
+  <!-- Ruta presupuestaria: importada del SIGA Escritorio; solo lectura. -->
+  <div class="req-ruta" *ngIf="pedido.NumeroPedido || soloLectura">
+    <h6 class="req-ruta__titulo">Ruta presupuestaria</h6>
+    <p class="req-ruta__ayuda">
+      Datos de la disponibilidad del SIGA. Solo lectura para evitar inconsistencias de digitación.
+    </p>
 
-    <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-meta'">Meta Presupuestaria</label>
-      <input
-        [id]="prefijo + '-meta'"
-        type="text"
-        class="campo-control campo-control--bloqueado"
-        [name]="prefijo + '-meta'"
-        [(ngModel)]="pedido.MetaPresupuestaria"
-        readonly
-        tabindex="-1"
-        placeholder="Se completa al seleccionar el pedido"
-      />
-    </div>
-    <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-ffrr'">FF/RR</label>
-      <input
-        [id]="prefijo + '-ffrr'"
-        type="text"
-        class="campo-control campo-control--bloqueado"
-        [name]="prefijo + '-ffrr'"
-        maxlength="2"
-        [(ngModel)]="pedido.FuenteFinanc"
-        readonly
-        tabindex="-1"
-        placeholder="Se completa al seleccionar el pedido"
-      />
-    </div>
-    <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-programa'">Programa</label>
-      <input
-        [id]="prefijo + '-programa'"
-        type="text"
-        class="campo-control campo-control--bloqueado"
-        [name]="prefijo + '-programa'"
-        [(ngModel)]="pedido.Programa"
-        readonly
-        tabindex="-1"
-        placeholder="Se completa al seleccionar el pedido"
-      />
-    </div>
-    <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-prod'">Prod/Py</label>
-      <input
-        [id]="prefijo + '-prod'"
-        type="text"
-        class="campo-control campo-control--bloqueado"
-        [name]="prefijo + '-prod'"
-        [(ngModel)]="pedido.ProdPy"
-        readonly
-        tabindex="-1"
-        placeholder="Se completa al seleccionar el pedido"
-      />
-    </div>
-    <div class="campo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-clasificador'">Clasificador</label>
-      <input
-        [id]="prefijo + '-clasificador'"
-        type="text"
-        class="campo-control campo-control--bloqueado"
-        [name]="prefijo + '-clasificador'"
-        [(ngModel)]="pedido.Clasificador"
-        readonly
-        tabindex="-1"
-        placeholder="Se completa al seleccionar el pedido"
-      />
-    </div>
+    <div class="req-grid req-grid--documento">
+      <div class="campo req-grid__ancho">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-actividad'">Actividad Operativa</label>
+        <input
+          [id]="prefijo + '-actividad'"
+          type="text"
+          class="campo-control campo-control--bloqueado"
+          [name]="prefijo + '-actividad'"
+          [(ngModel)]="pedido.ActividadOperativa"
+          readonly
+          tabindex="-1"
+          placeholder="Se completa al seleccionar el pedido"
+        />
+      </div>
 
-    <div class="campo req-grid__codigo">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-codigo'">Código Item Pedido</label>
-      <input
-        [id]="prefijo + '-codigo'"
-        type="text"
-        class="campo-control campo-control--bloqueado"
-        [name]="prefijo + '-codigo'"
-        [(ngModel)]="pedido.CodigoItemPedido"
-        readonly
-        tabindex="-1"
-        placeholder="Se completa al seleccionar el pedido"
-      />
-    </div>
-    <div class="campo req-grid__nombre">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-nombre'">Nombre Item Pedido</label>
-      <input
-        [id]="prefijo + '-nombre'"
-        type="text"
-        class="campo-control campo-control--bloqueado"
-        [name]="prefijo + '-nombre'"
-        [(ngModel)]="pedido.NombreItemPedido"
-        readonly
-        tabindex="-1"
-        placeholder="Se completa al seleccionar el pedido"
-      />
+      <div class="campo">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-meta'">Meta Presupuestaria</label>
+        <input
+          [id]="prefijo + '-meta'"
+          type="text"
+          class="campo-control campo-control--bloqueado"
+          [name]="prefijo + '-meta'"
+          [(ngModel)]="pedido.MetaPresupuestaria"
+          readonly
+          tabindex="-1"
+          placeholder="Se completa al seleccionar el pedido"
+        />
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-ffrr'">Fuente de Financiamiento</label>
+        <input
+          [id]="prefijo + '-ffrr'"
+          type="text"
+          class="campo-control campo-control--bloqueado"
+          [name]="prefijo + '-ffrr'"
+          maxlength="2"
+          [(ngModel)]="pedido.FuenteFinanc"
+          readonly
+          tabindex="-1"
+          placeholder="Se completa al seleccionar el pedido"
+        />
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-clasificador'">Clasificador de Gasto</label>
+        <input
+          [id]="prefijo + '-clasificador'"
+          type="text"
+          class="campo-control campo-control--bloqueado"
+          [name]="prefijo + '-clasificador'"
+          [(ngModel)]="pedido.Clasificador"
+          readonly
+          tabindex="-1"
+          placeholder="Se completa al seleccionar el pedido"
+        />
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-programa'">Programa</label>
+        <input
+          [id]="prefijo + '-programa'"
+          type="text"
+          class="campo-control campo-control--bloqueado"
+          [name]="prefijo + '-programa'"
+          [(ngModel)]="pedido.Programa"
+          readonly
+          tabindex="-1"
+          placeholder="Se completa al seleccionar el pedido"
+        />
+      </div>
+      <div class="campo">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-cui'">Código Único de Inversión / CUI</label>
+        <input
+          [id]="prefijo + '-cui'"
+          type="text"
+          class="campo-control campo-control--bloqueado"
+          [name]="prefijo + '-cui'"
+          [(ngModel)]="pedido.ProdPy"
+          readonly
+          tabindex="-1"
+          placeholder="Se completa al seleccionar el pedido"
+        />
+      </div>
+
+      <div class="campo req-grid__ancho" *ngIf="pedido.NombreProyectoSiga">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-proyecto'">Nombre del proyecto</label>
+        <input
+          [id]="prefijo + '-proyecto'"
+          type="text"
+          class="campo-control campo-control--bloqueado"
+          [name]="prefijo + '-proyecto'"
+          [(ngModel)]="pedido.NombreProyectoSiga"
+          readonly
+          tabindex="-1"
+        />
+      </div>
+
+      <div class="campo req-grid__codigo">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-codigo'">Código del Ítem del Pedido</label>
+        <input
+          [id]="prefijo + '-codigo'"
+          type="text"
+          class="campo-control campo-control--bloqueado"
+          [name]="prefijo + '-codigo'"
+          [(ngModel)]="pedido.CodigoItemPedido"
+          readonly
+          tabindex="-1"
+          placeholder="Se completa al seleccionar el pedido"
+        />
+      </div>
+      <div class="campo req-grid__nombre">
+        <label class="campo-etiqueta" [attr.for]="prefijo + '-nombre'">Nombre del Ítem del Pedido</label>
+        <input
+          [id]="prefijo + '-nombre'"
+          type="text"
+          class="campo-control campo-control--bloqueado"
+          [name]="prefijo + '-nombre'"
+          [(ngModel)]="pedido.NombreItemPedido"
+          readonly
+          tabindex="-1"
+          placeholder="Se completa al seleccionar el pedido"
+        />
+      </div>
     </div>
   </div>
 </section>

@@ -1,0 +1,71 @@
+.panel-firmantes {
+  padding: 1.25rem 1.5rem 2rem;
+  max-width: 920px;
+}
+
+.panel-firmantes__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.panel-firmantes__titulo {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  color: #0f172a;
+}
+
+.panel-firmantes__bajada {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.panel-firmantes__acciones {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.panel-firmantes__error,
+.panel-firmantes__estado {
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.panel-firmantes__error {
+  color: #b91c1c;
+}
+
+.panel-firmantes__fila-acciones {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.btn-icono {
+  border: 0;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+
+  &:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+.campo-control {
+  width: 100%;
+}

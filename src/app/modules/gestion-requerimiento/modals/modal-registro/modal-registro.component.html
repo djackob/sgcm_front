@@ -27,7 +27,30 @@
           <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando el requerimiento…
         </div>
 
-        <div class="scm-tabs" *ngIf="!cargandoEdicion && esLocacion" role="tablist">
+        <div class="req-objeto-barra" *ngIf="!cargandoEdicion">
+          <div class="campo">
+            <label class="campo-etiqueta" for="objeto">
+              Objeto de contratación<span class="campo-req" aria-hidden="true">*</span>
+            </label>
+            <select
+              id="objeto"
+              class="campo-control"
+              [class.campo-control--bloqueado]="modoEdicion"
+              name="objeto"
+              [(ngModel)]="codigoTipoContratacion"
+              [disabled]="modoEdicion"
+              (ngModelChange)="alCambiarObjeto()"
+            >
+              <option *ngFor="let o of objetos" [ngValue]="o.valor">{{ o.nombre }}</option>
+            </select>
+            <p class="req-nota" *ngIf="!esLocacion">
+              Sin Anexo 5 ni proveedor propuesto: complete los datos y elabore
+              {{ etiquetaDocumentoTecnico }}.
+            </p>
+          </div>
+        </div>
+
+        <div class="scm-tabs" *ngIf="!cargandoEdicion" role="tablist">
           <button
             type="button"
             class="scm-tabs__tab"
@@ -35,7 +58,7 @@
             [class.scm-tabs__tab--activa]="pestanaTrabajo === 'anexo5'"
             (click)="pestanaTrabajo = 'anexo5'"
           >
-            Anexo 5 · Propuesta
+            {{ etiquetaPestanaFormulario }}
           </button>
           <button
             type="button"
@@ -43,9 +66,9 @@
             role="tab"
             [class.scm-tabs__tab--activa]="pestanaTrabajo === 'anexo3'"
             [disabled]="!idRequerimientoEdicion"
-            (click)="mostrarAnexo3()"
+            (click)="mostrarDocumentoTecnico()"
           >
-            Anexo 3 · TDR
+            {{ etiquetaPestanaDocumento }}
           </button>
         </div>
 
@@ -71,19 +94,6 @@
             </span>
 
             <div class="req-grid req-grid--documento">
-              <div class="campo">
-                <label class="campo-etiqueta" for="objeto">Objeto</label>
-                <select
-                  id="objeto"
-                  class="campo-control campo-control--bloqueado"
-                  name="objeto"
-                  [(ngModel)]="codigoTipoContratacion"
-                  disabled
-                >
-                  <option *ngFor="let o of objetos" [ngValue]="o.valor">{{ o.nombre }}</option>
-                </select>
-              </div>
-
               <div class="campo campo--corto">
                 <label class="campo-etiqueta" for="anoEje">
                   Año<span class="campo-req" aria-hidden="true">*</span>
@@ -130,13 +140,35 @@
                 />
                 <p class="req-campo-error" *ngIf="errorCampo['plazo']">{{ errorCampo['plazo'] }}</p>
               </div>
+
+              <div class="campo campo--corto" *ngIf="!esLocacion">
+                <label class="campo-etiqueta" for="montoEstimado">
+                  Monto (S/)<span class="campo-req" aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="montoEstimado"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  class="campo-control"
+                  [class.campo-control--invalido]="!!errorCampo['montoEstimado']"
+                  name="montoEstimado"
+                  [(ngModel)]="montoEstimado"
+                  (ngModelChange)="limpiarErrorCampo('montoEstimado')"
+                />
+                <p class="req-campo-error" *ngIf="errorCampo['montoEstimado']">{{ errorCampo['montoEstimado'] }}</p>
+              </div>
             </div>
 
             <div class="req-bloque">
               <div class="req-bloque__cabecera">
                 <h4 class="req-bloque__titulo">
-                  Pedidos<span class="campo-req" aria-hidden="true">*</span>
+                  Pedidos SIGA<span class="campo-req" aria-hidden="true">*</span>
                 </h4>
+                <span class="req-bloque__ayuda">
+                  Al vincular un pedido se importa la ruta presupuestaria (actividad, meta, fuente y clasificador).
+                  Con varios pedidos la denominación permanece única y cada pedido conserva su propia ruta.
+                </span>
               </div>
 
               <app-form-pedido
@@ -178,15 +210,15 @@
                   [readonly]="denominacionBloqueada"
                 ></textarea>
                 <p class="req-nota" *ngIf="denominacionBloqueada">
-                  Con varios pedidos SIGA la denominación del servicio es única y constante; las metas se desglosan en la grilla.
+                  Multimeta: la denominación de la contratación es única en cabecera; la ruta presupuestaria (actividad, meta, fuente y clasificador) se desglosa por cada pedido SIGA.
                 </p>
                 <p class="req-campo-error" *ngIf="errorCampo['denominacion']">{{ errorCampo['denominacion'] }}</p>
               </div>
             </div>
           </accordion-group>
 
-          <!-- 2. Datos del Proveedor -->
-          <accordion-group [(isOpen)]="acordeonProveedor">
+          <!-- 2. Datos del Proveedor (solo Locación / Anexo 5) -->
+          <accordion-group *ngIf="esLocacion" [(isOpen)]="acordeonProveedor">
             <span accordion-heading class="req-acordeon__cabecera">
               <span class="req-acordeon__titulo">
                 <i class="mdi mdi-account-outline" aria-hidden="true"></i>
@@ -225,11 +257,11 @@
 
         </accordion>
 
-        <div class="req-tdr-embebido" *ngIf="idRequerimientoEdicion" [hidden]="cargandoEdicion || pestanaTrabajo !== 'anexo3'">
-          <!-- <p class="req-travel">
-            Los datos críticos del Anexo 5 (denominación, plazo, pedido SIGA y monto)
-            viajan al TDR y quedan congelados. Complete cláusulas, actividades y entregables.
-          </p> -->
+        <div
+          class="req-tdr-embebido"
+          *ngIf="idRequerimientoEdicion && esLocacion"
+          [hidden]="cargandoEdicion || pestanaTrabajo !== 'anexo3'"
+        >
           <app-modal-anexo3-requerimiento
             #tdrEmbebido
             [embebido]="true"
@@ -238,13 +270,31 @@
             (completado)="alCompletarTdr($event)"
           />
         </div>
+
+        <div
+          class="req-doc-tecnico-aviso"
+          *ngIf="!cargandoEdicion && pestanaTrabajo === 'anexo3' && !esLocacion"
+        >
+          <p class="req-nota">
+            Guarde los datos del requerimiento y elabore
+            <strong>{{ etiquetaDocumentoTecnico }}</strong>
+            desde la bandeja (EETT / TDR según el objeto). El formulario digital
+            de este anexo se habilitará en la siguiente entrega.
+          </p>
+          <p class="req-nota" *ngIf="!idRequerimientoEdicion">
+            Primero registre el requerimiento en la pestaña
+            «{{ etiquetaPestanaFormulario }}».
+          </p>
+        </div>
       </div>
 
       <div class="modal-footer" *ngIf="pestanaTrabajo === 'anexo5'">
         <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cerrar</button>
-        <span class="req-monto" [class.req-monto--excede]="excedeTope" *ngIf="montoTope != null">
+        <span class="req-monto" [class.req-monto--excede]="excedeTope" *ngIf="montoTope != null || (!esLocacion && montoTotal > 0)">
           Total S/ {{ montoTotal | number: '1.2-2':'en-US' }}
-          · tope 8 UIT S/ {{ montoTope | number: '1.2-2':'en-US' }}
+          <ng-container *ngIf="montoTope != null">
+            · tope 8 UIT S/ {{ montoTope | number: '1.2-2':'en-US' }}
+          </ng-container>
         </span>
         <button
           type="button"

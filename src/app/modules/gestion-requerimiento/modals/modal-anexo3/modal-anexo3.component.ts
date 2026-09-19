@@ -21,7 +21,6 @@ import {
   AYUDA_FINALIDAD,
   AYUDA_JUSTIFICACION,
   AYUDA_OBJETIVO,
-  CONFORMIDAD_FIJA,
   FINALIDAD_COMPLEMENTO,
   FORMA_PAGO_DOCUMENTOS,
   INTRO_ACTIVIDADES,
@@ -40,10 +39,13 @@ import {
   aplicarNombreProyectoTdr,
   crearTdrLocacion,
   diasAcumuladosEntregable,
+  normalizarInformesPrevios,
   plazoEntregables,
   recalcularNombresEntregables,
   reindexarActividadesTrasQuitar,
   resumenCoberturaActividades,
+  sincronizarInformesPrevios,
+  textoConformidadCompleto,
   textoFormaPago,
   validarActividadesTdr,
   validarEntregablesTdr
@@ -168,12 +170,7 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   }
 
   get textoConformidad(): string {
-    const base = CONFORMIDAD_FIJA;
-    if (!this.tdr.ExigeInformePrevio) {
-      return base;
-    }
-    const quien = (this.tdr.UnidadInforme || '').trim() || '[indicar área o especialista]';
-    return `${base}\n\nPrevio a la emisión de la conformidad, se requiere informe técnico / visto bueno de: ${quien}.`;
+    return textoConformidadCompleto(this.tdr);
   }
 
   onExigeExperienciaEspecifica(): void {
@@ -184,8 +181,39 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
 
   onExigeInformePrevio(): void {
     if (!this.tdr.ExigeInformePrevio) {
+      this.tdr.InformesPrevios = [];
       this.tdr.UnidadInforme = '';
+      return;
     }
+    if (!(this.tdr.InformesPrevios || []).length) {
+      const legado = (this.tdr.UnidadInforme || '').trim();
+      this.tdr.InformesPrevios = legado ? [legado] : [''];
+    }
+  }
+
+  agregarInformePrevio(): void {
+    this.tdr.InformesPrevios = [...(this.tdr.InformesPrevios || []), ''];
+  }
+
+  quitarInformePrevio(indice: number): void {
+    this.tdr.InformesPrevios = (this.tdr.InformesPrevios || []).filter((_, i) => i !== indice);
+    if (!this.tdr.InformesPrevios.length) {
+      this.tdr.InformesPrevios = [''];
+    }
+  }
+
+  /** Evita que *ngFor destruya el textarea al cambiar el string (pérdida de foco). */
+  trackByIndice(index: number): number {
+    return index;
+  }
+
+  onInformePrevioChange(indice: number, valor: string): void {
+    const lista = this.tdr.InformesPrevios || [];
+    if (indice < 0 || indice >= lista.length) {
+      return;
+    }
+    /* Mutación in-place: no reemplazar el arreglo en cada tecla. */
+    lista[indice] = valor ?? '';
   }
 
   get textoFormaPagoVista(): string {
@@ -249,8 +277,14 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
               this.tdr.ExigeExperienciaEspecifica = !!(this.tdr.ExperienciaEspecifica || '').trim();
             }
             if (this.tdr.ExigeInformePrevio == null) {
-              this.tdr.ExigeInformePrevio = !!(this.tdr.UnidadInforme || '').trim();
+              this.tdr.ExigeInformePrevio = !!(this.tdr.UnidadInforme || '').trim()
+                || !!(this.tdr.InformesPrevios || []).some(x => !!(x || '').trim());
             }
+            this.tdr.InformesPrevios = this.tdr.ExigeInformePrevio
+              ? (normalizarInformesPrevios(this.tdr).length
+                  ? normalizarInformesPrevios(this.tdr)
+                  : [''])
+              : [];
             this.tdr.UnidadConformidad = (detalle.CentroCostoNombre || this.tdr.UnidadConformidad || '').trim();
             this.tdr.Actividades = [...(this.tdr.Actividades || [])];
             this.sincronizarEntregablesConAnexo5();
@@ -502,8 +536,10 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
       return;
     }
 
-    if (this.tdr.ExigeInformePrevio && !(this.tdr.UnidadInforme || '').trim()) {
-      this.marcarError('informePrevio', 'Indique el área o especialista del informe previo / visto bueno.');
+    if (this.tdr.ExigeInformePrevio
+        && !(this.tdr.InformesPrevios || []).some(x => !!(x || '').trim())
+        && !(this.tdr.UnidadInforme || '').trim()) {
+      this.marcarError('informePrevio', 'Indique al menos un informe previo / visto bueno, o desactive el check.');
       this.dirigirAObservacion('informePrevio', () => { this.acordeonConformidad = true; });
       return;
     }
@@ -541,6 +577,8 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
     }
 
     this.tdr.IntroActividades = INTRO_ACTIVIDADES;
+    this.tdr.UnidadConformidad = (this.detalle.CentroCostoNombre || this.tdr.UnidadConformidad || '').trim();
+    sincronizarInformesPrevios(this.tdr);
     aplicarNombreProyectoTdr(this.tdr, this.pedidos);
     this.guardando = true;
     const definicion = construirAnexo3Tdr(this.detalle, this.tdr, this.pedidos);

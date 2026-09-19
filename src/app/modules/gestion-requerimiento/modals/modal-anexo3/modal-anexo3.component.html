@@ -304,37 +304,61 @@
                 <label class="campo-etiqueta" for="tdrUnidadOrg">Unidad Organizacional</label>
                 <textarea id="tdrUnidadOrg" class="campo-control" rows="2" [(ngModel)]="tdr.UnidadOrganizacional"></textarea>
               </div>
-              <div class="req-grid">
-                <div class="campo">
-                  <label class="campo-etiqueta" for="tdrUnidadConf">Área que emite la conformidad</label>
-                  <input
-                    id="tdrUnidadConf"
-                    type="text"
-                    class="campo-control campo-control--bloqueado"
-                    [(ngModel)]="tdr.UnidadConformidad"
-                    readonly
-                    disabled
-                  />
-                  <p class="req-nota">Se toma del área usuaria requirente y no se edita.</p>
+              <div class="campo">
+                <label class="campo-etiqueta" for="tdrUnidadConf">Área usuaria que emite la conformidad</label>
+                <input
+                  id="tdrUnidadConf"
+                  type="text"
+                  class="campo-control campo-control--bloqueado"
+                  [(ngModel)]="tdr.UnidadConformidad"
+                  readonly
+                  disabled
+                />
+                <p class="req-nota">Se hereda del área usuaria requirente del encabezado y no se edita.</p>
+              </div>
+              <div class="campo">
+                <label class="campo-check">
+                  <input type="checkbox" [(ngModel)]="tdr.ExigeInformePrevio" (ngModelChange)="onExigeInformePrevio()" />
+                  ¿Se requiere un informe previo o visto bueno antes de la conformidad?
+                </label>
+              </div>
+              <ng-container *ngIf="tdr.ExigeInformePrevio">
+                <div class="req-bloque__cabecera">
+                  <h4 class="req-bloque__titulo">Informe previo / visto bueno requerido</h4>
+                  <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarInformePrevio()">
+                    <i class="mdi mdi-plus" aria-hidden="true"></i>
+                    Agregar
+                  </button>
                 </div>
-                <div class="campo">
-                  <label class="campo-check">
-                    <input type="checkbox" [(ngModel)]="tdr.ExigeInformePrevio" (ngModelChange)="onExigeInformePrevio()" />
-                    Requiere informe previo / visto bueno antes de la conformidad
-                  </label>
-                  <label class="campo-etiqueta" *ngIf="tdr.ExigeInformePrevio" for="tdrUnidadInf">
-                    Unidad / especialista que emite el informe previo
-                  </label>
-                  <input
-                    *ngIf="tdr.ExigeInformePrevio"
-                    id="tdrUnidadInf"
-                    type="text"
+                <p class="req-nota">
+                  Indique el área, cargo o persona (p. ej. Unidad de Soporte, Gerente de Proyecto).
+                  El texto se concatena en la sección Conformidad del TDR; no bloquea el flujo de pagos.
+                </p>
+                <div class="tdr-fila" *ngFor="let _ of tdr.InformesPrevios; let i = index; trackBy: trackByIndice">
+                  <span class="tdr-fila__nro">{{ i + 1 }}</span>
+                  <textarea
                     class="campo-control"
-                    [(ngModel)]="tdr.UnidadInforme"
-                    placeholder="Área o especialista que valida previamente"
-                  />
-                  <p class="req-campo-error" id="tdr-err-informePrevio" *ngIf="errorCampo['informePrevio']">{{ errorCampo['informePrevio'] }}</p>
+                    rows="2"
+                    [ngModel]="tdr.InformesPrevios[i]"
+                    (ngModelChange)="onInformePrevioChange(i, $event)"
+                    [name]="'tdrInformePrevio' + i"
+                    placeholder="Área, cargo o especialista del informe / visto bueno"
+                  ></textarea>
+                  <button
+                    type="button"
+                    class="btn-icon-outline"
+                    title="Quitar"
+                    *ngIf="tdr.InformesPrevios.length > 1"
+                    (click)="quitarInformePrevio(i)"
+                  >
+                    <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
+                  </button>
                 </div>
+                <p class="req-campo-error" id="tdr-err-informePrevio" *ngIf="errorCampo['informePrevio']">{{ errorCampo['informePrevio'] }}</p>
+              </ng-container>
+              <div class="campo">
+                <label class="campo-etiqueta">Vista previa · Conformidad en el TDR</label>
+                <pre class="tdr-label-fijo tdr-preview-conformidad">{{ textoConformidad }}</pre>
               </div>
             </accordion-group>
 

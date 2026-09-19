@@ -38,9 +38,16 @@ export interface TdrLocacion {
   ExigeExperienciaEspecifica: boolean;
   ExperienciaEspecifica: string;
   UnidadOrganizacional: string;
+  /** Área usuaria requirente; se hereda del encabezado y no se edita. */
   UnidadConformidad: string;
-  /** Si true, se designa un informe previo / VB antes de la conformidad. */
+  /** Si true, se exige informe previo / VB textual antes de la conformidad. */
   ExigeInformePrevio: boolean;
+  /**
+   * Ítems libres (área, cargo, gerente, etc.) que se concatenan en la
+   * sección 8 del TDR. No bloquean el flujo de pagos: solo son sustento.
+   */
+  InformesPrevios: string[];
+  /** Compatibilidad con TDRs grabados antes de InformesPrevios. */
   UnidadInforme: string;
   LugarPrestacion: string;
   OtrasPenalidades: string;
@@ -102,6 +109,58 @@ export const RECURSOS_PROVEEDOR =
 
 export const CONFORMIDAD_FIJA =
   'La conformidad se emite en un plazo máximo de siete días (07) contabilizados desde el día siguiente de recibido el entregable, salvo que se requiera efectuar pruebas que permitan verificar el cumplimiento de la obligación, bajo responsabilidad del servidor o funcionario que debe emitir la conformidad.\n\nDe corresponder, deberá contener un informe donde el funcionario responsable verifique, dependiendo de la naturaleza de la prestación, la calidad, cantidad y cumplimiento de las condiciones contractuales.\n\nAsimismo, son aplicables las disposiciones correspondientes a la conformidad establecidas en el artículo 144 del Reglamento de la Ley N° 32069, Ley General de Contrataciones Públicas, aprobado mediante Decreto Supremo N° 009-2025-EF.';
+
+/** Normaliza la lista de informes/VB previos (payload nuevo o UnidadInforme legado). */
+export function normalizarInformesPrevios(tdr: Partial<TdrLocacion> | null | undefined): string[] {
+  const lista = Array.isArray(tdr?.InformesPrevios)
+    ? tdr!.InformesPrevios.map(x => String(x || '').trim()).filter(Boolean)
+    : [];
+  if (lista.length) {
+    return lista;
+  }
+  const legado = String(tdr?.UnidadInforme || '').trim();
+  return legado ? [legado] : [];
+}
+
+/** Sincroniza InformesPrevios ↔ UnidadInforme antes de grabar o imprimir. */
+export function sincronizarInformesPrevios(tdr: TdrLocacion): void {
+  const limpios = (tdr.InformesPrevios || []).map(x => String(x || '').trim()).filter(Boolean);
+  tdr.InformesPrevios = limpios.length ? limpios : (tdr.ExigeInformePrevio ? [''] : []);
+  const textos = (tdr.InformesPrevios || []).map(x => String(x || '').trim()).filter(Boolean);
+  tdr.UnidadInforme = textos.join('; ');
+  if (!tdr.ExigeInformePrevio) {
+    tdr.InformesPrevios = [];
+    tdr.UnidadInforme = '';
+  }
+}
+
+/** Párrafos adicionales de la sección 8 cuando hay informe previo / VB. */
+export function parrafosInformePrevioConformidad(tdr: TdrLocacion): string[] {
+  if (!tdr.ExigeInformePrevio) {
+    return [];
+  }
+  const items = normalizarInformesPrevios(tdr);
+  if (!items.length) {
+    return [
+      'Previo a la emisión de la conformidad, se requiere informe técnico / visto bueno de: [indicar área, cargo o especialista].'
+    ];
+  }
+  if (items.length === 1) {
+    return [
+      `Previo a la emisión de la conformidad, se requiere informe técnico / visto bueno de: ${items[0]}.`
+    ];
+  }
+  return [
+    'Previo a la emisión de la conformidad, se requiere informe técnico / visto bueno de:',
+    ...items.map((item, i) => `${i + 1}. ${item}`)
+  ];
+}
+
+/** Texto completo de la sección Conformidad (fijo + concatenación del check). */
+export function textoConformidadCompleto(tdr: TdrLocacion): string {
+  const extra = parrafosInformePrevioConformidad(tdr);
+  return extra.length ? `${CONFORMIDAD_FIJA}\n\n${extra.join('\n')}` : CONFORMIDAD_FIJA;
+}
 
 export const FORMA_PAGO_DOCUMENTOS =
   'Los documentos para el trámite de pago que deberá presentar el contratista son los siguientes:\na) Entregable, de acuerdo al numeral 6.\nb) Recibo por honorarios electrónico (al crédito), consignando el número de la orden de servicio o número del contrato, según corresponda, y el número de entregable correspondiente.\nc) Validez del recibo por honorarios electrónico emitido.\nd) Suspensión de renta 4ta categoría (de corresponder).\ne) Notificación de la orden de servicio, de corresponder.\n\nEl pago se realizará en un plazo máximo de diez (10) días hábiles luego de otorgada la conformidad por parte del área usuaria y es prorrogable, previa justificación de la demora, por cinco días hábiles.\n\nEl pago incluirá los impuestos de Ley y todo costo o retención que recaiga en el servicio, no debiendo proceder pagos a cuenta por servicios no efectuados, ni adelanto alguno.';
@@ -297,6 +356,7 @@ export function crearTdrLocacion(valores: {
     UnidadOrganizacional: unidad || UNIDAD_ORGANIZACIONAL_EJEMPLO,
     UnidadConformidad: unidad,
     ExigeInformePrevio: false,
+    InformesPrevios: [],
     UnidadInforme: '',
     LugarPrestacion: LUGAR_EJEMPLO,
     OtrasPenalidades: OTRAS_PENALIDADES_EJEMPLO,

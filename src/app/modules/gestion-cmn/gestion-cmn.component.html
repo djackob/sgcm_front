@@ -453,10 +453,14 @@
             o avanzan todos o no avanza ninguno.
           </li>
           <li *ngIf="muestraPdfAnexo4">
-            <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
-            El PDF del Anexo 4 tiene dos espacios de Firma: a la izquierda el Jefe
-            de la Unidad de Abastecimiento y a la derecha el Encargado de la Unidad
-            de Abastecimiento.
+            <i class="mdi mdi-file-document-outline" aria-hidden="true"></i>
+            El PDF del SGCM es auxiliar. Esta acción aprueba en SIGA sin firmarlo
+            digitalmente aquí; después se subirá el Anexo 4 firmado descargado del SIGA.
+          </li>
+          <li *ngIf="esSubirA4Siga">
+            <i class="mdi mdi-file-upload-outline" aria-hidden="true"></i>
+            Descargue del SIGA el Anexo 4 ya firmado digitalmente y reemplácelo aquí.
+            Al guardar se envía el correo al área usuaria y se cierra el expediente.
           </li>
         </ul>
 
@@ -482,7 +486,7 @@
           </a>
         </div>
 
-        <div class="cmn-pdf-acciones" *ngIf="muestraPdfAnexo4">
+        <div class="cmn-pdf-acciones" *ngIf="muestraPdfAnexo4 || esSubirA4Siga">
           <button
             type="button"
             class="btn btn-app-secundario"
@@ -490,24 +494,33 @@
             (click)="verAnexo4Pdf(accionEnCurso.solicitud)"
           >
             <i class="mdi" [ngClass]="cargandoPdf ? 'mdi-loading mdi-spin' : 'mdi-file-pdf-box'" aria-hidden="true"></i>
-            Ver Anexo 4 (PDF)
+            Ver PDF actual (SGCM)
           </button>
-          <a
-            *ngIf="nombreDocumentoFirmado"
-            class="btn btn-app-secundario"
-            [href]="urlDocumentoFirmado()"
-            target="_blank"
-            rel="noopener"
-          >
-            <i class="mdi mdi-file-check-outline" aria-hidden="true"></i>
-            Ver archivo firmado
-          </a>
+        </div>
+
+        <div class="campo" *ngIf="esSubirA4Siga">
+          <label class="campo-etiqueta">Anexo 4 firmado del SIGA (PDF)</label>
+          <div class="campo-archivo">
+            <label class="campo-archivo__boton">
+              <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+              Elegir archivo
+              <input type="file" accept="application/pdf" (change)="onArchivoA4Siga($event)" />
+            </label>
+            <span
+              class="campo-archivo__nombre"
+              [class.campo-archivo__nombre--vacio]="!archivoA4Siga"
+            >{{ archivoA4Siga?.name || 'Sin archivo seleccionado' }}</span>
+          </div>
+          <p class="campo-ayuda">
+            Reemplaza el documento generado por el SGCM. Debe ser el PDF oficial
+            del SIGA con las firmas digitales ya aplicadas.
+          </p>
         </div>
 
         <!-- La tipificación viene decidida del área usuaria: aquí se lee, no se
              elige. Se muestra porque es lo que gobierna cuándo podrá generarse
              el Anexo 4 que aprueba este expediente. -->
-        <div class="campo" *ngIf="accionEnCurso.solicitud.TipoInclusion">
+        <div class="campo" *ngIf="accionEnCurso.solicitud.TipoInclusion && !esSubirA4Siga">
           <label class="campo-etiqueta">Tipo de solicitud</label>
           <input
             type="text"
@@ -588,11 +601,11 @@
         <button
           type="button"
           class="btn btn-app-primary"
-          [disabled]="ejecutando"
+          [disabled]="ejecutando || (esSubirA4Siga && !archivoA4Siga)"
           (click)="confirmarAccion()"
         >
           <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i>
-          Confirmar
+          {{ esSubirA4Siga ? 'Guardar' : 'Confirmar' }}
         </button>
       </div>
     </div>
@@ -604,6 +617,7 @@
   (editar)="editarSolicitud($event)"
   (firmar)="firmarDesdeDetalle($event)"
   (verPdf)="verAnexo3Pdf($event)"
+  (tipoCambiado)="cargarBandeja()"
 />
 
 <!-- Visor del Anexo -->

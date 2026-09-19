@@ -40,6 +40,19 @@ export class CmnService {
     return this.apiService.POST('api/cmn/registrarSolicitud', { Solicitud: solicitud, Items: items });
   }
 
+  /** Abastecimiento tipifica Ordinaria/Extraordinaria antes del Anexo 4. */
+  cambiarTipoInclusion(
+    idSolicitud: string,
+    tipoInclusion: string,
+    justificacionUrgencia: string | null
+  ): Observable<any> {
+    return this.apiService.POST('api/cmn/cambiarTipoInclusion', {
+      IdSolicitud: idSolicitud,
+      TipoInclusion: tipoInclusion,
+      JustificacionUrgencia: justificacionUrgencia
+    });
+  }
+
   /* ---------------------------------------------------------------------- */
   /* Máquina de estados                                                     */
   /* ---------------------------------------------------------------------- */

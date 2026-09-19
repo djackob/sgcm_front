@@ -56,6 +56,7 @@ const DOCUMENTO_QUE_GENERA: { [codigoTransicion: string]: string } = {
 const ESTADOS_CON_ANEXO4 = new Set([
   'CMN_A4_FIRMA_COORD',
   'CMN_A4_FIRMA_JEFE',
+  'CMN_A4_PEND_DOC_SIGA',
   'CMN_A4_ENVIADO',
   'CMN_FINALIZADO'
 ]);
@@ -69,7 +70,8 @@ const ESTADOS_CON_ANEXO4 = new Set([
  * demás quedarían atrás.
  */
 const ACCIONES_DEL_PAQUETE = new Set([
-  'CMN_ABAST_JEFE_FIRMAR_A4'
+  'CMN_ABAST_JEFE_FIRMAR_A4',
+  'CMN_ABAST_SUBIR_A4_SIGA'
 ]);
 
 /**
@@ -91,12 +93,15 @@ const ICONO_ACCION: { [codigoTransicion: string]: string } = {
   /* Anexo 3 */
   CMN_GENERAR_A3:           'mdi-file-document-plus-outline',
   CMN_FIRMAR_A3:            'mdi-draw-pen',
-  CMN_ABAST_ESP_FIRMAR_A3:  'mdi-draw-pen',
+  /* V.B. operativo (S041): sin certificado; el jefe firma el A3. */
+  CMN_ABAST_ESP_FIRMAR_A3:  'mdi-check-decagram-outline',
+  CMN_ABAST_ESP_ELEVAR_JEFE: 'mdi-arrow-up-bold-outline',
   CMN_ABAST_JEFE_FIRMAR_A3: 'mdi-draw-pen',
 
   /* Anexo 4 */
   CMN_GENERAR_A4:           'mdi-file-sign',
-  CMN_ABAST_JEFE_FIRMAR_A4: 'mdi-draw-pen',
+  CMN_ABAST_JEFE_FIRMAR_A4: 'mdi-database-export-outline',
+  CMN_ABAST_SUBIR_A4_SIGA:  'mdi-file-upload-outline',
   CMN_RECEPCIONAR_A4:       'mdi-inbox-arrow-down-outline',
 
   /* Derivaciones: siempre la misma flecha, el title dice a quién */
@@ -237,6 +242,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   documentoSistemaParaFirmar = '';
   /** Id que devuelve el firmador cuando la firma digital terminó. */
   nombreDocumentoFirmado = '';
+  /** PDF del SIGA ya firmado, para reemplazar el auxiliar del SGCM (S044). */
+  archivoA4Siga: File | null = null;
   private popupFirma: Window | null = null;
   private popupMonitorId: number | null = null;
   private messageListener: ((event: MessageEvent) => void) | null = null;
@@ -624,13 +631,14 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.accionEnCurso = { solicitud, transicion };
     this.loteEnCurso = lote;
     this.comentario = '';
+    this.archivoA4Siga = null;
     this.limpiarEstadoFirma();
     this.cerrarVisorPdf();
     this.cargarDestinatarios(solicitud, transicion);
 
     if (this.muestraPdfAnexo3) {
       this.verAnexo3Pdf(solicitud);
-    } else if (this.muestraPdfAnexo4) {
+    } else if (this.muestraPdfAnexo4 || this.esSubirA4Siga) {
       this.verAnexo4Pdf(solicitud);
     }
   }
@@ -691,6 +699,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
 
   private opcionesDetalle(solicitud: SolicitudCmn): {
     puedeEditar: boolean;
+    puedeCambiarTipo: boolean;
     transicionFirmar: TransicionCmn | null;
   } {
     /* El visor ofrece firmar el Anexo 3 cuando la base se lo ofrece a este
@@ -698,9 +707,40 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
        no aparecía nunca. La transición real es CMN_FIRMAR_A3. */
     return {
       puedeEditar: this.puedeEditar(solicitud),
+      puedeCambiarTipo: this.puedeCambiarTipoInclusion(solicitud),
       transicionFirmar: this.accionesDe(solicitud)
         .find(t => t.CodigoTransicion === 'CMN_FIRMAR_A3') || null
     };
+  }
+
+  /**
+   * Abastecimiento tipifica Ordinaria/Extraordinaria mientras no haya Anexo 4.
+   * La autoridad real está en cmn.paCambiarTipoInclusion; esto solo pinta el combo.
+   */
+  puedeCambiarTipoInclusion(solicitud: SolicitudCmn): boolean {
+    if (!this.codigoRol.startsWith('ABAST_')) {
+      return false;
+    }
+    if (this.codigoRol === 'ABAST_SECRETARIA') {
+      return false;
+    }
+    if (solicitud.IdPaquete || idDocumentoSistema(solicitud.DocumentoSistemaAnexo4)) {
+      return false;
+    }
+    if (ESTADOS_CON_ANEXO4.has(solicitud.CodigoEstado)) {
+      return false;
+    }
+    const estadosAbastPreA4 = new Set([
+      'CMN_EN_ABAST_JEFE',
+      'CMN_EN_ABAST_COORD',
+      'CMN_EN_ABAST_ESP',
+      'CMN_OBS_ABAST_COORD',
+      'CMN_OBS_ABAST_JEFE',
+      'CMN_A3_FIRMA_COORD',
+      'CMN_A3_FIRMA_JEFE',
+      'CMN_A3_APROBADO'
+    ]);
+    return estadosAbastPreA4.has(solicitud.CodigoEstado);
   }
 
   editarSolicitud(solicitud: SolicitudCmn): void {
@@ -890,10 +930,15 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       || codigo === 'CMN_SUBS_JEFE_ENVIAR';
   }
 
-  /** En Abastecimiento solo firma el jefe el Anexo 4. */
+  /** Aprobar en SIGA (sin firma digital del PDF auxiliar del SGCM). */
   get muestraPdfAnexo4(): boolean {
     const codigo = this.accionEnCurso?.transicion.CodigoTransicion;
     return codigo === 'CMN_ABAST_JEFE_FIRMAR_A4';
+  }
+
+  /** Subir el Anexo 4 firmado descargado del SIGA y cerrar el flujo. */
+  get esSubirA4Siga(): boolean {
+    return this.accionEnCurso?.transicion.CodigoTransicion === 'CMN_ABAST_SUBIR_A4_SIGA';
   }
 
   get debeInvocarFirmaDigital(): boolean {
@@ -901,11 +946,9 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       && (this.muestraPdfAnexo3 || this.muestraPdfAnexo4);
   }
 
-  /* Ordinaria o extraordinaria YA NO SE ELIGE AQUÍ.
-     Este panel ofrecía el desplegable al especialista de Abastecimiento cuando
-     conformaba el Anexo 3. El negocio movió la decisión a su sitio: la declara
-     el área usuaria al registrar la solicitud, junto con la justificación de la
-     urgencia que la respalda. Aquí sólo se muestra lo que ya viene decidido. */
+  /* Ordinaria/Extraordinaria se declara en el registro (AU) y Abastecimiento
+     la corrige en el detalle del expediente mientras no exista Anexo 4
+     (api/cmn/cambiarTipoInclusion). Este panel de confirmación solo la muestra. */
 
   /**
    * El icono del Anexo 3 sólo aparece si hay algo que abrir.
@@ -1120,6 +1163,7 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.loteEnCurso = [];
     this.paqueteEnCurso = null;
     this.comentario = '';
+    this.archivoA4Siga = null;
     this.puestosDerivacion = [];
     this.responsableDestino = '';
   }
@@ -1152,17 +1196,105 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
-    /* Si hay a quién derivar, hay que decir a quién. El combo solo se muestra
-       cuando la base devolvió destinatarios, así que exigirlo aquí no bloquea
-       las acciones que no son derivaciones. */
     if (this.ofreceDestinatarios && !this.responsableDestino) {
       this.funciones.mensaje('info', 'Seleccione a quién deriva el expediente.');
       return;
     }
 
+    if (this.esSubirA4Siga && !this.archivoA4Siga) {
+      this.funciones.mensaje('info', 'Seleccione el PDF del Anexo 4 firmado que descargó del SIGA.');
+      return;
+    }
+
     this.comentarioPendiente = this.comentario.trim() || null;
 
+    if (this.esSubirA4Siga) {
+      this.guardarA4FirmadoSiga();
+      return;
+    }
+
     this.iniciarEjecucion(solicitud, transicion);
+  }
+
+  onArchivoA4Siga(evento: Event): void {
+    const input = evento.target as HTMLInputElement;
+    const archivo = input.files?.[0] || null;
+    if (archivo && archivo.type !== 'application/pdf') {
+      this.funciones.mensaje('error', 'El archivo debe ser un PDF.');
+      input.value = '';
+      this.archivoA4Siga = null;
+      return;
+    }
+    this.archivoA4Siga = archivo;
+  }
+
+  /**
+   * Reemplaza el PDF auxiliar del SGCM por el Anexo 4 firmado del SIGA,
+   * finaliza el expediente y dispara el aviso por correo.
+   */
+  private guardarA4FirmadoSiga(): void {
+    if (!this.accionEnCurso || !this.archivoA4Siga || this.ejecutando) {
+      return;
+    }
+
+    const { solicitud, transicion } = this.accionEnCurso;
+    if (this.loteEnCurso.length === 0) {
+      this.loteEnCurso = [{ IdExpediente: solicitud.IdExpediente, Version: solicitud.Version }];
+    }
+
+    this.ejecutando = true;
+    this.paso = 'Subiendo el Anexo 4 firmado del SIGA…';
+
+    const archivo = this.archivoA4Siga;
+    const nombre = archivo.name || `Anexo4-SIGA-${solicitud.CodigoAnexo4 || solicitud.Codigo}.pdf`;
+
+    this.documentoService.subirArchivo(archivo, 'cmn').subscribe({
+      next: (subida: any) => {
+        if (subida?.estado !== 1) {
+          this.fallar(subida?.mensaje || 'No fue posible subir el PDF firmado.');
+          return;
+        }
+
+        const documentoSistema = idDocumentoSistema(subida.documento_sistema)
+          || String(subida.documento_sistema || '');
+        if (!documentoSistema) {
+          this.fallar('El servidor no devolvió el identificador del archivo subido.');
+          return;
+        }
+        this.paso = 'Reemplazando el documento del expediente…';
+
+        const idsExpediente = this.loteEnCurso.map(e => e.IdExpediente);
+        const codigoPaquete = this.paqueteEnCurso?.Codigo
+          || solicitud.CodigoAnexo4
+          || solicitud.Codigo
+          || 'A4';
+
+        this.cmnService.registrarDocumentoConsolidado(
+          idsExpediente,
+          TIPO_ANEXO_4,
+          codigoPaquete,
+          documentoSistema,
+          subida.documento_original || nombre,
+          {
+            IdPaquete: solicitud.IdPaquete || this.paqueteEnCurso?.IdPaquete,
+            Origen: 'SIGA_FIRMADO',
+            Reemplazo: true
+          }
+        ).subscribe({
+          next: (registro: any) => {
+            if (registro?.estado !== 1) {
+              this.fallar(registro?.mensaje || 'No fue posible registrar el PDF firmado.');
+              return;
+            }
+            this.documentoGenerado = documentoSistema;
+            this.actualizarDocumentoSistemaEnMemoria(solicitud, TIPO_ANEXO_4, documentoSistema);
+            this.enviarTransicion();
+          },
+          error: () => this.fallar('No fue posible registrar el PDF firmado.')
+        });
+      },
+      error: () => this.fallar('No fue posible subir el PDF firmado al servidor de archivos.')
+    });
   }
 
   private iniciarEjecucion(solicitud: SolicitudCmn, transicion: TransicionCmn): void {
@@ -1375,16 +1507,12 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Las solicitudes a las que hay que avisar por correo, si esta acción es la
-   * firma del Anexo 4 por el Jefe de Abastecimiento.
-   *
-   * Es esa transición y no otra porque es la que aprueba la modificación en
-   * SIGA: recién ahí es cierto que el ítem quedó pedible, que es lo que el
-   * correo va a decir. Un Anexo 4 puede agrupar Anexos 3 de varias áreas
-   * usuarias, y cada una recibe el suyo.
+   * Las solicitudes a avisar por correo al cerrar con el PDF firmado del SIGA.
+   * El aviso corre al finalizar (SUBIR), no al aprobar en SIGA: ahí el ítem ya
+   * está pedible y el documento oficial ya reemplazó al auxiliar del SGCM.
    */
   private solicitudesDelAvisoAnexo4(transicion: TransicionCmn): string[] {
-    if (transicion.CodigoTransicion !== 'CMN_ABAST_JEFE_FIRMAR_A4') {
+    if (transicion.CodigoTransicion !== 'CMN_ABAST_SUBIR_A4_SIGA') {
       return [];
     }
 

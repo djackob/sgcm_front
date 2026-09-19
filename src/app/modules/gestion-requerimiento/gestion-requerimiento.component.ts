@@ -983,12 +983,13 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
 
           /* Obligatorio pasar por api/General/InsertarUsuarioExterno (validaciones
              del SSO). No se inserta desde notificarOrdenServicio. */
-          return this.maestraService.insertarUsuarioExterno(
+            return this.maestraService.insertarUsuarioExterno(
             jsonUsuarioExternoContrataciones(proveedor)
           ).pipe(
             switchMap((alta: any) => {
-              /* La funcion SSO no usa estado 1/0: exito = id_usuario_externo > 0
-                 (p. ej. «Se le enviará las credenciales…»). */
+              /* SSO: exito = id_usuario_externo > 0. Si trae clave_inicial, el
+                 back debe haber enviado el correo de credenciales; si es null,
+                 el usuario ya tenia contraseña y no se manda correo. */
               const idExterno = Number(alta?.id_usuario_externo ?? 0);
               if (!(idExterno > 0)) {
                 return throwError(() => ({
@@ -996,6 +997,18 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
                     || 'No fue posible registrar el usuario externo en el SSO.'
                 }));
               }
+
+              const claveInicial = alta?.clave_inicial;
+              const hayClaveNueva = claveInicial != null
+                && String(claveInicial).trim() !== '';
+              if (hayClaveNueva && alta?.CredencialesEnviadas !== true) {
+                return throwError(() => ({
+                  mensaje: alta?.MensajeCorreoCredenciales
+                    || alta?.mensaje
+                    || 'El usuario se creó en el SSO, pero no se pudo enviar el correo con las credenciales.'
+                }));
+              }
+
               this.paso = 'Enviando la notificación…';
               return this.requerimientoService.notificarOrdenServicio(
                 requerimiento.IdRequerimiento,
@@ -1709,19 +1722,68 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
         this.cargandoPdf = false;
         this.cargandoPdfId = '';
         this.abrirVisorPdfBlob(item, this.blobParaVisor(blob, id), titulo, subtitulo);
-        const yaFirmadoEnSesion = !!this.firmaDigitalPorTipo[
-          carpeta === CARPETA_ANEXO_3 ? TIPO_ANEXO_3 : TIPO_ANEXO_5
-        ];
-        if (invocarFirma && this.debeInvocarFirmaDigital && !yaFirmadoEnSesion) {
-          this.abrirFirmaPopup(id, item.Codigo);
-        }
+        this.invocarFirmaTrasAbrirPdf(id, item.Codigo, carpeta, invocarFirma);
       },
       error: () => {
+        /* API local a veces no alcanza el share; sfirma y el visor usan la URL
+           pública (vasg) que sí tiene el PDF de requerimiento. */
+        if (this.abrirVisorPdfPublico(item, id, titulo, subtitulo)) {
+          this.cargandoPdf = false;
+          this.cargandoPdfId = '';
+          this.invocarFirmaTrasAbrirPdf(id, item.Codigo, carpeta, invocarFirma);
+          return;
+        }
         this.cargandoPdf = false;
         this.cargandoPdfId = '';
         this.funciones.mensaje('error', `No fue posible abrir el ${titulo}.`);
       }
     });
+  }
+
+  private invocarFirmaTrasAbrirPdf(
+    id: string,
+    codigo: string,
+    carpeta: string,
+    invocarFirma: boolean
+  ): void {
+    const yaFirmadoEnSesion = !!this.firmaDigitalPorTipo[
+      carpeta === CARPETA_ANEXO_3 ? TIPO_ANEXO_3 : TIPO_ANEXO_5
+    ];
+    if (invocarFirma && this.debeInvocarFirmaDigital && !yaFirmadoEnSesion) {
+      this.abrirFirmaPopup(id, codigo);
+    }
+  }
+
+  /**
+   * URL pública del PDF (misma base que sfirma). Sirve cuando DescargarArchivo
+   * falla porque el API local no ve el share vasg.
+   */
+  private urlPublicaPdfRequerimiento(id: string): string {
+    const firma = ConfigService.settings?.firma;
+    const base = String(firma?.ruta_archivo || '').replace(/\/+$/, '');
+    if (!base) {
+      return '';
+    }
+    return `${base}/${this.carpetaFirmaRequerimiento()}/${idDocumentoSistema(id) || id}`;
+  }
+
+  private abrirVisorPdfPublico(
+    item: RequerimientoBandeja,
+    id: string,
+    titulo: string,
+    subtitulo: string
+  ): boolean {
+    const url = this.urlPublicaPdfRequerimiento(id);
+    if (!url) {
+      return false;
+    }
+    this.cerrarVisorPdf();
+    this.visorPdfCodigo = item.Codigo;
+    this.visorPdfTitulo = titulo;
+    this.visorPdfSubtitulo = subtitulo;
+    this.visorPdfObjectUrl = '';
+    this.visorPdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+    return true;
   }
 
   private blobParaVisor(blob: Blob, nombreArchivo: string): Blob {

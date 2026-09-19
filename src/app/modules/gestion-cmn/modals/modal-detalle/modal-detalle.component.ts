@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { CmnService } from '../../services/cmn.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import { idDocumentoSistema } from '../../../../shared/funciones/archivo';
@@ -22,7 +23,7 @@ import {
 @Component({
   selector: 'app-modal-detalle',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './modal-detalle.component.html',
   styleUrl: './modal-detalle.component.scss'
 })
@@ -31,12 +32,19 @@ export class ModalDetalleComponent {
   @Output() editar = new EventEmitter<SolicitudCmn>();
   @Output() firmar = new EventEmitter<{ solicitud: SolicitudCmn; transicion: TransicionCmn }>();
   @Output() verPdf = new EventEmitter<SolicitudCmn>();
+  /** Abast tipificó Ordinaria/Extraordinaria; la bandeja debe refrescar. */
+  @Output() tipoCambiado = new EventEmitter<SolicitudCmn>();
 
   abierto = false;
   cargando = false;
   pestana: 'anexo3' | 'trazabilidad' = 'anexo3';
   puedeEditar = false;
+  puedeCambiarTipo = false;
   transicionFirmar: TransicionCmn | null = null;
+  guardandoTipo = false;
+
+  tipoInclusionEdicion: 'ORDINARIA' | 'EXTRAORDINARIA' | '' = '';
+  justificacionUrgenciaEdicion = '';
 
   resumen: SolicitudCmn | null = null;
   detalle: SolicitudDetalleCmn | null = null;
@@ -54,6 +62,7 @@ export class ModalDetalleComponent {
     'CMN_ABAST_JEFE_DERIVAR',
     'CMN_ABAST_COORD_DERIVAR',
     'CMN_ABAST_ESP_FIRMAR_A3',
+    'CMN_ABAST_ESP_ELEVAR_JEFE',
     'CMN_ABAST_COORD_FIRMAR_A3',
     'CMN_ABAST_COORD_FIRMAR_A4',
     'CMN_GENERAR_A4',
@@ -80,6 +89,10 @@ export class ModalDetalleComponent {
     return !!this.transicionFirmar && !!this.resumen;
   }
 
+  get esExtraordinariaEdicion(): boolean {
+    return this.tipoInclusionEdicion === 'EXTRAORDINARIA';
+  }
+
   constructor(
     private cmnService: CmnService,
     private maestraService: MaestraService,
@@ -88,7 +101,11 @@ export class ModalDetalleComponent {
 
   abrir(
     solicitud: SolicitudCmn,
-    opciones: { puedeEditar?: boolean; transicionFirmar?: TransicionCmn | null } = {}
+    opciones: {
+      puedeEditar?: boolean;
+      puedeCambiarTipo?: boolean;
+      transicionFirmar?: TransicionCmn | null;
+    } = {}
   ): void {
     this.resumen = solicitud;
     this.detalle = null;
@@ -98,7 +115,11 @@ export class ModalDetalleComponent {
     this.integracion = [];
     this.pestana = 'anexo3';
     this.puedeEditar = !!opciones.puedeEditar;
+    this.puedeCambiarTipo = !!opciones.puedeCambiarTipo;
     this.transicionFirmar = opciones.transicionFirmar || null;
+    this.guardandoTipo = false;
+    this.tipoInclusionEdicion = '';
+    this.justificacionUrgenciaEdicion = '';
     this.abierto = true;
     this.cargando = true;
 
@@ -107,6 +128,7 @@ export class ModalDetalleComponent {
         this.cargando = false;
         if (respuesta?.estado === 1) {
           this.detalle = respuesta;
+          this.sincronizarTipoDesdeDetalle();
         } else {
           this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible obtener la solicitud.');
         }
@@ -138,6 +160,62 @@ export class ModalDetalleComponent {
 
   cerrar(): void {
     this.abierto = false;
+  }
+
+  guardarTipoInclusion(): void {
+    if (!this.resumen || !this.puedeCambiarTipo || this.guardandoTipo) {
+      return;
+    }
+    if (this.tipoInclusionEdicion !== 'ORDINARIA' && this.tipoInclusionEdicion !== 'EXTRAORDINARIA') {
+      this.funciones.mensaje('error', 'Indique si la solicitud es Ordinaria o Extraordinaria.');
+      return;
+    }
+    const justificacion = this.esExtraordinariaEdicion
+      ? this.justificacionUrgenciaEdicion.trim()
+      : null;
+    if (this.esExtraordinariaEdicion && !justificacion) {
+      this.funciones.mensaje('error', 'Una solicitud extraordinaria debe justificar la urgencia.');
+      return;
+    }
+
+    this.guardandoTipo = true;
+    this.cmnService.cambiarTipoInclusion(
+      this.resumen.IdSolicitud,
+      this.tipoInclusionEdicion,
+      justificacion
+    ).subscribe({
+      next: (respuesta: any) => {
+        this.guardandoTipo = false;
+        if (respuesta?.estado !== 1) {
+          this.funciones.mensaje('error', respuesta?.mensaje || 'No fue posible cambiar el tipo.');
+          return;
+        }
+        const solicitud = this.resumen;
+        if (!solicitud) {
+          return;
+        }
+        if (this.detalle) {
+          this.detalle.TipoInclusion = this.tipoInclusionEdicion;
+          this.detalle.JustificacionUrgencia = justificacion;
+        }
+        solicitud.TipoInclusion = this.tipoInclusionEdicion;
+        this.funciones.mensaje('success', respuesta?.mensaje || 'Tipo de solicitud actualizado.');
+        this.tipoCambiado.emit(solicitud);
+      },
+      error: (error: any) => {
+        this.guardandoTipo = false;
+        this.funciones.mensaje('error',
+          error?.mensaje || 'No fue posible comunicarse con el servicio.');
+      }
+    });
+  }
+
+  private sincronizarTipoDesdeDetalle(): void {
+    const tipo = this.detalle?.TipoInclusion;
+    this.tipoInclusionEdicion = tipo === 'EXTRAORDINARIA' ? 'EXTRAORDINARIA'
+      : tipo === 'ORDINARIA' ? 'ORDINARIA'
+      : '';
+    this.justificacionUrgenciaEdicion = this.detalle?.JustificacionUrgencia || '';
   }
 
   private filtrarTrazabilidadAu(pasos: HistorialCmn[]): HistorialCmn[] {

@@ -60,4 +60,9 @@ export const routes: Routes = [
     loadComponent: () => import('../mantenimiento-sso/mantenimiento-sso.component')
       .then(m => m.MantenimientoSsoComponent),
   },
+  {
+    path: 'mantenimiento-firmantes-a4',
+    loadComponent: () => import('../mantenimiento-firmantes-a4/mantenimiento-firmantes-a4.component')
+      .then(m => m.MantenimientoFirmantesA4Component),
+  },
 ];

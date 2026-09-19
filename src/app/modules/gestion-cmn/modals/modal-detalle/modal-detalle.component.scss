@@ -21,6 +21,16 @@
     font-size: 0.88rem;
     color: #0f172a;
   }
+
+  &__control {
+    margin-top: 0.2rem;
+    width: 100%;
+    max-width: 16rem;
+  }
+}
+
+.detalle-tipo-acciones {
+  margin-top: 0.75rem;
 }
 
 .detalle-sustento {

@@ -267,7 +267,7 @@ export class ModalRegistroComponent {
         ? Number(fila.SecFunc) : null;
       item.Origen = String(fila.Origen || '').trim();
       item.FuenteFinanc = String(fila.FuenteFinanc || '').trim();
-      item.Clasificador = fila.Clasificador || '';
+      item.Clasificador = String(fila.Clasificador || '').trim();
       item.TipoUso = String(fila.TipoUso || 'C').trim() || 'C';
       item.TipoBien = fila.TipoBien || partes[0] || '';
       item.GrupoBien = fila.GrupoBien || partes[1] || '';
@@ -340,7 +340,12 @@ export class ModalRegistroComponent {
           ...t,
           SecFunc: Number(t.SecFunc),
           Origen: String(t.Origen || '').trim(),
-          FuenteFinanc: String(t.FuenteFinanc || '').trim()
+          FuenteFinanc: String(t.FuenteFinanc || '').trim(),
+          Clasificador: String(t.Clasificador || '').trim(),
+          FaseCuadro: Number(t.FaseCuadro),
+          MontoTecho0: Number(t.MontoTecho0) || 0,
+          MontoUsado0: Number(t.MontoUsado0) || 0,
+          MontoDisponible0: Number(t.MontoDisponible0) || 0
         }));
         this.cuadroVigente = r.cuadro?.datos || [];
         this.cargandoMaestros = false;
@@ -634,6 +639,48 @@ export class ModalRegistroComponent {
     return cantidad * (Number(item.PrecioUnitario) || 0);
   }
 
+  /**
+   * Saldo del año base en SIGA para la combinación meta/fuente/clasificador
+   * del ítem (misma cifra que valida cmn.paRegistrarSolicitud).
+   */
+  saldoDisponibleItem(item: ItemFormularioCmn): number {
+    const filas = this.techosDelItem(item);
+    if (filas.length === 0) {
+      return 0;
+    }
+    return filas.reduce((suma, t) => suma + (Number(t.MontoDisponible0) || 0), 0);
+  }
+
+  /** Suma de inclusiones de esta solicitud que compiten por el mismo techo. */
+  montoSolicitadoTecho(item: ItemFormularioCmn): number {
+    return this.items
+      .filter(otro =>
+        otro.TipoMovimiento === 'INCLUSION'
+        && this.mismaCombinacionTecho(otro, item))
+      .reduce((suma, otro) => suma + this.totalItem(otro), 0);
+  }
+
+  private techosDelItem(item: ItemFormularioCmn): TechoSiga[] {
+    if (!item.Clasificador || item.SecFunc == null) {
+      return [];
+    }
+    const todos = this.techos.filter(techo =>
+      Number(techo.SecFunc) === Number(item.SecFunc)
+      && String(techo.Origen || '').trim() === String(item.Origen || '').trim()
+      && String(techo.FuenteFinanc || '').trim() === String(item.FuenteFinanc || '').trim()
+      && String(techo.Clasificador || '').trim() === String(item.Clasificador || '').trim());
+    /* La escritura SIGA y F002 usan fase 5 (modificación). Preferir esas filas. */
+    const fase5 = todos.filter(t => Number(t.FaseCuadro) === 5);
+    return fase5.length > 0 ? fase5 : todos;
+  }
+
+  private mismaCombinacionTecho(a: ItemFormularioCmn, b: ItemFormularioCmn): boolean {
+    return Number(a.SecFunc) === Number(b.SecFunc)
+      && String(a.Origen || '').trim() === String(b.Origen || '').trim()
+      && String(a.FuenteFinanc || '').trim() === String(b.FuenteFinanc || '').trim()
+      && String(a.Clasificador || '').trim() === String(b.Clasificador || '').trim();
+  }
+
   get totalSolicitud(): number {
     return this.items.reduce((suma, item) => suma + this.totalItem(item), 0);
   }
@@ -696,6 +743,30 @@ export class ModalRegistroComponent {
       // pantalla no muestra dejaría el formulario sin forma de completarse.
       if (this.pideCantidad(item) && !(Number(item.Cantidades[0]) > 0)) {
         return `El ítem ${n} necesita una cantidad para ${this.anoEje}.`;
+      }
+    }
+
+    /* Techo: no dejar continuar si el monto de inclusiones supera el saldo SIGA.
+       La rutina vuelve a validar; esto evita el viaje y deja el mensaje en pantalla. */
+    const techosVistos = new Set<string>();
+    for (const item of this.items) {
+      if (item.TipoMovimiento !== 'INCLUSION' || !item.Clasificador) {
+        continue;
+      }
+      const clave = `${item.SecFunc}|${item.Origen}|${item.FuenteFinanc}|${item.Clasificador}`;
+      if (techosVistos.has(clave)) {
+        continue;
+      }
+      techosVistos.add(clave);
+
+      const saldo = this.saldoDisponibleItem(item);
+      const solicitado = this.montoSolicitadoTecho(item);
+      if (solicitado > saldo) {
+        return (
+          `El monto solicitado (S/ ${solicitado.toFixed(2)}) excede el marco presupuestal ` +
+          `disponible en el SIGA (Saldo actual: S/ ${saldo.toFixed(2)}) para el clasificador ` +
+          `${item.Clasificador}. Ajuste el monto o la cantidad antes de continuar.`
+        );
       }
     }
 
