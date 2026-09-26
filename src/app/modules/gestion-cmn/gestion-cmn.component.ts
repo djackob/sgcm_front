@@ -184,9 +184,12 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     Texto: '',
     CodigoEstado: '',
     AnoEje: new Date().getFullYear(),
-    Limite: 20,
+    /** Filas por página (múltiplo de 10). */
+    Limite: 10,
     Desplazamiento: 0
   };
+
+  readonly opcionesPaginacion = [10, 20, 50, 100];
 
   /**
    * Anexos 3 marcados con el check para armar un Anexo 4.
@@ -516,6 +519,13 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.cargarBandeja();
   }
 
+  cambiarPaginacion(valor: string | number): void {
+    const n = Number(valor);
+    this.filtro.Limite = this.opcionesPaginacion.includes(n) ? n : 10;
+    this.filtro.Desplazamiento = 0;
+    this.cargarBandeja();
+  }
+
   pagina(direccion: number): void {
     const siguiente = this.filtro.Desplazamiento + direccion * this.filtro.Limite;
     if (siguiente < 0 || siguiente >= this.total) {
@@ -531,6 +541,14 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
 
   get hasta(): number {
     return Math.min(this.filtro.Desplazamiento + this.filtro.Limite, this.total);
+  }
+
+  get totalPaginas(): number {
+    return this.total === 0 ? 0 : Math.ceil(this.total / this.filtro.Limite);
+  }
+
+  get paginaActual(): number {
+    return this.total === 0 ? 0 : Math.floor(this.filtro.Desplazamiento / this.filtro.Limite) + 1;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -1791,11 +1809,6 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.funciones.mensaje(
-      'info',
-      'Coloque la representación gráfica en un espacio libre del documento, sin superponerla a otra firma ya existente. '
-        + 'Si ONPE indica superposición, mueva el sello a otra zona.'
-    );
     this.iniciarMonitoreoPopup();
   }
 

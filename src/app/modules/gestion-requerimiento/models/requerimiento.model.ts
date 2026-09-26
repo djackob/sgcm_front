@@ -158,6 +158,8 @@ export interface RequerimientoDetalle extends RespuestaSigcm {
   Anulado: boolean;
   Estado: string;
   Responsable: string;
+  /** Especialista del área usuaria (espacio izquierdo de firma del Anexo 3). */
+  EspecialistaAreaUsuaria?: string | null;
   /** Jefe titular del área usuaria (para espacios de firma del Anexo 3). */
   JefeAreaUsuaria?: string | null;
   Pedidos: PedidoRequerimiento[];
@@ -448,6 +450,11 @@ export function jsonUsuarioExternoContrataciones(proveedor: any): Record<string,
   const tipo = String(proveedor?.TipoDocumento || 'DNI').toUpperCase();
   const email = String(proveedor?.Email || proveedor?.correo_electronico || '').trim();
   const celular = String(proveedor?.Celular || proveedor?.numero_telefono || '').trim();
+  /* El SSO empareja por (usuario|nro_documento) y, si el JSON trae ruc no vacío,
+     exige ruc igual en tm_login_usuario_externo. Locadores DNI/CE suelen tener
+     RUC 10+DNI en el Anexo 5 pero fila SSO con ruc vacío: mandar ese RUC aquí
+     provoca un alta duplicada, clave_inicial y bloqueo por CredencialesEnviadas. */
+  const rucAnexo = String(proveedor?.Ruc || proveedor?.ruc || '').trim();
   const payload: Record<string, unknown> = {
     nro_documento: nro,
     usuario: nro,
@@ -457,7 +464,7 @@ export function jsonUsuarioExternoContrataciones(proveedor: any): Record<string,
     apellido_paterno: proveedor?.ApellidoPaterno || proveedor?.apellido_paterno || '',
     apellido_materno: proveedor?.ApellidoMaterno || proveedor?.apellido_materno || '',
     direccion: proveedor?.Direccion || proveedor?.direccion || '',
-    ruc: proveedor?.Ruc || proveedor?.ruc || '',
+    ruc: tipo === 'RUC' ? rucAnexo : '',
     acepta_termino: true,
     coddepa: proveedor?.CodDepartamento || proveedor?.coddepa || '',
     nomdepa: proveedor?.Departamento || proveedor?.nomdepa || '',

@@ -338,9 +338,25 @@
       </table>
     </div>
 
-    <div class="cmn-paginacion" *ngIf="total > filtro.Limite">
-      <span class="cell-muted">Mostrando {{ desde }}–{{ hasta }} de {{ total }}</span>
-      <div>
+    <div class="cmn-paginacion" *ngIf="!cargando && total > 0">
+      <div class="cmn-paginacion__info">
+        <span class="cell-muted">Mostrando {{ desde }}–{{ hasta }} de {{ total }}</span>
+        <label class="cmn-paginacion__tamano" for="filtroPaginacionCmn">
+          Por página
+          <select
+            id="filtroPaginacionCmn"
+            class="campo-control campo-control--compacto"
+            [ngModel]="filtro.Limite"
+            (ngModelChange)="cambiarPaginacion($event)"
+          >
+            <option *ngFor="let n of opcionesPaginacion" [ngValue]="n">{{ n }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="cmn-paginacion__nav">
+        <span class="cell-muted" *ngIf="totalPaginas > 1">
+          Página {{ paginaActual }} de {{ totalPaginas }}
+        </span>
         <button
           type="button"
           class="btn btn-app-secundario btn-sm"

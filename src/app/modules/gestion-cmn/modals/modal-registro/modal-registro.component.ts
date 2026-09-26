@@ -136,6 +136,15 @@ export class ModalRegistroComponent {
     return this.tipoInclusion === 'EXTRAORDINARIA';
   }
 
+  /** Al volver a ordinaria se descarta el sustento de urgencia y su archivo. */
+  cambiarTipoSolicitud(): void {
+    if (this.esExtraordinaria) {
+      return;
+    }
+    this.justificacionUrgencia = '';
+    this.quitarArchivoSustento();
+  }
+
   elegirArchivoSustento(evento: Event): void {
     const input = evento.target as HTMLInputElement;
     this.inputSustento = input;
@@ -435,6 +444,8 @@ export class ModalRegistroComponent {
     // puede corregirlo, que es lo que sustenta.
     item.PrecioUnitario = item.PrecioUnitario ?? fila.PrecioRef;
     item.resultados = [];
+    /* Al cambiar B↔S el clasificador anterior puede dejar de aplicar. */
+    this.validarClasificador(item);
   }
 
   abrirCuadro(indice: number): void {
@@ -562,6 +573,39 @@ export class ModalRegistroComponent {
     return lista;
   }
 
+  /**
+   * Bien (2.6) vs servicio/consultoría/locación (2.3). El clasificador de SIGA
+   * viene con espacios («2.3. 2  9. 1  1»); se compara sin ellos.
+   */
+  tipoClasificador(clasificador: string | null | undefined): 'BIEN' | 'SERVICIO' | null {
+    const normalizado = (clasificador || '').replace(/\s+/g, '');
+    if (normalizado.startsWith('2.6.')) {
+      return 'BIEN';
+    }
+    if (normalizado.startsWith('2.3.')) {
+      return 'SERVICIO';
+    }
+    return null;
+  }
+
+  /** Del catálogo SIGA: B = bien/compras, S = servicio (incluye consultoría/locación). */
+  tipoObjetoCatalogo(item: ItemFormularioCmn): 'BIEN' | 'SERVICIO' | null {
+    const tipo = (item.TipoBien || '').toUpperCase();
+    if (tipo === 'B') {
+      return 'BIEN';
+    }
+    if (tipo === 'S' || tipo === 'O') {
+      return 'SERVICIO';
+    }
+    return null;
+  }
+
+  etiquetaTipoClasificador(clasificador: string | null | undefined): string {
+    return this.tipoClasificador(clasificador) === 'BIEN'
+      ? 'Bien / compras'
+      : 'Servicio / consultoría / locación';
+  }
+
   validarClasificador(item: ItemFormularioCmn): void {
     if (item.TipoMovimiento !== 'INCLUSION' || this.techos.length === 0) {
       return;
@@ -596,20 +640,14 @@ export class ModalRegistroComponent {
   }
 
   /**
-   * Si este ítem pide cantidad, según su clasificador.
-   *
-   * Los clasificadores de **bienes** empiezan en `2.6` y ahí la cantidad es
-   * parte del pedido: tantas unidades a tal precio. Los de **servicios**
-   * empiezan en `2.3` y el gasto se expresa con el importe; pedir «cantidad»
-   * de un servicio no significa nada, y es lo que dice la nota 3/ del formato
-   * oficial: «el campo de cantidad total se completa solo en el caso de
-   * bienes». Cualquier otro clasificador se trata como el de servicios.
-   *
-   * El clasificador de SIGA viene con espacios («2.3. 1 5. 1 2»), así que se
-   * comparan sin ellos.
+   * La cantidad la pide el ítem del catálogo, no el clasificador.
+   * Código B… es un bien: se captura cantidad física. Código S… es un
+   * servicio: el gasto va en «Monto total S/» y la cantidad no se muestra.
    */
   pideCantidad(item: ItemFormularioCmn): boolean {
-    return (item.Clasificador || '').replace(/\s+/g, '').startsWith('2.6.');
+    const codigo = (item.CodigoItem || '').trim().toUpperCase();
+    const tipo = (item.TipoBien || '').trim().toUpperCase();
+    return tipo === 'B' || codigo.startsWith('B');
   }
 
   /**
@@ -682,7 +720,14 @@ export class ModalRegistroComponent {
   }
 
   get totalSolicitud(): number {
-    return this.items.reduce((suma, item) => suma + this.totalItem(item), 0);
+    return this.items
+      .filter(item => !this.pideCantidad(item))
+      .reduce((suma, item) => suma + this.totalItem(item), 0);
+  }
+
+  /** El pie en soles es de servicios. Una solicitud solo de bienes lleva cantidad. */
+  get mostrarTotalSoles(): boolean {
+    return this.items.some(item => !!item.CodigoItem && !this.pideCantidad(item));
   }
 
   /* ---------------------------------------------------------------------- */
@@ -720,8 +765,8 @@ export class ModalRegistroComponent {
       if (!item.ItemBien) {
         return `El ítem ${n} no tiene un bien o servicio seleccionado.`;
       }
-      if (!item.PrecioUnitario || item.PrecioUnitario <= 0) {
-        return `El ítem ${n} necesita un precio unitario mayor que cero.`;
+      if (!this.pideCantidad(item) && (!item.PrecioUnitario || item.PrecioUnitario <= 0)) {
+        return `El ítem ${n} necesita un monto total en soles mayor que cero.`;
       }
       if (item.TipoMovimiento !== 'INCLUSION' && (!item.RefSecCuadro || !item.RefSecItem)) {
         return `El ítem ${n} es una ${item.TipoMovimiento.toLowerCase()} y debe elegirse del cuadro vigente.`;
@@ -742,7 +787,7 @@ export class ModalRegistroComponent {
       // servicio el importe es el precio, y reclamar una cantidad que la
       // pantalla no muestra dejaría el formulario sin forma de completarse.
       if (this.pideCantidad(item) && !(Number(item.Cantidades[0]) > 0)) {
-        return `El ítem ${n} necesita una cantidad para ${this.anoEje}.`;
+        return `El ítem ${n} necesita una cantidad.`;
       }
     }
 

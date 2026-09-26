@@ -1,7 +1,7 @@
 <!--
   En el caso normal esta pantalla no se ve: el navegador pasa por aquí mientras
-  el backend valida el token y redirige. Sólo aparece cuando la persona ejerce
-  más de una terna y tiene que elegir con cuál entra.
+  el backend valida el token y redirige. Solo aparece si el SSO no trajo un
+  perfil unico usable y la persona tiene mas de una terna vigente.
 -->
 <div class="sso-acceso">
   <div class="sso-acceso__panel">
@@ -15,8 +15,8 @@
       </p>
       <p class="sso-acceso__aviso" *ngIf="perfiles.length">
         <i class="mdi mdi-information-outline" aria-hidden="true"></i>
-        Usted ejerce más de un perfil. Cada uno tiene su propia bandeja y sus
-        propias acciones, así que la sesión se abre con uno a la vez.
+        No se pudo usar el perfil del SSO. Elija con cual terna abre la sesion;
+        cada una tiene su propia bandeja y sus propias acciones.
       </p>
     </header>
 

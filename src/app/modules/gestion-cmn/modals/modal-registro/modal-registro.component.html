@@ -66,6 +66,7 @@
               class="campo-control"
               name="tipoInclusion"
               [(ngModel)]="tipoInclusion"
+              (ngModelChange)="cambiarTipoSolicitud()"
             >
               <option value="">Seleccione…</option>
               <option value="ORDINARIA">Ordinaria</option>
@@ -147,7 +148,7 @@
                 <option value="EXCLUSION">Exclusión</option>
               </select>
 
-              <span class="registro-item__total">
+              <span class="registro-item__total" *ngIf="!pideCantidad(item)">
                 Total S/ {{ totalItem(item) | number: '1.2-2' }}
               </span>
 
@@ -283,7 +284,7 @@
                     *ngFor="let techo of clasificadoresDisponibles(item)"
                     [value]="techo.Clasificador"
                   >
-                    {{ techo.Clasificador }}
+                    {{ techo.Clasificador }} · {{ etiquetaTipoClasificador(techo.Clasificador) }}
                   </option>
                 </select>
                 <ng-template #clasificadorFijo>
@@ -297,8 +298,9 @@
                 </ng-template>
                 <p
                   class="campo-ayuda"
-                  *ngIf="item.TipoMovimiento === 'INCLUSION' && item.Clasificador"
+                  *ngIf="item.TipoMovimiento === 'INCLUSION' && item.Clasificador && !pideCantidad(item)"
                 >
+                  {{ etiquetaTipoClasificador(item.Clasificador) }}.
                   Saldo disponible en SIGA (año {{ anoEje }}):
                   <b>S/ {{ saldoDisponibleItem(item) | number: '1.2-2' }}</b>
                   · Solicitado en esta solicitud:
@@ -306,8 +308,8 @@
                 </p>
               </div>
 
-              <div class="campo">
-                <label class="campo-etiqueta">Precio unitario S/</label>
+              <div class="campo" *ngIf="!pideCantidad(item); else campoCantidad">
+                <label class="campo-etiqueta">Monto total S/</label>
                 <input
                   type="number"
                   step="0.01"
@@ -317,6 +319,19 @@
                   [readonly]="item.TipoMovimiento === 'EXCLUSION'"
                 />
               </div>
+              <ng-template #campoCantidad>
+                <div class="campo">
+                  <label class="campo-etiqueta">Cantidad</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    class="campo-control"
+                    [(ngModel)]="item.Cantidades[0]"
+                    [name]="'cantidad' + i"
+                    [readonly]="item.TipoMovimiento === 'EXCLUSION'"
+                  />
+                </div>
+              </ng-template>
 
               <div class="campo">
                 <label class="campo-etiqueta">Mes de imputación</label>
@@ -331,25 +346,6 @@
               </div>
             </div>
 
-            <!-- Cantidad del año base.
-                 Solo para los clasificadores de bienes (2.6): en los de
-                 servicios (2.3) el gasto se expresa con el importe y la
-                 cantidad no corresponde, que es lo que dice la nota 3/ del
-                 formato oficial. Los años 2 a 4 ya no se capturan aquí; en una
-                 exclusión siguen viajando con lo que traiga el cuadro vigente. -->
-            <div class="registro-anios" *ngIf="pideCantidad(item)">
-              <div class="campo">
-                <label class="campo-etiqueta">Cantidad {{ anoEje }}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  class="campo-control"
-                  [(ngModel)]="item.Cantidades[0]"
-                  [name]="'cantidad' + i + '_0'"
-                  [readonly]="item.TipoMovimiento === 'EXCLUSION'"
-                />
-              </div>
-            </div>
           </div>
 
           <!-- El boton cierra la lista: se agrega debajo del ultimo item, que es
@@ -364,7 +360,7 @@
       </div>
 
       <div class="modal-footer">
-        <span class="modal-footer__info">
+        <span class="modal-footer__info" *ngIf="mostrarTotalSoles">
           Total de la solicitud: <b>S/ {{ totalSolicitud | number: '1.2-2' }}</b>
         </span>
         <button type="button" class="btn btn-app-secundario" (click)="cerrar()">Cerrar</button>
@@ -375,7 +371,7 @@
           (click)="guardar()"
         >
           <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
-          {{ modoEdicion ? 'Guardar cambios' : 'Registrar Anexo 3' }}
+          Guardar
         </button>
         <span class="modal-footer__info" *ngIf="pasoGuardar">{{ pasoGuardar }}</span>
       </div>

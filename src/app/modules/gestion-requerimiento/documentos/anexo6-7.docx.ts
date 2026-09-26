@@ -163,7 +163,8 @@ async function rellenarPlantilla(
       continue;
     }
     const original = await zip.file(nombre)!.async('string');
-    const lleno = aplicarTokens(original, tokens);
+    const preparado = prepararPlantilla(nombre, original);
+    const lleno = aplicarTokens(preparado, tokens);
     if (lleno !== original) {
       zip.file(nombre, lleno);
     }
@@ -173,6 +174,46 @@ async function rellenarPlantilla(
     mimeType: MIME_DOCX,
     compression: 'DEFLATE'
   });
+}
+
+/**
+ * La plantilla sale de la directiva firmada. Al armar el Word del correo se
+ * quita el membrete (logo de cabecera y pie) y el sello digital, y se deja
+ * el nombre del locador en la línea de firma del Anexo 6. El DNI del Anexo 7
+ * queda en un párrafo sin sangría para que no se parta en dos renglones.
+ */
+function prepararPlantilla(nombre: string, xml: string): string {
+  if (/word\/header\d*\.xml$/i.test(nombre) || /word\/footer\d*\.xml$/i.test(nombre)) {
+    return xml.replace(
+      /(<w:(?:hdr|ftr)\b[^>]*>)[\s\S]*?(<\/w:(?:hdr|ftr)>)/,
+      '$1<w:p/>$2'
+    );
+  }
+  if (!/word\/document\.xml$/i.test(nombre)) {
+    return xml;
+  }
+
+  let cuerpo = xml.replace(/<mc:AlternateContent>[\s\S]*?<\/mc:AlternateContent>/g, (bloque) =>
+    bloque.indexOf('r:embed') >= 0 ? '' : bloque
+  );
+  cuerpo = cuerpo.replace(/<w:drawing>[\s\S]*?<\/w:drawing>/g, (bloque) =>
+    bloque.indexOf('r:embed') >= 0 ? '' : bloque
+  );
+  cuerpo = cuerpo.replace(/<w:pict>[\s\S]*?<\/w:pict>/g, (bloque) =>
+    bloque.indexOf('imagedata') >= 0 ? '' : bloque
+  );
+
+  cuerpo = cuerpo.replace(
+    /(<w:ind w:left="779" w:right=")4788(" w:firstLine="0"\/><w:jc w:val="left"\/><w:rPr><w:sz w:val="22"\/><\/w:rPr><\/w:pPr><w:r><w:rPr><w:w w:val="80"\/><w:sz w:val="22"\/><\/w:rPr><w:t>)\(Nombres y Apellidos \/ Razón social\) /,
+    '$10$2{{A6_NOMBRE}} '
+  );
+
+  cuerpo = cuerpo.replace(
+    'w:ind w:left="5192" w:right="3914" w:hanging="1"',
+    'w:ind w:left="0" w:right="0"'
+  );
+
+  return cuerpo;
 }
 
 function aplicarTokens(xml: string, tokens: Record<string, string>): string {

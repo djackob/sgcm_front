@@ -50,7 +50,8 @@ export class GestionEjecucionComponent implements OnInit {
   /* La bandeja muestra todo lo de la unidad y marca con MeToca lo que le toca
      a este perfil; no hay check de «Solo mi bandeja» (mismo criterio que CMN,
      Requerimiento y Pagos). SoloVigentes oculta los contratos culminados. */
-  filtro = { SoloMiBandeja: true, SoloVigentes: true, Texto: '', Limite: 50, Desplazamiento: 0 };
+  filtro = { SoloMiBandeja: true, SoloVigentes: true, Texto: '', Limite: 10, Desplazamiento: 0 };
+  readonly opcionesPaginacion = [10, 20, 50, 100];
   cargando = false;
   total = 0;
   contratos: ContratoBandeja[] = [];
@@ -136,6 +137,14 @@ export class GestionEjecucionComponent implements OnInit {
     return Math.min(this.filtro.Desplazamiento + this.filtro.Limite, this.total);
   }
 
+  get totalPaginas(): number {
+    return this.total === 0 ? 0 : Math.ceil(this.total / this.filtro.Limite);
+  }
+
+  get paginaActual(): number {
+    return this.total === 0 ? 0 : Math.floor(this.filtro.Desplazamiento / this.filtro.Limite) + 1;
+  }
+
   cargar(): void {
     this.cargando = true;
     this.ejecucion.listarContrato(this.filtro).subscribe({
@@ -160,8 +169,19 @@ export class GestionEjecucionComponent implements OnInit {
     this.cargar();
   }
 
-  pagina(delta: number): void {
-    this.filtro.Desplazamiento = Math.max(0, this.filtro.Desplazamiento + delta * this.filtro.Limite);
+  cambiarPaginacion(valor: string | number): void {
+    const n = Number(valor);
+    this.filtro.Limite = this.opcionesPaginacion.includes(n) ? n : 10;
+    this.filtro.Desplazamiento = 0;
+    this.cargar();
+  }
+
+  pagina(direccion: number): void {
+    const siguiente = this.filtro.Desplazamiento + direccion * this.filtro.Limite;
+    if (siguiente < 0 || siguiente >= this.total) {
+      return;
+    }
+    this.filtro.Desplazamiento = siguiente;
     this.cargar();
   }
 

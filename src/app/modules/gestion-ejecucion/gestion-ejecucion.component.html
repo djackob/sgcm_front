@@ -112,10 +112,26 @@
         </tbody>
       </table>
     </div>
-    <div class="eje-paginacion" *ngIf="total > filtro.Limite">
-      <span class="cell-muted">{{ desde }}–{{ hasta }} de {{ total }}</span>
-      <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="filtro.Desplazamiento === 0" (click)="pagina(-1)">Anterior</button>
-      <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="hasta >= total" (click)="pagina(1)">Siguiente</button>
+    <div class="eje-paginacion" *ngIf="!cargando && total > 0">
+      <div class="eje-paginacion__info">
+        <span class="cell-muted">Mostrando {{ desde }}–{{ hasta }} de {{ total }}</span>
+        <label class="eje-paginacion__tamano" for="filtroPaginacionEje">
+          Por página
+          <select
+            id="filtroPaginacionEje"
+            class="campo-control campo-control--compacto"
+            [ngModel]="filtro.Limite"
+            (ngModelChange)="cambiarPaginacion($event)"
+          >
+            <option *ngFor="let n of opcionesPaginacion" [ngValue]="n">{{ n }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="eje-paginacion__nav">
+        <span class="cell-muted" *ngIf="totalPaginas > 1">Página {{ paginaActual }} de {{ totalPaginas }}</span>
+        <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="filtro.Desplazamiento === 0" (click)="pagina(-1)">Anterior</button>
+        <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="hasta >= total" (click)="pagina(1)">Siguiente</button>
+      </div>
     </div>
   </section>
 

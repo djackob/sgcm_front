@@ -149,7 +149,7 @@ export class ModalCargarCcpComponent {
   get etiquetaBotonPrincipal(): string {
     return this.modoCompletar
       ? 'Guardar CCP y generar cuadro'
-      : 'Registrar CCP y generar cuadro';
+      : 'Registrar Documentos';
   }
 
   get puedeRegistrar(): boolean {

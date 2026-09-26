@@ -28,19 +28,12 @@ export interface PerfilSso {
 /**
  * Ingreso por el SSO institucional.
  *
- * QUÉ CAMBIÓ
- * Antes esta pantalla no tenía interfaz: recibía el token, pedía la sesión y
- * redirigía. Sigue siendo así en el caso normal —una persona, una terna— y no se
- * ve nada más que el paso del navegador.
+ * En el caso normal no se ve interfaz: llega el token, el backend abre la
+ * sesion (respetando el perfil ya elegido en el portal SSO) y redirige.
  *
- * Lo nuevo es el caso de quien ejerce VARIAS ternas. El backend responde
- * `PERFIL` con la lista y aquí se elige, porque una sesión lleva una sola terna:
- * todo el frontend lee `detalle[0].perfil[0]`, y el expediente que un
- * coordinador ve en Abastecimiento no es el que ve en su otra área.
- *
- * Es la misma decisión que /acceso-local resuelve para el ingreso de pruebas.
- * La diferencia es que allí se elige la persona y aquí no: la persona ya la
- * certificó el SSO y sólo se elige con qué sombrero entra.
+ * Solo si el SSO no indica un perfil unico usable y la cuenta tiene varias
+ * ternas vigentes, el backend responde `PERFIL` y aqui se elige. Una sesion
+ * lleva una sola terna porque todo el frontend lee `detalle[0].perfil[0]`.
  */
 @Component({
   selector: 'app-sso',

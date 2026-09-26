@@ -44,7 +44,8 @@ export class GestionResolucionComponent implements OnInit {
   causales = CAUSALES;
 
   /* Sin check de «Solo en trámite»: la bandeja muestra todo y marca lo pendiente. */
-  filtro = { SoloMiBandeja: true, SoloVigentes: false, Causal: '', Texto: '', Limite: 50, Desplazamiento: 0 };
+  filtro = { SoloMiBandeja: true, SoloVigentes: false, Causal: '', Texto: '', Limite: 10, Desplazamiento: 0 };
+  readonly opcionesPaginacion = [10, 20, 50, 100];
   cargando = false;
   total = 0;
   procedimientos: ProcedimientoBandeja[] = [];
@@ -113,6 +114,8 @@ export class GestionResolucionComponent implements OnInit {
 
   get desde(): number { return this.total === 0 ? 0 : this.filtro.Desplazamiento + 1; }
   get hasta(): number { return Math.min(this.filtro.Desplazamiento + this.filtro.Limite, this.total); }
+  get totalPaginas(): number { return this.total === 0 ? 0 : Math.ceil(this.total / this.filtro.Limite); }
+  get paginaActual(): number { return this.total === 0 ? 0 : Math.floor(this.filtro.Desplazamiento / this.filtro.Limite) + 1; }
 
   cargar(): void {
     this.cargando = true;
@@ -133,7 +136,21 @@ export class GestionResolucionComponent implements OnInit {
     this.filtro = { ...this.filtro, Causal: '', Texto: '', Desplazamiento: 0 };
     this.cargar();
   }
-  pagina(delta: number): void { this.filtro.Desplazamiento = Math.max(0, this.filtro.Desplazamiento + delta * this.filtro.Limite); this.cargar(); }
+  cambiarPaginacion(valor: string | number): void {
+    const n = Number(valor);
+    this.filtro.Limite = this.opcionesPaginacion.includes(n) ? n : 10;
+    this.filtro.Desplazamiento = 0;
+    this.cargar();
+  }
+
+  pagina(direccion: number): void {
+    const siguiente = this.filtro.Desplazamiento + direccion * this.filtro.Limite;
+    if (siguiente < 0 || siguiente >= this.total) {
+      return;
+    }
+    this.filtro.Desplazamiento = siguiente;
+    this.cargar();
+  }
 
   /* -------------------------------------------------------- nuevo procedimiento */
 

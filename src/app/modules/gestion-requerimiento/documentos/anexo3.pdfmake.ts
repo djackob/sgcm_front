@@ -214,7 +214,7 @@ export function construirAnexo3Tdr(
         margin: [0, 20, 0, 0]
       },
       espaciosFirmaAreaUsuaria(
-        detalle?.Responsable || '',
+        detalle?.EspecialistaAreaUsuaria || '',
         detalle?.JefeAreaUsuaria || '',
         area
       )

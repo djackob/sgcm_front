@@ -98,8 +98,10 @@ const ICONO_ACCION: { [codigoTransicion: string]: string } = {
   REQ_FIRMAR_AU: 'mdi-draw-pen',
 
   /* Derivaciones */
-  REQ_DERIVAR_COORD: 'mdi-arrow-right-circle-outline',
-  REQ_DERIVAR_COORD_OBS: 'mdi-arrow-right-circle-outline',
+  REQ_DERIVAR_COORD: 'mdi-draw-pen',
+  REQ_DERIVAR_COORD_OBS: 'mdi-draw-pen',
+  REQ_DERIVAR_SIN_FIRMA: 'mdi-arrow-right-circle-outline',
+  REQ_DERIVAR_SIN_FIRMA_OBS: 'mdi-arrow-right-circle-outline',
   REQ_DERIVAR_JEFE: 'mdi-arrow-right-circle-outline',
   REQ_DERIVAR_DEC: 'mdi-arrow-right-circle-outline',
   REQ_ABAST_JEFE_DERIVAR: 'mdi-arrow-right-circle-outline',
@@ -380,7 +382,9 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     return disponibles.some(t =>
       t.CodigoTransicion === 'REQ_ELABORAR_DOC'
       || t.CodigoTransicion === 'REQ_DERIVAR_COORD'
-      || t.CodigoTransicion === 'REQ_DERIVAR_COORD_OBS');
+      || t.CodigoTransicion === 'REQ_DERIVAR_COORD_OBS'
+      || t.CodigoTransicion === 'REQ_DERIVAR_SIN_FIRMA'
+      || t.CodigoTransicion === 'REQ_DERIVAR_SIN_FIRMA_OBS');
   }
 
   /** Icono de la acción. Si la transición no está mapeada, uno genérico. */
@@ -395,6 +399,24 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
 
   esAccionDestructiva(transicion: TransicionRequerimiento): boolean {
     return ACCIONES_DESTRUCTIVAS.has(transicion.CodigoTransicion);
+  }
+
+  /** Las dos salidas del especialista se rotulan: firmar o derivar sin firma. */
+  muestraRotuloAccion(transicion: TransicionRequerimiento): boolean {
+    return transicion.CodigoTransicion === 'REQ_DERIVAR_COORD'
+      || transicion.CodigoTransicion === 'REQ_DERIVAR_COORD_OBS'
+      || transicion.CodigoTransicion === 'REQ_DERIVAR_SIN_FIRMA'
+      || transicion.CodigoTransicion === 'REQ_DERIVAR_SIN_FIRMA_OBS';
+  }
+
+  get esDerivacionSinFirmaEspecialista(): boolean {
+    const codigo = this.accionEnCurso?.transicion.CodigoTransicion;
+    return codigo === 'REQ_DERIVAR_SIN_FIRMA' || codigo === 'REQ_DERIVAR_SIN_FIRMA_OBS';
+  }
+
+  get esFirmaYDerivaEspecialista(): boolean {
+    const codigo = this.accionEnCurso?.transicion.CodigoTransicion;
+    return codigo === 'REQ_DERIVAR_COORD' || codigo === 'REQ_DERIVAR_COORD_OBS';
   }
 
   limpiarFiltros(): void {
@@ -1033,10 +1055,18 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       return;
     }
 
-    /* Firmar: primero paFirmarDocumento (deja la versión vigente en FIRMADO) y
-       recién entonces la transición. El PDF se abre al pedir confirmación, igual
-       que en CMN, para que el usuario vea y firme digitalmente antes de Confirmar. */
+    /* Firmar: primero el PDF con el sello de sfirma y recién entonces la
+       transición. Un asiento en sigcm.Firma sin archivo firmado dejaba el
+       Anexo 3 en el coordinador con las líneas de firma vacías. */
     if (transicion.RequiereFirma) {
+      if (this.debeInvocarFirmaDigital
+          && this.secuenciaPendienteFirma.length > 0
+          && !this.todasFirmasDigitalesListas) {
+        const cuales = this.secuenciaPendienteFirma.map(p => p.anexo).join(' y ');
+        this.funciones.mensaje('info',
+          `Coloque el sello digital en ${cuales} antes de confirmar. El PDF que se envía tiene que llevar esa firma.`);
+        return;
+      }
       this.paso = 'Registrando la firma…';
       this.resolverYFirmar(requerimiento, transicion);
       return;
@@ -1258,6 +1288,13 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     return this.secuenciaPendienteFirma.every(d => !!this.firmaDigitalPorTipo[d.codigo]);
   }
 
+  /** Confirmar queda bloqueado hasta que sfirma devuelva el PDF con el sello. */
+  get faltaSelloDigital(): boolean {
+    return this.debeInvocarFirmaDigital
+      && this.secuenciaPendienteFirma.length > 0
+      && !this.todasFirmasDigitalesListas;
+  }
+
   abrirDocumentoSecuenciaFirma(item: { codigo: string; etiqueta: string; anexo: string }): void {
     const accion = this.accionEnCurso;
     if (!accion) {
@@ -1376,6 +1413,11 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     const item = pendientes[indice];
     this.documentoPendienteFirma = item;
     const firmado = idDocumentoSistema(this.firmaDigitalPorTipo[item.codigo] || '');
+    if (this.debeInvocarFirmaDigital && !firmado) {
+      this.fallar(
+        `Firme digitalmente el ${item.anexo} antes de confirmar. El sello tiene que quedar en el PDF.`);
+      return;
+    }
     this.paso = firmado
       ? `Registrando la firma digital del ${item.anexo}…`
       : `Registrando la firma del ${item.anexo}…`;
@@ -2143,25 +2185,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.funciones.mensaje('info', this.guiaColocacionFirmaDigital());
     this.iniciarMonitoreoPopup();
-  }
-
-  /**
-   * sfirma/ONPE no acepta coordenadas por URL: el sello se coloca a mano.
-   * Si cae sobre otra firma ya existente, ONPE responde con error de superposición.
-   */
-  private guiaColocacionFirmaDigital(): string {
-    const dondePorRol: { [rol: string]: string } = {
-      AREA_ESPECIALISTA: 'el espacio de la IZQUIERDA (1. Especialista AU)',
-      AREA_JEFE: 'el espacio de la DERECHA (2. Jefe AU)',
-      ABAST_ESPECIALISTA: 'un espacio libre para Especialista de Abastecimiento',
-      ABAST_COORDINADOR: 'un espacio libre para Coordinador de Abastecimiento',
-      ABAST_JEFE: 'un espacio libre para Jefe de Abastecimiento'
-    };
-    const donde = dondePorRol[this.codigoRol] || 'un espacio libre del documento';
-    return `Coloque la representación gráfica en ${donde}, sin superponerla a otra firma. `
-      + 'Si ONPE indica superposición, mueva el sello a otra zona y confirme de nuevo.';
   }
 
   private iniciarMonitoreoPopup(): void {

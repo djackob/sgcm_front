@@ -153,12 +153,14 @@
                   type="button"
                   class="btn-icon-outline btn-accion"
                   [class.btn-accion--peligro]="esAccionDestructiva(transicion)"
+                  [class.btn-accion--rotulo]="muestraRotuloAccion(transicion)"
                   *ngFor="let transicion of accionesDe(item)"
                   [title]="tituloAccion(transicion)"
                   [attr.aria-label]="transicion.NombreAccion"
                   (click)="pedirConfirmacion(item, transicion)"
                 >
                   <i class="mdi" [ngClass]="iconoAccion(transicion)" aria-hidden="true"></i>
+                  <span *ngIf="muestraRotuloAccion(transicion)">{{ transicion.NombreAccion }}</span>
                 </button>
 
                 <button
@@ -283,6 +285,14 @@
             <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
             Esta acción registra la firma sobre {{ etiquetaDocumentoFirma }}.
           </li>
+          <li *ngIf="esFirmaYDerivaEspecialista">
+            <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
+            La firma del especialista es opcional. Si este trámite no la exige, cancele y use «Derivar sin firmar».
+          </li>
+          <li *ngIf="esDerivacionSinFirmaEspecialista">
+            <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
+            El expediente pasa al Coordinador sin el sello del especialista. La firma del Jefe del Área usuaria sigue siendo obligatoria.
+          </li>
           <li *ngIf="debeInvocarFirmaDigital && secuenciaPendienteFirma.length > 1">
             <i class="mdi mdi-file-multiple-outline" aria-hidden="true"></i>
             En locación firme digitalmente el Anexo 5 y el Anexo 3 (en ese orden) antes de confirmar.
@@ -332,7 +342,7 @@
           </li>
           <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_FIRMAR_AU'">
             <i class="mdi mdi-send-check-outline" aria-hidden="true"></i>
-            Al confirmar, el expediente será enviado a la Oficina de Administración (área respectiva).
+            La firma digital del Jefe del Área usuaria es obligatoria. Al confirmar, el expediente será enviado a la Oficina de Administración (área respectiva).
           </li>
         </ul>
 
@@ -447,7 +457,7 @@
         <button
           type="button"
           class="btn btn-app-primary"
-          [disabled]="ejecutando"
+          [disabled]="ejecutando || faltaSelloDigital"
           (click)="confirmarAccion()"
         >
           <i class="mdi mdi-loading mdi-spin" *ngIf="ejecutando" aria-hidden="true"></i>

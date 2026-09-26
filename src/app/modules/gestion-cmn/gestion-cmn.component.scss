@@ -73,12 +73,32 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  flex-wrap: wrap;
   padding-top: 0.9rem;
 
-  div {
+  &__info,
+  &__nav {
     display: flex;
-    gap: 0.4rem;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
   }
+
+  &__tamano {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    font-size: 0.82rem;
+    color: #64748b;
+  }
+}
+
+.campo-control--compacto {
+  width: auto;
+  min-width: 4.5rem;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.82rem;
 }
 
 /* La celda de acciones puede traer más de un botón: el motor de estados

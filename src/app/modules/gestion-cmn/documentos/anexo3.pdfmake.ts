@@ -167,7 +167,8 @@ function filaItem(item: ItemSolicitudCmn): any[] {
   const exclusion = esExclusion(item.TipoMovimiento);
   const cantidad = totalCantidad(item);
   const valor = totalValor(item);
-  const esBien = (item.TipoBien || '').toUpperCase() === 'B';
+  const esBien = (item.TipoBien || '').toUpperCase() === 'B'
+    || (item.CodigoItem || '').trim().toUpperCase().startsWith('B');
   const cant = esBien ? numero(cantidad) : '';
   const val = numero(valor);
 
