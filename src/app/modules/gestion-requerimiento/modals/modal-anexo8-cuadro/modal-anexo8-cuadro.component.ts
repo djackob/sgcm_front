@@ -50,6 +50,7 @@ export class ModalAnexo8CuadroComponent {
   criterio = '';
   observaciones = '';
   fechaGeneracion = '';
+  private confirmarCotizaciones = false;
 
   constructor(
     private requerimientoService: RequerimientoService,
@@ -57,7 +58,8 @@ export class ModalAnexo8CuadroComponent {
     private funciones: Funciones
   ) { }
 
-  abrir(fila: RequerimientoBandeja): void {
+  abrir(fila: RequerimientoBandeja, opciones?: { confirmarCotizaciones?: boolean }): void {
+    this.confirmarCotizaciones = !!opciones?.confirmarCotizaciones;
     this.fila = fila;
     this.detalle = null;
     this.items = [];
@@ -194,6 +196,14 @@ export class ModalAnexo8CuadroComponent {
       switchMap((alta: any) => {
         if (alta?.estado !== 1) {
           throw new Error(alta?.mensaje || 'No se registró el Anexo 8.');
+        }
+        if (this.confirmarCotizaciones) {
+          this.paso = 'Solicitando la CCP…';
+          return this.requerimientoService.ejecutarTransicion(
+            this.fila!.IdExpediente,
+            'REQ_CERRAR_COTIZACIONES',
+            this.detalle?.Version ?? this.fila!.Version
+          );
         }
         if (this.detalle?.CodigoEstado !== 'REQ_CCP_CARGADA') {
           return this.requerimientoService.obtenerRequerimiento(this.fila!.IdRequerimiento);

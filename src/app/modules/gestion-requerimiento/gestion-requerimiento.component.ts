@@ -51,6 +51,13 @@ import {
   construirPaqueteIntegridad,
   nombreArchivoIntegridad
 } from './documentos/paquete-integridad.pdfmake';
+import { CARPETA_ORDEN_SERVICIO, TIPO_ORDEN_SERVICIO } from './documentos/orden-servicio.pdfmake';
+import {
+  CARPETA_DOCUMENTO_TECNICO,
+  construirOrdenContratacion,
+  nombreArchivoOrden
+} from './documentos/documento-tecnico';
+import { TIPO_ANEXO_8 } from './documentos/anexo8.util';
 import { ccpTieneDatos, normalizarCcp } from './documentos/ccp-carga.util';
 import { requiereAnexo8CuadroCotizaciones } from './documentos/anexo8.util';
 import {
@@ -58,6 +65,7 @@ import {
   RequerimientoBandeja,
   TransicionRequerimiento,
   PuestoDerivacionRequerimiento,
+  etiquetaEstadoRequerimiento,
   jsonUsuarioExternoContrataciones
 } from './models/requerimiento.model';
 
@@ -140,6 +148,9 @@ const ICONO_ACCION: { [codigoTransicion: string]: string } = {
   REQ_REGISTRAR_CCP: 'mdi-cash-check',
   REQ_GENERAR_CUADRO: 'mdi-table-large',
   REQ_EMITIR_OS: 'mdi-file-sign',
+  REQ_EMITIR_OC: 'mdi-file-sign',
+  REQ_INICIAR_COTIZACIONES: 'mdi-clipboard-list-outline',
+  REQ_CERRAR_COTIZACIONES: 'mdi-clipboard-check-outline',
   REQ_NOTIFICAR_OS: 'mdi-email-fast-outline',
 
   /* Anulación / archivo */
@@ -223,6 +234,8 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   /* Confirmación de una acción del flujo */
   accionEnCurso: { requerimiento: RequerimientoBandeja; transicion: TransicionRequerimiento } | null = null;
   comentario = '';
+  /** PDF oficial que sustituye al generado, al notificar la orden. */
+  archivoOs: File | null = null;
   ejecutando = false;
   paso = '';
   cargandoPdfId = '';
@@ -340,7 +353,41 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
         && (t.CodigoTransicion !== 'REQ_REGISTRAR_CCP'
           || this.codigoRol === 'ABAST_ESPECIALISTA')
         && (t.CodigoTransicion !== 'REQ_EMITIR_OS'
-          || this.codigoRol === 'ABAST_ESPECIALISTA'));
+          || (this.codigoRol === 'ABAST_ESPECIALISTA'
+            && requerimiento.CodigoTipoContratacion !== 'BIEN'))
+        && (t.CodigoTransicion !== 'REQ_EMITIR_OC'
+          || (this.codigoRol === 'ABAST_ESPECIALISTA'
+            && requerimiento.CodigoTipoContratacion === 'BIEN'))
+        && this.firmaEspecialistaAplica(requerimiento, t));
+  }
+
+  /**
+   * Firmar y derivar es de Locación: ahí el especialista puede sellar el
+   * Anexo 5 y el Anexo 3. En bien, servicio y consultoría el especialista
+   * solo deriva; la firma del jefe se exige cuando exista el anexo.
+   */
+  private firmaEspecialistaAplica(
+    requerimiento: RequerimientoBandeja,
+    transicion: TransicionRequerimiento
+  ): boolean {
+    const firmaEspecialista = transicion.CodigoTransicion === 'REQ_DERIVAR_COORD'
+      || transicion.CodigoTransicion === 'REQ_DERIVAR_COORD_OBS';
+    if (!firmaEspecialista) {
+      return true;
+    }
+    return requerimiento.CodigoTipoContratacion === 'LOCACION';
+  }
+
+  etiquetaEstado(item: RequerimientoBandeja): string {
+    return etiquetaEstadoRequerimiento(item.CodigoEstado, item.Estado, item.CodigoTipoContratacion);
+  }
+
+  etiquetaDestino(requerimiento: RequerimientoBandeja, transicion: TransicionRequerimiento): string {
+    return etiquetaEstadoRequerimiento(
+      transicion.CodigoEstadoDestino,
+      transicion.EstadoDestino,
+      requerimiento.CodigoTipoContratacion
+    );
   }
 
   /** Transiciones que vienen en la fila. Si el motor las serializó como
@@ -393,8 +440,8 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   }
 
   /** Rótulo del botón: el nombre del flujo más el estado al que lleva. */
-  tituloAccion(transicion: TransicionRequerimiento): string {
-    return `${transicion.NombreAccion} (pasa a: ${transicion.EstadoDestino})`;
+  tituloAccion(requerimiento: RequerimientoBandeja, transicion: TransicionRequerimiento): string {
+    return `${transicion.NombreAccion} (pasa a: ${this.etiquetaDestino(requerimiento, transicion)})`;
   }
 
   esAccionDestructiva(transicion: TransicionRequerimiento): boolean {
@@ -417,6 +464,10 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   get esFirmaYDerivaEspecialista(): boolean {
     const codigo = this.accionEnCurso?.transicion.CodigoTransicion;
     return codigo === 'REQ_DERIVAR_COORD' || codigo === 'REQ_DERIVAR_COORD_OBS';
+  }
+
+  get esLocacionAccion(): boolean {
+    return this.accionEnCurso?.requerimiento.CodigoTipoContratacion === 'LOCACION';
   }
 
   limpiarFiltros(): void {
@@ -532,6 +583,11 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     if (!idRequerimiento) {
       return;
     }
+    const fila = this.requerimientos.find(r => r.IdRequerimiento === idRequerimiento);
+    if (fila && fila.CodigoTipoContratacion !== 'LOCACION') {
+      this.modalRegistro.abrirEdicion(idRequerimiento, true);
+      return;
+    }
     this.modalAnexo3.abrir(idRequerimiento);
   }
 
@@ -615,6 +671,25 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
             ? `No fue posible consultar el documento del expediente: ${detalle}`
             : 'No fue posible consultar el documento del expediente.');
       }
+    });
+  }
+
+  private verDocumentoTecnicoPdf(
+    item: RequerimientoBandeja,
+    esperado: { codigo: string; etiqueta: string; anexo: string }
+  ): void {
+    this.requerimientoService.listarDocumento(item.IdExpediente).subscribe({
+      next: (respuesta: any) => {
+        const doc = this.documentosDeRespuesta(respuesta)
+          .find((d: any) => d.CodigoTipoDocumento === esperado.codigo);
+        const id = idDocumentoSistema(doc?.GeneradoDocumento);
+        if (!id) {
+          this.funciones.mensaje('info', `Falta registrar el ${esperado.anexo}.`);
+          return;
+        }
+        this.abrirPdfEnVisor(item, id, esperado.anexo, esperado.etiqueta, true, CARPETA_ANEXO_5);
+      },
+      error: () => this.funciones.mensaje('error', 'No fue posible abrir el anexo.')
     });
   }
 
@@ -810,6 +885,10 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     }
 
     if (transicion.CodigoTransicion === 'REQ_EMITIR_OS') {
+      if (requerimiento.CodigoTipoContratacion !== 'LOCACION') {
+        this.emitirOrden(requerimiento, false);
+        return;
+      }
       if (this.codigoRol !== 'ABAST_ESPECIALISTA') {
         this.funciones.mensaje(
           'info',
@@ -854,7 +933,20 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     this.paso = '';
     this.cargarDestinatarios(requerimiento, transicion);
 
-    if (transicion.RequiereFirma) {
+    if (transicion.CodigoTransicion === 'REQ_CERRAR_COTIZACIONES') {
+      this.modalAnexo8Cuadro.abrir(requerimiento, { confirmarCotizaciones: true });
+      return;
+    }
+
+    if (transicion.CodigoTransicion === 'REQ_EMITIR_OC') {
+      this.emitirOrden(requerimiento, true);
+      return;
+    }
+
+    const firmaPdf = transicion.RequiereFirma
+      && (requerimiento.CodigoTipoContratacion === 'LOCACION'
+        || transicion.CodigoTransicion === 'REQ_FIRMAR_AU');
+    if (firmaPdf) {
       this.prepararDocumentoParaFirmar();
     }
   }
@@ -912,8 +1004,71 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     this.responsableDestino = '';
     this.cargandoDestinatarios = false;
     this.comentario = '';
+    this.archivoOs = null;
     this.paso = '';
     this.ejecutando = false;
+  }
+
+  /**
+   * Sube el PDF elegido y lo deja como versión vigente de la orden, igual que
+   * el reemplazo del Anexo 4 en el CMN.
+   */
+  private reemplazarArchivoOs(idExpediente: string, idRequerimiento: string, archivo: File) {
+    return this.documentoService.subirArchivo(archivo, CARPETA_ORDEN_SERVICIO).pipe(
+      switchMap((subida: any) => {
+        const documentoSistema = idDocumentoSistema(subida?.documento_sistema);
+        if (subida?.estado !== 1 || !documentoSistema) {
+          return throwError(() => ({
+            mensaje: subida?.mensaje || 'No fue posible subir el PDF de la orden.'
+          }));
+        }
+        const nombre = subida.documento_original || archivo.name;
+        return this.requerimientoService.registrarDocumento(
+          idExpediente,
+          TIPO_ORDEN_SERVICIO,
+          documentoSistema,
+          nombre,
+          { Origen: 'REEMPLAZO_OS' }
+        ).pipe(
+          switchMap((alta: any) => {
+            if (alta?.estado !== 1) {
+              return throwError(() => ({
+                mensaje: alta?.mensaje || 'No se reemplazó el documento de la orden.'
+              }));
+            }
+            return this.requerimientoService.registrarOrdenServicio(idRequerimiento, {
+              GeneradoDocumento: documentoSistema,
+              NombreDocumento: nombre
+            });
+          }),
+          switchMap((orden: any) => {
+            if (orden?.estado !== 1) {
+              return throwError(() => ({
+                mensaje: orden?.mensaje || 'El PDF se subió, pero no quedó ligado a la orden.'
+              }));
+            }
+            return of(orden);
+          })
+        );
+      })
+    );
+  }
+
+  /** Al notificar, Abastecimiento puede cambiar el PDF generado por el oficial. */
+  get esCambioOs(): boolean {
+    return this.accionEnCurso?.transicion.CodigoTransicion === 'REQ_NOTIFICAR_OS';
+  }
+
+  onArchivoOs(evento: Event): void {
+    const input = evento.target as HTMLInputElement;
+    const archivo = input.files?.[0] || null;
+    if (archivo && !archivo.name.toLowerCase().endsWith('.pdf')) {
+      this.funciones.mensaje('info', 'El archivo de la orden debe ser PDF.');
+      input.value = '';
+      this.archivoOs = null;
+      return;
+    }
+    this.archivoOs = archivo;
   }
 
   confirmarAccion(): void {
@@ -992,8 +1147,23 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     }
 
     if (transicion.CodigoTransicion === 'REQ_NOTIFICAR_OS') {
-      this.paso = 'Registrando usuario externo…';
-      this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento).pipe(
+      const reemplazo = this.archivoOs
+        ? this.reemplazarArchivoOs(
+            requerimiento.IdExpediente,
+            requerimiento.IdRequerimiento,
+            this.archivoOs
+          )
+        : of(null);
+
+      this.paso = this.archivoOs
+        ? 'Reemplazando el archivo de la orden…'
+        : 'Registrando usuario externo…';
+
+      reemplazo.pipe(
+        switchMap(() => {
+          this.paso = 'Registrando usuario externo…';
+          return this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento);
+        }),
         switchMap((detalle: any) => {
           const version = detalle?.Version ?? requerimiento.Version;
           const proveedor = proveedoresDelRequerimiento(detalle)[0];
@@ -1058,9 +1228,8 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     /* Firmar: primero el PDF con el sello de sfirma y recién entonces la
        transición. Un asiento en sigcm.Firma sin archivo firmado dejaba el
        Anexo 3 en el coordinador con las líneas de firma vacías. */
-    if (transicion.RequiereFirma) {
-      if (this.debeInvocarFirmaDigital
-          && this.secuenciaPendienteFirma.length > 0
+    if (transicion.RequiereFirma && this.debeInvocarFirmaDigital) {
+      if (this.secuenciaPendienteFirma.length > 0
           && !this.todasFirmasDigitalesListas) {
         const cuales = this.secuenciaPendienteFirma.map(p => p.anexo).join(' y ');
         this.funciones.mensaje('info',
@@ -1076,27 +1245,12 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Qué documentos se firman en este módulo.
-   *
-   * El mapa DOCUMENTO_TECNICO incluye EETT (Anexo 1) para bienes, pero la
-   * pantalla de locación registra Anexo 5 y Anexo 3. Si el expediente ya tiene
-   * esos tipos —o el objeto es locación—, se firman esos y no se exige EETT.
+   * Locación firma Anexo 5 y Anexo 3. Los otros objetos firman su anexo
+   * (EETT, TDR de servicio o TDR de consultoría). Solo lo firma el jefe.
    */
-  private secuenciaAFirmar(requerimiento: RequerimientoBandeja, registrados: any[]):
+  private secuenciaAFirmar(requerimiento: RequerimientoBandeja, _registrados: any[]):
       { codigo: string; etiqueta: string; anexo: string }[] {
-    const locacion = DOCUMENTO_TECNICO.LOCACION;
-    const tieneLocacion = registrados.some((d: any) =>
-      d.CodigoTipoDocumento === TIPO_ANEXO_5 || d.CodigoTipoDocumento === TIPO_ANEXO_3);
-
-    if (requerimiento.CodigoTipoContratacion === 'LOCACION' || tieneLocacion) {
-      return locacion;
-    }
-
-    const deTipo = DOCUMENTO_TECNICO[requerimiento.CodigoTipoContratacion] || [];
-    if (deTipo.some(d => d.codigo === 'REQ_EETT_BIEN')) {
-      return locacion;
-    }
-    return deTipo;
+    return DOCUMENTO_TECNICO[requerimiento.CodigoTipoContratacion] || [];
   }
 
   /**
@@ -1240,8 +1394,10 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
         this.abrirAnexo3(requerimiento.IdRequerimiento);
         return;
       }
-      this.funciones.mensaje('error',
-        `Falta registrar el ${esperado.etiqueta} (${esperado.anexo}) antes de firmarlo.`);
+      this.funciones.mensaje('info',
+        `Falta registrar el ${esperado.etiqueta} (${esperado.anexo}). Complete el formulario y pulse Guardar.`);
+      this.cancelarAccion();
+      this.modalRegistro.abrirEdicion(requerimiento.IdRequerimiento, true);
       return;
     }
 
@@ -1261,7 +1417,13 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     if (this.codigoRol === 'AREA_COORDINADOR') {
       return false;
     }
-    return !!this.accionEnCurso?.transicion.RequiereFirma;
+    if (!this.accionEnCurso?.transicion.RequiereFirma) {
+      return false;
+    }
+    if (this.accionEnCurso.requerimiento.CodigoTipoContratacion === 'LOCACION') {
+      return true;
+    }
+    return this.accionEnCurso.transicion.CodigoTransicion === 'REQ_FIRMAR_AU';
   }
 
   get etiquetaDocumentoFirma(): string {
@@ -1306,7 +1468,11 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       this.verAnexo3Pdf(accion.requerimiento);
       return;
     }
-    this.verAnexo5Pdf(accion.requerimiento);
+    if (item.codigo === TIPO_ANEXO_5) {
+      this.verAnexo5Pdf(accion.requerimiento);
+      return;
+    }
+    this.verDocumentoTecnicoPdf(accion.requerimiento, item);
   }
 
   verPdfDelPendiente(): void {
@@ -1387,6 +1553,10 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
 
         if (!docPendiente) {
           this.fallar(`Falta registrar el ${primero.etiqueta} (${primero.anexo}) antes de firmarlo.`);
+          if (primero.codigo !== TIPO_ANEXO_3 && primero.codigo !== TIPO_ANEXO_5) {
+            this.cancelarAccion();
+            this.modalRegistro.abrirEdicion(requerimiento.IdRequerimiento, true);
+          }
           return;
         }
 
@@ -1788,9 +1958,9 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     carpeta: string,
     invocarFirma: boolean
   ): void {
-    const yaFirmadoEnSesion = !!this.firmaDigitalPorTipo[
-      carpeta === CARPETA_ANEXO_3 ? TIPO_ANEXO_3 : TIPO_ANEXO_5
-    ];
+    const codigoTipo = this.documentoPendienteFirma?.codigo
+      || (carpeta === CARPETA_ANEXO_3 ? TIPO_ANEXO_3 : TIPO_ANEXO_5);
+    const yaFirmadoEnSesion = !!this.firmaDigitalPorTipo[codigoTipo];
     if (invocarFirma && this.debeInvocarFirmaDigital && !yaFirmadoEnSesion) {
       this.abrirFirmaPopup(id, codigo);
     }
@@ -2279,6 +2449,102 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   }
 
   /** El registro y las acciones cambian la bandeja: se recarga entera. */
+  /**
+   * Bien emite orden de compra sin encolar la OS de SIGA.
+   * Servicio y consultoría emiten orden de servicio y sí encolan SIGA.
+   */
+  private emitirOrden(requerimiento: RequerimientoBandeja, esCompra: boolean): void {
+    if (this.codigoRol !== 'ABAST_ESPECIALISTA') {
+      this.funciones.mensaje('info', 'Solo el especialista de Abastecimiento emite la orden.');
+      return;
+    }
+    this.ejecutando = true;
+    this.paso = esCompra ? 'Armando la orden de compra…' : 'Armando la orden de servicio…';
+    this.requerimientoService.obtenerRequerimiento(requerimiento.IdRequerimiento).subscribe({
+      next: (detalle: any) => {
+        if (detalle?.estado === 0) {
+          this.fallar(detalle?.mensaje || 'No fue posible leer el expediente.');
+          return;
+        }
+        this.requerimientoService.listarDocumento(detalle.IdExpediente).subscribe({
+          next: (docs: any) => {
+            const anexo = this.documentosDeRespuesta(docs)
+              .find((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_8);
+            let payload = anexo?.Payload || {};
+            if (typeof payload === 'string') {
+              try { payload = JSON.parse(payload); } catch { payload = {}; }
+            }
+            const postores = Array.isArray(payload.Postores) ? payload.Postores : [];
+            const adjudicado = postores.find((p: any) => p.Id === payload.IdAdjudicado) || postores[0];
+            if (!adjudicado?.RazonSocial || !adjudicado?.Email) {
+              this.fallar('El Anexo 8 no tiene un proveedor adjudicado con correo. Vuelva a generar el cuadro.');
+              return;
+            }
+            const definicion = construirOrdenContratacion(detalle, adjudicado, esCompra);
+            const nombre = nombreArchivoOrden(detalle, esCompra);
+            this.documentoService.generarYSubir(definicion, nombre, CARPETA_DOCUMENTO_TECNICO).subscribe({
+              next: (archivo: any) => {
+                const documentoSistema = idDocumentoSistema(archivo?.documento_sistema);
+                if (archivo?.estado !== 1 || !documentoSistema) {
+                  this.fallar(archivo?.mensaje || 'No se pudo subir la orden.');
+                  return;
+                }
+                this.requerimientoService.registrarDocumento(
+                  detalle.IdExpediente,
+                  TIPO_ORDEN_SERVICIO,
+                  documentoSistema,
+                  archivo.documento_original || nombre,
+                  { Proveedor: adjudicado, EsOrdenCompra: esCompra }
+                ).subscribe({
+                  next: (alta: any) => {
+                    if (alta?.estado !== 1) {
+                      this.fallar(alta?.mensaje || 'No se registró la orden.');
+                      return;
+                    }
+                    this.requerimientoService.registrarOrdenServicio(detalle.IdRequerimiento, {
+                      GeneradoDocumento: documentoSistema,
+                      NombreDocumento: nombre,
+                      CorreoProveedor: adjudicado.Email,
+                      NumeroOrden: detalle.Codigo
+                    }).subscribe({
+                      next: (orden: any) => {
+                        if (orden?.estado !== 1) {
+                          this.fallar(orden?.mensaje || 'No se registró la orden del proveedor.');
+                          return;
+                        }
+                        this.accionEnCurso = {
+                          requerimiento: {
+                            ...requerimiento,
+                            Version: orden.Version ?? detalle.Version ?? requerimiento.Version
+                          },
+                          transicion: {
+                            CodigoTransicion: esCompra ? 'REQ_EMITIR_OC' : 'REQ_EMITIR_OS',
+                            NombreAccion: esCompra ? 'Emitir orden de compra' : 'Emitir orden de servicio',
+                            CodigoEstadoDestino: 'REQ_OS_EMITIDA',
+                            EstadoDestino: esCompra ? 'Orden de compra emitida' : 'Orden de servicio emitida',
+                            RequiereComentario: false,
+                            RequiereFirma: false,
+                            GeneraObservacion: false
+                          } as TransicionRequerimiento
+                        };
+                        this.enviarTransicion(this.accionEnCurso.requerimiento, this.accionEnCurso.transicion);
+                      },
+                      error: () => this.fallar('No se registró la orden del proveedor.')
+                    });
+                  },
+                  error: () => this.fallar('No se registró la orden.')
+                });
+              },
+              error: () => this.fallar('No se pudo subir la orden.')
+            });
+          },
+          error: () => this.fallar('No fue posible leer el Anexo 8.')
+        });
+      },
+      error: () => this.fallar('No fue posible leer el expediente.')
+    });
+  }
+
   alRegistrar(): void {
     this.cargarBandeja();
   }

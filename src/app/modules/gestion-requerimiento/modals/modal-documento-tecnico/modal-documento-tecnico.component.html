@@ -1,0 +1,68 @@
+<div [class.modal-fondo]="!embebido" *ngIf="embebido || abierto" role="presentation">
+  <div [class.modal-app-dialog]="!embebido" [class.modal-app-dialog--ancho]="!embebido" role="dialog" aria-modal="true">
+    <div [class.modal-app]="!embebido">
+      <div class="modal-cabecera" *ngIf="!embebido">
+        <div class="modal-cabecera-info">
+          <h2 class="modal-titulo">{{ anexo }} · {{ etiqueta }}</h2>
+          <p class="modal-subtitulo">{{ detalle?.Codigo }} · {{ detalle?.Denominacion }}</p>
+        </div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrar()">
+          <i class="mdi mdi-close" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-cuerpo">
+        <p class="req-nota" *ngIf="cargando">Cargando el anexo…</p>
+
+        <ng-container *ngIf="!cargando && detalle">
+          <p class="req-nota">
+            Los pedidos SIGA se reflejan en el documento y no se vuelven a digitar.
+            La firma digital corresponde al Jefe del Área usuaria.
+          </p>
+
+          <table class="table scm-table" *ngIf="pedidos.length">
+            <thead>
+              <tr>
+                <th>N.° de pedido</th>
+                <th>Clasificador</th>
+                <th>Fuente</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let pedido of pedidos">
+                <td>{{ pedido.NumeroPedido }}</td>
+                <td>{{ pedido.Clasificador || '—' }}</td>
+                <td>{{ pedido.FuenteFinanc || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <label class="campo-etiqueta" for="docFinalidad">Finalidad<span class="campo-req">*</span></label>
+          <textarea id="docFinalidad" class="campo-control" rows="3" [(ngModel)]="formulario.Finalidad"></textarea>
+
+          <label class="campo-etiqueta" for="docDescripcion">{{ etiquetaDescripcion }}<span class="campo-req">*</span></label>
+          <textarea id="docDescripcion" class="campo-control" rows="5" [(ngModel)]="formulario.Descripcion"></textarea>
+
+          <label class="campo-etiqueta" for="docLugar">Lugar de entrega o prestación<span class="campo-req">*</span></label>
+          <textarea id="docLugar" class="campo-control" rows="2" [(ngModel)]="formulario.Lugar"></textarea>
+
+          <label class="campo-etiqueta" for="docRequisitos">Requisitos<span class="campo-req">*</span></label>
+          <textarea id="docRequisitos" class="campo-control" rows="3" [(ngModel)]="formulario.Requisitos"></textarea>
+
+          <label class="campo-etiqueta" for="docConformidad">Conformidad<span class="campo-req">*</span></label>
+          <textarea id="docConformidad" class="campo-control" rows="3" [(ngModel)]="formulario.Conformidad"></textarea>
+
+          <label class="campo-etiqueta" for="docPago">Forma de pago<span class="campo-req">*</span></label>
+          <textarea id="docPago" class="campo-control" rows="2" [(ngModel)]="formulario.FormaPago"></textarea>
+
+          <div class="doc-acciones">
+            <button type="button" class="btn btn-app-primary" [disabled]="guardando" (click)="guardar()">
+              <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>
+              Guardar {{ anexo }}
+            </button>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</div>

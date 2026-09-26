@@ -272,18 +272,24 @@
         </div>
 
         <div
+          class="req-tdr-embebido"
+          *ngIf="idRequerimientoEdicion && !esLocacion"
+          [hidden]="cargandoEdicion || pestanaTrabajo !== 'anexo3'"
+        >
+          <app-modal-documento-tecnico
+            [embebido]="true"
+            [idParaAbrir]="pestanaTrabajo === 'anexo3' ? idRequerimientoEdicion : null"
+            (registrado)="alRegistrarTdr()"
+          />
+        </div>
+
+        <div
           class="req-doc-tecnico-aviso"
-          *ngIf="!cargandoEdicion && pestanaTrabajo === 'anexo3' && !esLocacion"
+          *ngIf="!cargandoEdicion && pestanaTrabajo === 'anexo3' && !esLocacion && !idRequerimientoEdicion"
         >
           <p class="req-nota">
-            Guarde los datos del requerimiento y elabore
-            <strong>{{ etiquetaDocumentoTecnico }}</strong>
-            desde la bandeja (EETT / TDR según el objeto). El formulario digital
-            de este anexo se habilitará en la siguiente entrega.
-          </p>
-          <p class="req-nota" *ngIf="!idRequerimientoEdicion">
             Primero registre el requerimiento en la pestaña
-            «{{ etiquetaPestanaFormulario }}».
+            «{{ etiquetaPestanaFormulario }}». Después elabore {{ etiquetaDocumentoTecnico }}.
           </p>
         </div>
       </div>

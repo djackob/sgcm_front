@@ -45,6 +45,14 @@
   margin-top: 0.65rem;
 }
 
+.det-reemplazo-os {
+  margin-top: 1rem;
+
+  .campo-ayuda a {
+    color: var(--main-color-700, #1d4ed8);
+  }
+}
+
 .det-datos {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));

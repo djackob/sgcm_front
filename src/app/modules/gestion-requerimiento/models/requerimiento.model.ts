@@ -517,3 +517,15 @@ export const DOCUMENTO_TECNICO: {
     { codigo: 'REQ_TDR_LOCACION', etiqueta: 'TDR', anexo: 'Anexo 3' }
   ]
 };
+
+/** Nombre de estado que muestra la bandeja. Un bien emitido es orden de compra. */
+export function etiquetaEstadoRequerimiento(
+  codigoEstado: string | undefined,
+  nombreEstado: string | undefined,
+  codigoTipo: string | undefined
+): string {
+  if (codigoEstado === 'REQ_OS_EMITIDA' && codigoTipo === 'BIEN') {
+    return 'Orden de compra emitida';
+  }
+  return nombreEstado || '';
+}

@@ -7,6 +7,7 @@ import { BreadcrumbComponent } from '../../../../shared/components/breadcrumb/br
 import { FormPedidoComponent } from '../../components/form-pedido/form-pedido.component';
 import { FormProveedorComponent } from '../../components/form-proveedor/form-proveedor.component';
 import { ModalAnexo3RequerimientoComponent } from '../modal-anexo3/modal-anexo3.component';
+import { ModalDocumentoTecnicoComponent } from '../modal-documento-tecnico/modal-documento-tecnico.component';
 import { RequerimientoService } from '../../services/requerimiento.service';
 import { SessionService } from '../../../../core/services/session.service';
 import { ConfigService } from '../../../../core/services/config.service';
@@ -65,7 +66,8 @@ import {
     BreadcrumbComponent,
     FormPedidoComponent,
     FormProveedorComponent,
-    ModalAnexo3RequerimientoComponent
+    ModalAnexo3RequerimientoComponent,
+    ModalDocumentoTecnicoComponent
   ],
   templateUrl: './modal-registro.component.html',
   styleUrl: './modal-registro.component.scss',
@@ -223,7 +225,9 @@ export class ModalRegistroRequerimientoComponent {
    * se limita al punto observado: puede corregir datos generales, pedidos e
    * ítems, y por eso se reabre el formulario entero y no una parte.
    */
-  abrirEdicion(idRequerimiento: string): void {
+  private abrirEnDocumento = false;
+
+  abrirEdicion(idRequerimiento: string, irAlDocumento = false): void {
     const info = this.sesion.getInfoUsuario();
     const detalle = info?.detalle?.[0];
 
@@ -238,6 +242,7 @@ export class ModalRegistroRequerimientoComponent {
     this.cargo = info?.cargo || detalle?.perfil?.[0]?.perfil || '';
 
     this.limpiarFormulario();
+    this.abrirEnDocumento = irAlDocumento;
     this.pestanaTrabajo = 'anexo5';
     this.abierto = true;
 
@@ -275,7 +280,10 @@ export class ModalRegistroRequerimientoComponent {
         this.pedidos = this.pedidosDesdeDetalle(respuesta.Pedidos || []);
         this.items = this.itemsDesdeDetalle(respuesta.Items || []);
         this.aplicarDatosAdicionales(respuesta.DatosAdicionales);
-        this.pestanaTrabajo = 'anexo5';
+        this.pestanaTrabajo = this.abrirEnDocumento && this.codigoTipoContratacion !== 'LOCACION'
+          ? 'anexo3'
+          : 'anexo5';
+        this.abrirEnDocumento = false;
 
         this.cargarTope();
         this.cargarPedidosSiga();

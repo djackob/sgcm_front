@@ -127,7 +127,7 @@
 
             <td data-column-name="Estado actual">
               <span class="status-pill" [ngClass]="'status-pill--' + tonoEstado(item.CodigoEstado)">
-                {{ item.Estado }}
+                {{ etiquetaEstado(item) }}
               </span>
               <span class="cell-subtitle">{{ item.RolResponsable || '—' }}</span>
             </td>
@@ -155,7 +155,7 @@
                   [class.btn-accion--peligro]="esAccionDestructiva(transicion)"
                   [class.btn-accion--rotulo]="muestraRotuloAccion(transicion)"
                   *ngFor="let transicion of accionesDe(item)"
-                  [title]="tituloAccion(transicion)"
+                  [title]="tituloAccion(item, transicion)"
                   [attr.aria-label]="transicion.NombreAccion"
                   (click)="pedirConfirmacion(item, transicion)"
                 >
@@ -271,7 +271,7 @@
           <h2 class="modal-titulo">{{ accionEnCurso.transicion.NombreAccion }}</h2>
           <p class="modal-subtitulo">
             {{ accionEnCurso.requerimiento.Codigo }} ·
-            pasa a <b>{{ accionEnCurso.transicion.EstadoDestino }}</b>
+            pasa a <b>{{ etiquetaDestino(accionEnCurso.requerimiento, accionEnCurso.transicion) }}</b>
           </p>
         </div>
         <button type="button" class="modal-cerrar" title="Cerrar" (click)="cancelarAccion()">
@@ -281,7 +281,7 @@
 
       <div class="modal-cuerpo">
         <ul class="req-avisos">
-          <li *ngIf="accionEnCurso.transicion.RequiereFirma">
+          <li *ngIf="debeInvocarFirmaDigital">
             <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
             Esta acción registra la firma sobre {{ etiquetaDocumentoFirma }}.
           </li>
@@ -289,9 +289,13 @@
             <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
             La firma del especialista es opcional. Si este trámite no la exige, cancele y use «Derivar sin firmar».
           </li>
-          <li *ngIf="esDerivacionSinFirmaEspecialista">
+          <li *ngIf="esDerivacionSinFirmaEspecialista && esLocacionAccion">
             <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
             El expediente pasa al Coordinador sin el sello del especialista. La firma del Jefe del Área usuaria sigue siendo obligatoria.
+          </li>
+          <li *ngIf="esDerivacionSinFirmaEspecialista && !esLocacionAccion">
+            <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
+            El expediente pasa al Coordinador sin sello. El Jefe del Área usuaria lo remite a la Oficina de Administración.
           </li>
           <li *ngIf="debeInvocarFirmaDigital && secuenciaPendienteFirma.length > 1">
             <i class="mdi mdi-file-multiple-outline" aria-hidden="true"></i>
@@ -340,9 +344,13 @@
             <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
             Envía el expediente observado al Especialista AU para que corrija los documentos.
           </li>
-          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_FIRMAR_AU'">
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_FIRMAR_AU' && esLocacionAccion">
             <i class="mdi mdi-send-check-outline" aria-hidden="true"></i>
             La firma digital del Jefe del Área usuaria es obligatoria. Al confirmar, el expediente será enviado a la Oficina de Administración (área respectiva).
+          </li>
+          <li *ngIf="accionEnCurso.transicion.CodigoTransicion === 'REQ_FIRMAR_AU' && !esLocacionAccion">
+            <i class="mdi mdi-send-check-outline" aria-hidden="true"></i>
+            La firma digital del Jefe del Área usuaria es obligatoria sobre {{ etiquetaDocumentoFirma }}. Al confirmar, el expediente se envía a la Oficina de Administración.
           </li>
         </ul>
 
@@ -428,6 +436,30 @@
             <i class="mdi mdi-file-check-outline" aria-hidden="true"></i>
             Ver archivo firmado
           </a>
+        </div>
+
+        <div class="campo" *ngIf="esCambioOs">
+          <label class="campo-etiqueta">Archivo de la orden de servicio (PDF)</label>
+          <div class="campo-archivo">
+            <label class="campo-archivo__boton">
+              <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+              Elegir archivo
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                (change)="onArchivoOs($event)"
+                [disabled]="ejecutando"
+              />
+            </label>
+            <span
+              class="campo-archivo__nombre"
+              [class.campo-archivo__nombre--vacio]="!archivoOs"
+            >{{ archivoOs?.name || 'Sin archivo seleccionado' }}</span>
+          </div>
+          <p class="campo-ayuda">
+            Opcional. Si elige un PDF, reemplaza el generado por el sistema
+            antes de notificar. Si no elige ninguno, se notifica el archivo actual.
+          </p>
         </div>
 
         <div class="campo">

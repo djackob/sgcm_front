@@ -1,8 +1,8 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { forkJoin, of, throwError } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 
 import { RequerimientoService } from '../../services/requerimiento.service';
 import { DocumentoService } from '../../../../core/services/documento.service';
@@ -14,11 +14,13 @@ import { CARPETA_MEMO_CCP, CARPETA_EVAL_TDR, TIPO_EVAL_CUMPLIMIENTO_TDR, documen
 import { nombreProveedor, numeroDocumentoProveedor } from '../../models/requerimiento.model';
 import { CARPETA_ANEXO_5 } from '../../documentos/anexo5.pdfmake';
 import { CARPETA_ANEXO_3, TIPO_ANEXO_3 } from '../../documentos/anexo3.pdfmake';
+import { CARPETA_ORDEN_SERVICIO, TIPO_ORDEN_SERVICIO } from '../../documentos/orden-servicio.pdfmake';
 import {
   DOCUMENTO_TECNICO,
   HistorialRequerimiento,
   RequerimientoBandeja,
-  RequerimientoDetalle
+  RequerimientoDetalle,
+  etiquetaEstadoRequerimiento
 } from '../../models/requerimiento.model';
 
 /**
@@ -92,6 +94,8 @@ export class ModalDetalleRequerimientoComponent {
   guardandoFiltros = false;
   guardandoCcp = false;
   guardandoOs = false;
+  reemplazandoOs = false;
+  archivoOs: File | null = null;
   ccp = { NumeroCcp: '', FechaEmision: '', Observacion: '' };
   orden = { NumeroOrden: '' };
 
@@ -111,6 +115,8 @@ export class ModalDetalleRequerimientoComponent {
     this.filtros = [];
     this.ccp = { NumeroCcp: '', FechaEmision: '', Observacion: '' };
     this.orden = { NumeroOrden: '' };
+    this.archivoOs = null;
+    this.reemplazandoOs = false;
     this.puedeEditar = opciones.puedeEditar;
     this.abierto = true;
     this.cargando = true;
@@ -281,6 +287,14 @@ export class ModalDetalleRequerimientoComponent {
     return this.detalle?.CodigoTipoContratacion === 'LOCACION';
   }
 
+  get etiquetaEstado(): string {
+    return etiquetaEstadoRequerimiento(
+      this.detalle?.CodigoEstado,
+      this.detalle?.Estado,
+      this.detalle?.CodigoTipoContratacion
+    );
+  }
+
   get puedeEditarFiltros(): boolean {
     return false;
   }
@@ -294,6 +308,37 @@ export class ModalDetalleRequerimientoComponent {
       && (this.detalle?.CodigoEstado === 'REQ_CUADRO_GENERADO'
         || this.detalle?.CodigoEstado === 'REQ_OS_EMITIDA')
       && ['ABAST_ESPECIALISTA', 'ABAST_COORDINADOR', 'ABAST_JEFE'].includes(this.codigoRol);
+  }
+
+  /** PDF vigente de la orden. El generado por el asistente y el que lo reemplaza. */
+  get documentoOrden(): DocumentoExpediente | null {
+    return this.documentos.find(d => d.CodigoTipoDocumento === TIPO_ORDEN_SERVICIO) || null;
+  }
+
+  /**
+   * Mismo criterio que «Subir Anexo 4 firmado» del CMN: Abastecimiento cambia
+   * el PDF que generó el sistema por otro archivo. Solo cuando ya hay orden.
+   */
+  get puedeReemplazarOs(): boolean {
+    const id = this.documentoOrden?.GeneradoDocumento
+      || this.detalle?.OrdenServicio?.GeneradoDocumento;
+    return this.esLocacion
+      && !!id
+      && ['ABAST_ESPECIALISTA', 'ABAST_COORDINADOR', 'ABAST_JEFE'].includes(this.codigoRol);
+  }
+
+  get urlOrdenActual(): string {
+    const id = idDocumentoSistema(
+      this.documentoOrden?.GeneradoDocumento
+      || this.detalle?.OrdenServicio?.GeneradoDocumento
+    );
+    return id ? this.maestraService.urlDescarga(id, CARPETA_ORDEN_SERVICIO) : '';
+  }
+
+  get nombreOrdenActual(): string {
+    return this.documentoOrden?.NombreDocumento
+      || this.detalle?.OrdenServicio?.NombreDocumento
+      || 'PDF actual de la orden';
   }
 
   get muestraTramiteLocacion(): boolean {
@@ -466,6 +511,94 @@ export class ModalDetalleRequerimientoComponent {
       error: () => {
         this.guardandoCcp = false;
         this.funciones.mensaje('error', 'No fue posible registrar la CCP.');
+      }
+    });
+  }
+
+  onArchivoOs(evento: Event): void {
+    const input = evento.target as HTMLInputElement;
+    const archivo = input.files?.[0] || null;
+    if (archivo && !archivo.name.toLowerCase().endsWith('.pdf')) {
+      this.funciones.mensaje('info', 'El archivo de la orden debe ser PDF.');
+      input.value = '';
+      this.archivoOs = null;
+      return;
+    }
+    this.archivoOs = archivo;
+  }
+
+  /**
+   * Sustituye el PDF de la orden en el expediente y en requerimiento.OrdenServicio.
+   * paRegistrarDocumento reemplaza el borrador vigente; si ya estaba firmado,
+   * abre una versión nueva y anula la anterior.
+   */
+  reemplazarArchivoOs(): void {
+    if (!this.detalle || !this.archivoOs || this.reemplazandoOs) {
+      return;
+    }
+
+    const archivo = this.archivoOs;
+    const idExpediente = this.detalle.IdExpediente;
+    const idRequerimiento = this.detalle.IdRequerimiento;
+    this.reemplazandoOs = true;
+
+    this.documentoService.subirArchivo(archivo, CARPETA_ORDEN_SERVICIO).pipe(
+      switchMap((subida: any) => {
+        const documentoSistema = idDocumentoSistema(subida?.documento_sistema);
+        if (subida?.estado !== 1 || !documentoSistema) {
+          return throwError(() => ({
+            mensaje: subida?.mensaje || 'No fue posible subir el PDF de la orden.'
+          }));
+        }
+        const nombre = subida.documento_original || archivo.name;
+        return this.requerimientoService.registrarDocumento(
+          idExpediente,
+          TIPO_ORDEN_SERVICIO,
+          documentoSistema,
+          nombre,
+          { Origen: 'REEMPLAZO_OS' }
+        ).pipe(
+          switchMap((alta: any) => {
+            if (alta?.estado !== 1) {
+              return throwError(() => ({
+                mensaje: alta?.mensaje || 'No se reemplazó el documento de la orden.'
+              }));
+            }
+            return this.requerimientoService.registrarOrdenServicio(idRequerimiento, {
+              GeneradoDocumento: documentoSistema,
+              NombreDocumento: nombre
+            }).pipe(switchMap((orden: any) => {
+              if (orden?.estado !== 1) {
+                return throwError(() => ({
+                  mensaje: orden?.mensaje || 'El PDF se subió, pero no quedó ligado a la orden.'
+                }));
+              }
+              return of({ documentoSistema, nombre });
+            }));
+          })
+        );
+      })
+    ).subscribe({
+      next: ({ documentoSistema, nombre }) => {
+        this.reemplazandoOs = false;
+        this.archivoOs = null;
+        if (this.detalle?.OrdenServicio) {
+          this.detalle.OrdenServicio.GeneradoDocumento = documentoSistema;
+          this.detalle.OrdenServicio.NombreDocumento = nombre;
+        }
+        this.requerimientoService.listarDocumento(idExpediente).subscribe({
+          next: (respuesta: any) => {
+            this.documentos = documentosDelExpediente(respuesta);
+          }
+        });
+        this.funciones.mensaje('success', 'Se reemplazó el archivo de la orden de servicio.');
+      },
+      error: (err) => {
+        this.reemplazandoOs = false;
+        this.funciones.mensaje(
+          'error',
+          err?.mensaje || err?.message || 'No fue posible reemplazar el archivo de la orden.'
+        );
       }
     });
   }

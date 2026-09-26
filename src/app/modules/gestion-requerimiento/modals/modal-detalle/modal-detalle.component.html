@@ -25,7 +25,7 @@
 
           <!-- Estado -->
           <div class="det-estado">
-            <span class="status-pill status-pill--info">{{ detalle.Estado }}</span>
+            <span class="status-pill status-pill--info">{{ etiquetaEstado }}</span>
             <span class="cell-muted">
               versión {{ detalle.Version }} · responsable {{ detalle.Responsable }}
             </span>
@@ -176,6 +176,14 @@
                 (click)="emitirElaborarAnexo3()"
               >
                 {{ doc.registrado ? 'Editar TDR' : 'Elaborar TDR' }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-app-secundario btn-sm"
+                *ngIf="puedeEditar && (doc.codigo === 'REQ_EETT_BIEN' || doc.codigo === 'REQ_TDR_SERVICIO' || doc.codigo === 'REQ_TDR_CONSULTORIA') && (!doc.registrado || doc.registrado.Estado !== 'FIRMADO')"
+                (click)="emitirElaborarAnexo3()"
+              >
+                {{ doc.registrado ? 'Editar anexo' : 'Elaborar anexo' }}
               </button>
             </article>
           </div>
@@ -437,6 +445,47 @@
             >
               Guardar datos de notificación
             </button>
+
+            <div class="campo det-reemplazo-os" *ngIf="puedeReemplazarOs">
+              <label class="campo-etiqueta">Archivo de la orden de servicio (PDF)</label>
+              <p class="campo-ayuda">
+                <a
+                  *ngIf="urlOrdenActual"
+                  [href]="urlOrdenActual"
+                  target="_blank"
+                  rel="noopener"
+                >{{ nombreOrdenActual }}</a>
+              </p>
+              <div class="campo-archivo">
+                <label class="campo-archivo__boton">
+                  <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+                  Elegir archivo
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    (change)="onArchivoOs($event)"
+                    [disabled]="reemplazandoOs"
+                  />
+                </label>
+                <span
+                  class="campo-archivo__nombre"
+                  [class.campo-archivo__nombre--vacio]="!archivoOs"
+                >{{ archivoOs?.name || 'Sin archivo seleccionado' }}</span>
+              </div>
+              <p class="campo-ayuda">
+                Reemplaza el PDF generado por el sistema. Use el archivo oficial
+                de la orden, el mismo criterio del Anexo 4 firmado en el CMN.
+              </p>
+              <button
+                type="button"
+                class="btn btn-app-secundario btn-sm"
+                [disabled]="!archivoOs || reemplazandoOs"
+                (click)="reemplazarArchivoOs()"
+              >
+                <i class="mdi" [ngClass]="reemplazandoOs ? 'mdi-loading mdi-spin' : 'mdi-file-replace-outline'" aria-hidden="true"></i>
+                Reemplazar archivo
+              </button>
+            </div>
           </ng-container>
 
           <!-- Trazabilidad -->
