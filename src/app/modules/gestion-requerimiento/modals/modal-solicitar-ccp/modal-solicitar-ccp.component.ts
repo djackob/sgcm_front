@@ -17,6 +17,8 @@ import {
   TIPO_MEMO_CCP,
   construirTextoMemorando,
   documentoLocador,
+  evidenciasFiltro,
+  idsEvidencia,
   encabezadoMemorandoCcp,
   etiquetaAptitud,
   etiquetaCortaFiltro,
@@ -163,8 +165,15 @@ export class ModalSolicitarCcpComponent {
   }
 
   urlEvidencia(filtro: FiltroIdoneidadVista): string {
-    const id = idDocumentoSistema(filtro.GeneradoDocumentoEvidencia);
+    const id = idsEvidencia(filtro.GeneradoDocumentoEvidencia)[0];
     return id ? this.maestraService.urlDescarga(id, CARPETA_MEMO_CCP) : '';
+  }
+
+  listaEvidencias(filtro: FiltroIdoneidadVista): { id: string; nombre: string; url: string }[] {
+    return evidenciasFiltro(filtro).map(item => ({
+      ...item,
+      url: this.maestraService.urlDescarga(item.id, CARPETA_MEMO_CCP)
+    }));
   }
 
   actualizarMemorando(): void {

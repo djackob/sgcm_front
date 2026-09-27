@@ -5,7 +5,7 @@
         <div class="modal-cabecera-info">
           <h2 class="modal-titulo">{{ vistaReenvio ? 'Reenviar paquete al locador' : 'Respuesta del locador' }}</h2>
           <p class="modal-subtitulo" *ngIf="fila && !vistaReenvio">
-            {{ fila.Codigo }} · Anexos 6 y 7 firmados (plazo: 3 días hábiles)
+            {{ fila.Codigo }} · Anexos 6 y 7 y CV (plazo: 3 días hábiles)
           </p>
           <p class="modal-subtitulo" *ngIf="fila && vistaReenvio">
             {{ fila.Codigo }} · El correo se envía al locador del Anexo 5
@@ -39,8 +39,8 @@
       <div class="modal-cuerpo" *ngIf="!vistaReenvio">
         <p class="ccp-ayuda">
           En locación la indagación es uno a uno: el locador del Anexo 5 devuelve
-          la cotización (Anexo 6, monto a dos decimales y CCI) y la declaración
-          jurada de prohibiciones (Anexo 7). Recién con ambos firmados se inician
+          la cotización (Anexo 6, monto a dos decimales y CCI), la declaración
+          jurada de prohibiciones (Anexo 7) y el CV. Con esos tres archivos se inician
           los filtros de idoneidad y la CCP.
         </p>
 
@@ -106,6 +106,39 @@
                 {{ subiendo === 'anexo7' ? 'Subiendo…' : 'Examinar' }}
               </button>
               <input #input7 type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden (change)="onSeleccionado('anexo7', $event)" />
+            </ng-template>
+          </div>
+        </div>
+
+        <div class="ccp-upload">
+          <p class="ccp-upload__titulo">3. CV del locador</p>
+          <div
+            class="ccp-upload__zona"
+            [class.ccp-upload__zona--activa]="arrastrando === 'cv'"
+            (dragover)="onDragOver('cv', $event)"
+            (dragleave)="onDragLeave('cv', $event)"
+            (drop)="onDrop('cv', $event)"
+          >
+            <ng-container *ngIf="archivoCv; else vacioCv">
+              <span class="ccp-upload__archivo">
+                <i class="mdi mdi-file-account-outline" aria-hidden="true"></i>
+                <a [href]="urlDescarga(archivoCv)" target="_blank" rel="noopener">{{ archivoCv.nombreOriginal }}</a>
+              </span>
+              <button type="button" class="btn btn-link btn-sm" (click)="quitar('cv')" [disabled]="procesando">
+                Eliminar
+              </button>
+            </ng-container>
+            <ng-template #vacioCv>
+              <span>Arrastre o examine el CV (PDF o Word)</span>
+              <button
+                type="button"
+                class="btn btn-app-secundario btn-sm"
+                (click)="examinar('cv', inputCv)"
+                [disabled]="procesando || subiendo === 'cv'"
+              >
+                {{ subiendo === 'cv' ? 'Subiendo…' : 'Examinar' }}
+              </button>
+              <input #inputCv type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden (change)="onSeleccionado('cv', $event)" />
             </ng-template>
           </div>
         </div>

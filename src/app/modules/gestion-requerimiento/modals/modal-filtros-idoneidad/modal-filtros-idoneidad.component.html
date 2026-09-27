@@ -233,7 +233,13 @@
                   </td>
                   <td>
                     <div class="fid-evidencia">
-                      <a *ngIf="urlEvidencia(filtro)" [href]="urlEvidencia(filtro)" target="_blank" rel="noopener">
+                      <ul class="fid-archivos" *ngIf="admiteVarios(filtro) && listaEvidencias(filtro).length">
+                        <li *ngFor="let archivo of listaEvidencias(filtro)">
+                          <a [href]="archivo.url" target="_blank" rel="noopener">{{ archivo.nombre }}</a>
+                          <button type="button" class="btn btn-link btn-sm" (click)="quitarEvidencia(filtro, archivo.id)">Quitar</button>
+                        </li>
+                      </ul>
+                      <a *ngIf="!admiteVarios(filtro) && urlEvidencia(filtro)" [href]="urlEvidencia(filtro)" target="_blank" rel="noopener">
                         {{ filtro.NombreDocumentoEvidencia || 'Ver PDF de consulta' }}
                       </a>
                       <label
@@ -243,9 +249,15 @@
                         (dragleave)="onDragLeave()"
                         (drop)="onDrop(filtro, $event)"
                       >
-                        <input type="file" accept="application/pdf,.pdf" (change)="onFile(filtro, $event)" />
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          [attr.multiple]="admiteVarios(filtro) ? '' : null"
+                          (change)="onFile(filtro, $event)"
+                        />
                         <span *ngIf="subiendoCodigo === filtro.CodigoFiltro">Subiendo…</span>
-                        <span *ngIf="subiendoCodigo !== filtro.CodigoFiltro">
+                        <span *ngIf="subiendoCodigo !== filtro.CodigoFiltro && admiteVarios(filtro)">Agregar PDF</span>
+                        <span *ngIf="subiendoCodigo !== filtro.CodigoFiltro && !admiteVarios(filtro)">
                           {{ filtro.NombreDocumentoEvidencia ? 'Reemplazar PDF' : 'Arrastrar archivo PDF' }}
                         </span>
                       </label>
@@ -296,25 +308,15 @@
         <button
           type="button"
           class="btn btn-app-primary"
-          *ngIf="esEtapaEspecialista"
-          [disabled]="!puedeEnviarCoordinador || guardando"
-          (click)="enviarAlCoordinador()"
-        >
-          <i class="mdi mdi-loading mdi-spin" *ngIf="enviandoCoordinador" aria-hidden="true"></i>
-          Enviar al coordinador
-        </button>
-        <span class="modal-footer__info" *ngIf="esEtapaEspecialista && !puedeEnviarCoordinador && !hayImpedimento">
-          Complete SUNAT, RNP, la matriz y la evaluación TDR para enviar al coordinador.
-        </span>
-        <button
-          type="button"
-          class="btn btn-app-primary"
-          *ngIf="esRevisionJefe"
+          *ngIf="esEtapaEspecialista || esRevisionJefe"
           [disabled]="!puedeConfirmarCcp"
           (click)="irACcp()"
         >
           Confirmar idoneidad y solicitar CCP
         </button>
+        <span class="modal-footer__info" *ngIf="esEtapaEspecialista && !puedeConfirmarCcp && !hayImpedimento">
+          Complete SUNAT, RNP, la matriz y la evaluación TDR para confirmar la idoneidad.
+        </span>
       </div>
     </div>
   </div>

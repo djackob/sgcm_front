@@ -302,6 +302,18 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   /* Bandeja                                                                */
   /* ---------------------------------------------------------------------- */
 
+  /** Del más antiguo al más reciente, y por código si se registraron juntos. */
+  private ordenarCronologico(filas: RequerimientoBandeja[]): RequerimientoBandeja[] {
+    return [...(filas || [])].sort((a, b) => {
+      const fa = String(a.CreadoEn || '');
+      const fb = String(b.CreadoEn || '');
+      if (fa !== fb) {
+        return fa < fb ? -1 : 1;
+      }
+      return String(a.Codigo || '').localeCompare(String(b.Codigo || ''));
+    });
+  }
+
   cargarBandeja(): void {
     this.cargando = true;
 
@@ -323,7 +335,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
           return;
         }
 
-        this.requerimientos = respuesta.Requerimientos || [];
+        this.requerimientos = this.ordenarCronologico(respuesta.Requerimientos || []);
         this.total = respuesta.total || 0;
         this.acciones = {};
         for (const r of this.requerimientos) {
@@ -350,6 +362,10 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
       .filter(t =>
         t.CodigoTransicion !== 'REQ_REMITIR_DAI'
         && t.CodigoTransicion !== 'REQ_SUBSANAR'
+        && t.CodigoTransicion !== 'REQ_ENVIAR_FILTROS_COORD'
+        && t.CodigoTransicion !== 'REQ_ENVIAR_FILTROS_JEFE'
+        && t.CodigoTransicion !== 'REQ_DEVOLVER_FILTROS_COORD'
+        && t.CodigoTransicion !== 'REQ_DEVOLVER_FILTROS_JEFE'
         && (t.CodigoTransicion !== 'REQ_REGISTRAR_CCP'
           || this.codigoRol === 'ABAST_ESPECIALISTA')
         && (t.CodigoTransicion !== 'REQ_EMITIR_OS'

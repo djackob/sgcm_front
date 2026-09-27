@@ -13,6 +13,7 @@ import { DocumentoService } from '../../core/services/documento.service';
 import { FirmaDigitalService } from '../../core/services/firma-digital.service';
 import { MaestraService } from '../../shared/services/maestra.service';
 import { Funciones } from '../../shared/funciones/funciones';
+import { imprimirHistorialExpediente } from '../../shared/funciones/imprimir-trazabilidad';
 import { idDocumentoSistema } from '../../shared/funciones/archivo';
 import {
   CARPETA_MODIFICACION, ContratoElegible, SolicitudBandeja, SolicitudDetalle, TipoSolicitud,
@@ -510,6 +511,10 @@ export class GestionModificacionComponent implements OnInit {
   }
 
   /* ------------------------------------------------------------- trazabilidad */
+
+  imprimirHistorial(): void {
+    imprimirHistorialExpediente(`Trazabilidad · ${this.trazaTitulo || 'modificación'}`, this.historial);
+  }
 
   verTrazabilidad(idExpediente: string, titulo: string): void {
     this.trazaTitulo = titulo;

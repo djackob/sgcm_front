@@ -13,6 +13,7 @@ import { DocumentoService } from '../../core/services/documento.service';
 import { MaestraService } from '../../shared/services/maestra.service';
 import { Funciones } from '../../shared/funciones/funciones';
 import { idDocumentoSistema } from '../../shared/funciones/archivo';
+import { imprimirHistorialExpediente } from '../../shared/funciones/imprimir-trazabilidad';
 import {
   CARPETA_EJECUCION,
   ContratoBandeja,
@@ -651,6 +652,10 @@ export class GestionEjecucionComponent implements OnInit {
   }
 
   /* ------------------------------------------------------------- trazabilidad */
+
+  imprimirHistorial(): void {
+    imprimirHistorialExpediente(`Trazabilidad · ${this.trazaTitulo || 'ejecución'}`, this.historial);
+  }
 
   verTrazabilidad(idExpediente: string, titulo: string): void {
     this.trazaTitulo = titulo;

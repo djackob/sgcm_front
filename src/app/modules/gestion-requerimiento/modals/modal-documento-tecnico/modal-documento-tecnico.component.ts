@@ -7,6 +7,7 @@ import { DocumentoService } from '../../../../core/services/documento.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import { idDocumentoSistema } from '../../../../shared/funciones/archivo';
 import { PedidoRequerimiento, RequerimientoDetalle } from '../../models/requerimiento.model';
+import { PENALIDAD_INTRO, PENALIDAD_MORA_CIERRE, PENALIDAD_MORA_TEXTO } from '../../documentos/anexo3-tdr.plantilla';
 import {
   CARPETA_DOCUMENTO_TECNICO,
   DocumentoTecnicoFormulario,
@@ -17,6 +18,7 @@ import {
   metaDocumentoTecnico,
   nombreArchivoDocumentoTecnico
 } from '../../documentos/documento-tecnico';
+import { filaOtraPenalidadVacia, normalizarFilasPenalidad } from '../../documentos/penalidad';
 
 @Component({
   selector: 'app-modal-documento-tecnico',
@@ -37,6 +39,7 @@ export class ModalDocumentoTecnicoComponent implements OnChanges {
   detalle: RequerimientoDetalle | null = null;
   pedidos: PedidoRequerimiento[] = [];
   formulario: DocumentoTecnicoFormulario = crearDocumentoTecnico();
+  readonly penalidadMora = `${PENALIDAD_INTRO}\n\n${PENALIDAD_MORA_TEXTO}\n\nPenalidad diaria = (0.10 × monto) / (0.40 × plazo)\n\n${PENALIDAD_MORA_CIERRE}`;
 
   constructor(
     private requerimientoService: RequerimientoService,
@@ -121,6 +124,7 @@ export class ModalDocumentoTecnicoComponent implements OnChanges {
       return;
     }
 
+    this.formulario.OtrasPenalidades = normalizarFilasPenalidad(this.formulario.OtrasPenalidades);
     this.guardando = true;
     const definicion = construirDocumentoTecnico(this.detalle, this.formulario, this.pedidos);
     const nombre = nombreArchivoDocumentoTecnico(this.detalle, meta.anexo);
@@ -164,8 +168,19 @@ export class ModalDocumentoTecnicoComponent implements OnChanges {
     });
   }
 
+  agregarPenalidad(): void {
+    this.formulario.OtrasPenalidades = [
+      ...(this.formulario.OtrasPenalidades || []),
+      filaOtraPenalidadVacia()
+    ];
+  }
+
+  quitarPenalidad(indice: number): void {
+    this.formulario.OtrasPenalidades = (this.formulario.OtrasPenalidades || []).filter((_, i) => i !== indice);
+  }
+
   private primerVacio(): string {
-    const campos: { clave: keyof DocumentoTecnicoFormulario; nombre: string }[] = [
+    const campos: { clave: Exclude<keyof DocumentoTecnicoFormulario, 'OtrasPenalidades'>; nombre: string }[] = [
       { clave: 'Finalidad', nombre: 'la finalidad' },
       { clave: 'Descripcion', nombre: 'la descripción técnica' },
       { clave: 'Lugar', nombre: 'el lugar de entrega o prestación' },

@@ -1,0 +1,219 @@
+<div class="dash">
+  <header class="dash__cabecera">
+    <div>
+      <h1 class="dash__titulo">Dashboard de especialistas</h1>
+      <p class="dash__bajada">
+        Seguimiento de las actividades de los especialistas de Abastecimiento y de su efectividad.
+      </p>
+    </div>
+    <form class="dash__filtros" (ngSubmit)="cargar()">
+      <label>
+        <span>Desde</span>
+        <input type="date" class="campo-control" [(ngModel)]="fechaDesde" name="fechaDesde" />
+      </label>
+      <label>
+        <span>Hasta</span>
+        <input type="date" class="campo-control" [(ngModel)]="fechaHasta" name="fechaHasta" />
+      </label>
+      <label>
+        <span>Módulo</span>
+        <select class="campo-control" [(ngModel)]="codigoModulo" name="codigoModulo">
+          <option value="">Todos</option>
+          <option *ngFor="let m of modulos" [value]="m.CodigoModulo">{{ m.Nombre }}</option>
+        </select>
+      </label>
+      <button type="submit" class="btn btn-app-primary" [disabled]="cargando">
+        <i class="mdi" [ngClass]="cargando ? 'mdi-loading mdi-spin' : 'mdi-magnify'" aria-hidden="true"></i>
+        Consultar
+      </button>
+    </form>
+  </header>
+
+  <div class="dash__error" *ngIf="error">
+    <i class="mdi mdi-alert-outline" aria-hidden="true"></i> {{ error }}
+  </div>
+
+  <ng-container *ngIf="totales && !error">
+    <section class="dash__kpis">
+      <article class="kpi">
+        <span class="kpi__etiqueta">Especialistas</span>
+        <span class="kpi__valor">{{ totales.Especialistas }}</span>
+      </article>
+      <article class="kpi">
+        <span class="kpi__etiqueta">Expedientes atendidos</span>
+        <span class="kpi__valor">{{ totales.Atendidos }}</span>
+        <span class="kpi__nota">{{ totales.Acciones }} acciones</span>
+      </article>
+      <article class="kpi">
+        <span class="kpi__etiqueta">Despachados</span>
+        <span class="kpi__valor kpi__valor--ok">{{ totales.Despachados }}</span>
+      </article>
+      <article class="kpi">
+        <span class="kpi__etiqueta">Pendientes</span>
+        <span class="kpi__valor kpi__valor--alerta">{{ totales.Pendientes }}</span>
+        <span class="kpi__nota" *ngIf="totales.SinAsignar">{{ totales.SinAsignar }} sin asignar</span>
+      </article>
+      <article class="kpi">
+        <span class="kpi__etiqueta">Devoluciones</span>
+        <span class="kpi__valor kpi__valor--error">{{ totales.Devoluciones }}</span>
+      </article>
+      <article class="kpi">
+        <span class="kpi__etiqueta">Tiempo promedio</span>
+        <span class="kpi__valor">{{ tiempoVisible(totales.HorasPromedio) }}</span>
+      </article>
+      <article class="kpi">
+        <span class="kpi__etiqueta">Efectividad</span>
+        <span class="kpi__valor" [ngClass]="claseEfectividad(totales.Efectividad)">
+          {{ porcentaje(totales.Efectividad) }}
+        </span>
+      </article>
+    </section>
+
+    <section class="dash__panel">
+      <div class="dash__panel-cabecera">
+        <h2>Gráfico por especialista</h2>
+        <div class="dash__metricas" role="tablist">
+          <button type="button" [class.activo]="metrica === 'EFECTIVIDAD'" (click)="metrica = 'EFECTIVIDAD'">Efectividad</button>
+          <button type="button" [class.activo]="metrica === 'CARGA'" (click)="metrica = 'CARGA'">Despachados y pendientes</button>
+          <button type="button" [class.activo]="metrica === 'TIEMPO'" (click)="metrica = 'TIEMPO'">Tiempo promedio</button>
+        </div>
+      </div>
+
+      <p class="dash__vacio" *ngIf="!especialistas.length">No hay especialistas con actividad en el periodo.</p>
+
+      <div class="grafico" *ngIf="especialistas.length">
+        <div class="grafico__fila" *ngFor="let e of barras" (click)="seleccionar(e)"
+             [class.grafico__fila--sel]="seleccionado?.IdUsuario === e.IdUsuario">
+          <span class="grafico__nombre" [title]="e.Nombre">{{ e.Nombre }}</span>
+
+          <div class="grafico__pista" *ngIf="metrica === 'EFECTIVIDAD'">
+            <div class="grafico__barra" [ngClass]="claseEfectividad(e.Efectividad)"
+                 [style.width.%]="e.Efectividad ?? 0"></div>
+          </div>
+          <span class="grafico__valor" *ngIf="metrica === 'EFECTIVIDAD'">{{ porcentaje(e.Efectividad) }}</span>
+
+          <div class="grafico__pista" *ngIf="metrica === 'CARGA'">
+            <div class="grafico__barra grafico__barra--ok" [style.width.%]="anchoCarga(e.Despachados)"
+                 [title]="e.Despachados + ' despachados'"></div>
+            <div class="grafico__barra grafico__barra--alerta" [style.width.%]="anchoCarga(e.Pendientes)"
+                 [title]="e.Pendientes + ' pendientes'"></div>
+          </div>
+          <span class="grafico__valor" *ngIf="metrica === 'CARGA'">{{ e.Despachados }} / {{ e.Pendientes }}</span>
+
+          <div class="grafico__pista" *ngIf="metrica === 'TIEMPO'">
+            <div class="grafico__barra grafico__barra--tiempo" [style.width.%]="anchoTiempo(e.HorasPromedio)"></div>
+          </div>
+          <span class="grafico__valor" *ngIf="metrica === 'TIEMPO'">{{ tiempoVisible(e.HorasPromedio) }}</span>
+        </div>
+
+        <div class="grafico__leyenda" *ngIf="metrica === 'EFECTIVIDAD'">
+          <span><i class="punto nivel--alto"></i> 80 % o más</span>
+          <span><i class="punto nivel--medio"></i> 50 % a 79 %</span>
+          <span><i class="punto nivel--bajo"></i> menos de 50 %</span>
+        </div>
+        <div class="grafico__leyenda" *ngIf="metrica === 'CARGA'">
+          <span><i class="punto grafico__barra--ok"></i> Despachados</span>
+          <span><i class="punto grafico__barra--alerta"></i> Pendientes</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="dash__panel">
+      <div class="dash__panel-cabecera">
+        <h2>Cuadro de seguimiento</h2>
+        <span class="dash__ayuda">Haga clic en un especialista para ver sus pendientes.</span>
+      </div>
+
+      <div class="tabla-scroll">
+        <table class="table scm-table">
+          <thead>
+            <tr>
+              <th (click)="ordenar('Nombre')">Especialista <i class="mdi" [ngClass]="iconoOrden('Nombre')"></i></th>
+              <th class="num" (click)="ordenar('Acciones')">Acciones <i class="mdi" [ngClass]="iconoOrden('Acciones')"></i></th>
+              <th class="num" (click)="ordenar('Atendidos')">Atendidos <i class="mdi" [ngClass]="iconoOrden('Atendidos')"></i></th>
+              <th class="num" (click)="ordenar('Despachados')">Despachados <i class="mdi" [ngClass]="iconoOrden('Despachados')"></i></th>
+              <th class="num" (click)="ordenar('Pendientes')">Pendientes <i class="mdi" [ngClass]="iconoOrden('Pendientes')"></i></th>
+              <th class="num" (click)="ordenar('Devoluciones')">Devoluciones <i class="mdi" [ngClass]="iconoOrden('Devoluciones')"></i></th>
+              <th class="num" (click)="ordenar('HorasPromedio')">Tiempo prom. <i class="mdi" [ngClass]="iconoOrden('HorasPromedio')"></i></th>
+              <th class="num" (click)="ordenar('DiasMaxEspera')">Máx. espera <i class="mdi" [ngClass]="iconoOrden('DiasMaxEspera')"></i></th>
+              <th class="num" (click)="ordenar('Efectividad')">Efectividad <i class="mdi" [ngClass]="iconoOrden('Efectividad')"></i></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let e of especialistas" (click)="seleccionar(e)"
+                [class.fila--sel]="seleccionado?.IdUsuario === e.IdUsuario">
+              <td>
+                <strong>{{ e.Nombre }}</strong>
+                <span class="celda-sub">{{ e.Cuenta }}</span>
+              </td>
+              <td class="num">{{ e.Acciones }}</td>
+              <td class="num">{{ e.Atendidos }}</td>
+              <td class="num">{{ e.Despachados }}</td>
+              <td class="num">{{ e.Pendientes }}</td>
+              <td class="num">{{ e.Devoluciones }}</td>
+              <td class="num">{{ tiempoVisible(e.HorasPromedio) }}</td>
+              <td class="num">{{ e.DiasMaxEspera != null ? e.DiasMaxEspera + ' d' : '—' }}</td>
+              <td class="num">
+                <span class="insignia" [ngClass]="claseEfectividad(e.Efectividad)">{{ porcentaje(e.Efectividad) }}</span>
+              </td>
+            </tr>
+            <tr *ngIf="!especialistas.length">
+              <td colspan="9" class="dash__vacio">Sin datos para el periodo.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="dash__formula">
+        Efectividad = (despachados − devoluciones) ÷ (despachados + pendientes).
+        Tiempo promedio: desde que el expediente llega hasta la acción del especialista.
+      </p>
+    </section>
+
+    <section class="dash__panel">
+      <div class="dash__panel-cabecera">
+        <h2>
+          Expedientes pendientes
+          <small *ngIf="seleccionado">· {{ seleccionado.Nombre }}</small>
+        </h2>
+        <button type="button" class="btn btn-link btn-sm" *ngIf="seleccionado" (click)="seleccionado = null">Ver todos</button>
+      </div>
+
+      <div class="tabla-scroll">
+        <table class="table scm-table">
+          <thead>
+            <tr>
+              <th>Expediente</th>
+              <th>Módulo</th>
+              <th>Estado</th>
+              <th>Especialista</th>
+              <th>Desde</th>
+              <th class="num">Días en espera</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of pendientesVisibles">
+              <td>{{ p.Codigo }}</td>
+              <td>{{ p.Modulo }}</td>
+              <td>{{ p.Estado }}</td>
+              <td>{{ nombreDe(p.IdUsuario) }}</td>
+              <td>{{ p.DesdeEl | date: 'dd/MM/yyyy' }}</td>
+              <td class="num">
+                <span class="insignia" [ngClass]="p.DiasEspera > 5 ? 'nivel--bajo' : p.DiasEspera > 2 ? 'nivel--medio' : 'nivel--alto'">
+                  {{ p.DiasEspera }}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="!pendientesVisibles.length">
+              <td colspan="6" class="dash__vacio">No hay expedientes pendientes.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </ng-container>
+
+  <div class="dash__estado" *ngIf="cargando && !totales">
+    <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando…
+  </div>
+</div>

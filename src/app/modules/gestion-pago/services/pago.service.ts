@@ -37,6 +37,12 @@ export class PagoService {
     });
   }
 
+  otorgarVistoBueno(idExpediente: string, version: number): Observable<any> {
+    return this.api.POST('api/pago/otorgarVistoBueno', {
+      IdExpediente: idExpediente, Version: version
+    });
+  }
+
   aprobarConformidadTecnica(idExpediente: string, version: number, retrasoJustificado = false): Observable<any> {
     return this.api.POST('api/pago/aprobarConformidadTecnica', {
       IdExpediente: idExpediente, Version: version, RetrasoJustificado: retrasoJustificado

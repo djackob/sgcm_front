@@ -207,10 +207,9 @@
                   maxlength="500"
                   [(ngModel)]="denominacion"
                   (ngModelChange)="limpiarErrorCampo('denominacion')"
-                  [readonly]="denominacionBloqueada"
                 ></textarea>
-                <p class="req-nota" *ngIf="denominacionBloqueada">
-                  Multimeta: la denominación de la contratación es única en cabecera; la ruta presupuestaria (actividad, meta, fuente y clasificador) se desglosa por cada pedido SIGA.
+                <p class="req-nota">
+                  Nombre del expediente. En el Anexo 5 cada proveedor lleva su propia denominación, su plazo y sus pedidos.
                 </p>
                 <p class="req-campo-error" *ngIf="errorCampo['denominacion']">{{ errorCampo['denominacion'] }}</p>
               </div>

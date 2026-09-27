@@ -3,6 +3,7 @@ import {
   RequerimientoDetalle
 } from '../models/requerimiento.model';
 import { extraDatosAdicionales } from './anexo5.pdfmake';
+import { tablaOtrasPenalidades } from './penalidad';
 import {
   ACREDITACION_ESTUDIOS,
   ANTICORRUPCION,
@@ -152,8 +153,8 @@ export function construirAnexo3Tdr(
       seccion('8.', 'CONFORMIDAD DE LA PRESTACIÓN (Obligatorio)', []),
       subseccion('8.1.', 'Área usuaria que emite la conformidad:', [
         cuerpo(unidadConformidad),
-        cuerpo(CONFORMIDAD_FIJA),
-        ...parrafosInformePrevioConformidad(tdr).map(p => cuerpo(p))
+        ...parrafosInformePrevioConformidad(tdr).map(p => cuerpo(p)),
+        cuerpo(CONFORMIDAD_FIJA)
       ]),
 
       seccion('9.', 'FORMA DE PAGO (Obligatorio)', [
@@ -184,7 +185,7 @@ export function construirAnexo3Tdr(
       ]),
 
       seccion('12.', 'Otras Penalidades (De corresponder)', [
-        cuerpo(tdr.OtrasPenalidades || '')
+        tablaOtrasPenalidades(tdr.OtrasPenalidadesFilas || []) || cuerpo(tdr.OtrasPenalidades || '')
       ]),
 
       seccion('13.', 'OTRAS CONSIDERACIONES PARA LA EJECUCIÓN DE LA PRESTACIÓN (Obligatorio)', []),
@@ -323,63 +324,28 @@ function tablaCabecera(
   tdr: TdrLocacion
 ): any {
   const primero = pedidos[0];
-  const numeros = pedidos.map(p => p.NumeroPedido).filter(Boolean).join(' / ');
+  const numeros = pedidos.map(p => p.NumeroPedido).filter(Boolean).join(', ');
   const unidad = [detalle?.CentroCostoNombre, detalle?.CentroCosto]
     .filter(Boolean)
     .join(' — ');
-  const multimeta = pedidos.length > 1;
 
+  /* Mismo orden que el TDR en papel: pedidos, fecha, unidad, y por cada
+     pedido la actividad (con su CUI) y la meta. La denominación cierra. */
   const cuerpo: any[][] = [
     filaCabecera('N° DE PEDIDO DE SERVICIO:', numeros),
-    filaCabecera('Fecha', fechaGuion(primero?.FechaPedido)),
-    filaCabecera('Unidad de Organización', unidad),
-    filaCabecera('Denominación de la contratación', detalle?.Denominacion || ''),
+    filaCabecera('Fecha', fechaLarga(primero?.FechaPedido)),
+    filaCabecera('Unidad de Organización', unidad)
   ];
+
+  for (const p of pedidos) {
+    cuerpo.push(filaCabecera('Actividad Operativa', actividadConCui(p)));
+    cuerpo.push(filaCabecera('Meta Presupuestaria', p.MetaPresupuestaria || '—'));
+  }
+
+  cuerpo.push(filaCabecera('Denominación de la contratación', detalle?.Denominacion || ''));
 
   if (tdr?.NombreProyecto) {
     cuerpo.push(filaCabecera('Nombre del proyecto', tdr.NombreProyecto));
-  }
-
-  /* Ruta presupuestaria explícita (directiva enriquecida). Multimeta: una
-     fila por pedido; un solo pedido: los 4 datos + ítem/CUI en cabecera. */
-  cuerpo.push([
-    {
-      text: multimeta
-        ? 'Ruta presupuestaria (por pedido SIGA)'
-        : 'Ruta presupuestaria',
-      style: 'cabeceraEtiqueta',
-      colSpan: 2,
-      fillColor: '#EEEEEE'
-    },
-    {}
-  ]);
-
-  if (multimeta) {
-    for (const p of pedidos) {
-      const nro = p.NumeroPedido || '—';
-      cuerpo.push(filaCabecera(
-        `Pedido ${nro}`,
-        [
-          `Actividad Operativa: ${p.ActividadOperativa || '—'}`,
-          `Meta Presupuestaria: ${p.MetaPresupuestaria || '—'}`,
-          `Fuente de Financiamiento: ${p.FuenteFinanc || '—'}`,
-          `Clasificador de Gasto: ${p.Clasificador || '—'}`,
-          p.CodigoItemPedido ? `Ítem: ${p.CodigoItemPedido}` : '',
-          p.ProdPy ? `CUI: ${p.ProdPy}` : ''
-        ].filter(Boolean).join('\n')
-      ));
-    }
-  } else {
-    cuerpo.push(filaCabecera('Actividad Operativa', primero?.ActividadOperativa || ''));
-    cuerpo.push(filaCabecera('Meta Presupuestaria', primero?.MetaPresupuestaria || ''));
-    cuerpo.push(filaCabecera('Fuente de Financiamiento', primero?.FuenteFinanc || ''));
-    cuerpo.push(filaCabecera('Clasificador de Gasto', primero?.Clasificador || ''));
-    if (primero?.CodigoItemPedido) {
-      cuerpo.push(filaCabecera('Código del Ítem del Pedido', primero.CodigoItemPedido));
-    }
-    if (primero?.ProdPy) {
-      cuerpo.push(filaCabecera('Código Único de Inversión / CUI', primero.ProdPy));
-    }
   }
 
   return {
@@ -668,16 +634,33 @@ function limpiarEjemplo(texto: string): string {
   return (texto || '').replace(/^Ejemplo:\s*/i, '').trim();
 }
 
-function fechaGuion(valor: string | null | undefined): string {
+function actividadConCui(pedido: PedidoFormularioRequerimiento): string {
+  const actividad = (pedido?.ActividadOperativa || '').trim();
+  const cui = (pedido?.ProdPy || '').trim();
+  if (!actividad) {
+    return cui ? `CUI ${cui}` : '—';
+  }
+  if (!cui || actividad.includes(cui)) {
+    return actividad;
+  }
+  return `${actividad} DEL CUI ${cui}`;
+}
+
+function fechaLarga(valor: string | null | undefined): string {
   if (!valor) {
     return '';
   }
-  const d = new Date(valor);
+  const meses = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ];
+  const iso = String(valor).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const d = iso
+    ? new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
+    : new Date(valor);
   if (Number.isNaN(d.getTime())) {
-    const m = String(valor).match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m ? `${m[3]}-${m[2]}-${m[1]}` : String(valor);
+    return String(valor);
   }
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}-${mm}-${d.getFullYear()}`;
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${dia} de ${meses[d.getMonth()]} de ${d.getFullYear()}`;
 }

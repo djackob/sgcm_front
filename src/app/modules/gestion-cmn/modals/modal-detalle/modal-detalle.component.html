@@ -110,6 +110,18 @@
                 name="justificacionDetalle"
                 placeholder="Explique por qué la necesidad no admite el calendario ordinario."
               ></textarea>
+              <div class="campo" *ngIf="cambioAExtraordinaria">
+                <label class="campo-etiqueta" for="archivoCambioTipo">
+                  Archivo de cambio<span class="campo-req" aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="archivoCambioTipo"
+                  type="file"
+                  class="campo-control"
+                  (change)="elegirArchivoCambio($event)"
+                />
+                <p class="campo-ayuda" *ngIf="archivoCambio"><b>{{ archivoCambio.name }}</b></p>
+              </div>
             </ng-container>
             <div class="detalle-tipo-acciones">
               <button
@@ -232,7 +244,13 @@
         <!-- Trazabilidad -->
         <ng-container *ngIf="!cargando && pestana === 'trazabilidad'">
           <section class="seccion">
-            <h3 class="contenido-titulo">Historial</h3>
+            <h3 class="contenido-titulo">
+              Historial
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="imprimirHistorial()">
+                <i class="mdi mdi-printer" aria-hidden="true"></i>
+                Imprimir
+              </button>
+            </h3>
             <p class="contenido-subtitulo">
               Se muestran los hitos de firma y aprobación. Las derivaciones internas
               de Abastecimiento se omiten para evitar confusiones.

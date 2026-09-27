@@ -21,6 +21,9 @@ import {
   correoLocadorValido,
   documentoLocador,
   documentosDelExpediente,
+  evidenciasFiltro,
+  guardarEvidencias,
+  idsEvidencia,
   esFiltroMatriz,
   etiquetaMatrizFiltro,
   etiquetaPid as textoResultadoPid,
@@ -204,7 +207,7 @@ export class ModalFiltrosIdoneidadComponent {
   get matrizCompleta(): boolean {
     const matriz = this.filtrosMatriz;
     return matriz.length === FILTROS_MATRIZ.length
-      && matriz.every(f => f.Resultado === 'CONFORME' && !!idDocumentoSistema(f.GeneradoDocumentoEvidencia));
+      && matriz.every(f => f.Resultado === 'CONFORME' && idsEvidencia(f.GeneradoDocumentoEvidencia).length > 0);
   }
 
   get hayImpedimento(): boolean {
@@ -212,7 +215,7 @@ export class ModalFiltrosIdoneidadComponent {
   }
 
   get puedeConfirmarCcp(): boolean {
-    return this.esRevisionJefe
+    return (this.esEtapaEspecialista || this.esRevisionJefe)
       && this.sunatOk && this.rnpOk && this.matrizCompleta && this.evalTdrOk
       && !this.hayImpedimento
       && !this.guardando && !this.observando;
@@ -378,8 +381,23 @@ export class ModalFiltrosIdoneidadComponent {
   }
 
   urlEvidencia(filtro?: FiltroIdoneidadVista): string {
-    const id = idDocumentoSistema(filtro?.GeneradoDocumentoEvidencia);
+    const id = idsEvidencia(filtro?.GeneradoDocumentoEvidencia)[0];
     return id ? this.maestraService.urlDescarga(id, CARPETA_MEMO_CCP) : '';
+  }
+
+  listaEvidencias(filtro?: FiltroIdoneidadVista): { id: string; nombre: string; url: string }[] {
+    return evidenciasFiltro(filtro).map(item => ({
+      ...item,
+      url: this.maestraService.urlDescarga(item.id, CARPETA_MEMO_CCP)
+    }));
+  }
+
+  admiteVarios(filtro?: FiltroIdoneidadVista): boolean {
+    return filtro?.CodigoFiltro === 'DEBIDA_DILIGENCIA';
+  }
+
+  quitarEvidencia(filtro: FiltroIdoneidadVista, id: string): void {
+    guardarEvidencias(filtro, evidenciasFiltro(filtro).filter(item => item.id !== id));
   }
 
   portal(codigo: string): { etiqueta: string; url: string } | undefined {
@@ -388,16 +406,20 @@ export class ModalFiltrosIdoneidadComponent {
 
   onFile(filtro: FiltroIdoneidadVista | undefined, event: Event): void {
     const input = event.target as HTMLInputElement;
-    const archivo = input.files?.[0];
+    const archivos = Array.from(input.files || []);
     input.value = '';
-    this.cargarPdf(filtro, archivo);
+    if (this.admiteVarios(filtro)) {
+      this.cargarPdfs(filtro, archivos);
+      return;
+    }
+    this.cargarPdf(filtro, archivos[0], false);
   }
 
   onDrop(filtro: FiltroIdoneidadVista | undefined, event: DragEvent): void {
     event.preventDefault();
     this.arrastreCodigo = null;
     const archivo = event.dataTransfer?.files?.[0];
-    this.cargarPdf(filtro, archivo);
+    this.cargarPdf(filtro, archivo, this.admiteVarios(filtro));
   }
 
   onDragOver(event: DragEvent, codigo: string): void {
@@ -488,12 +510,29 @@ export class ModalFiltrosIdoneidadComponent {
       return;
     }
 
-    /* Siempre abrir el memorando CCP sin regrabar filtros: el especialista ya
-       los dejo registrados. Evita NO_AUTORIZADO con builds que aun llamaban
-       a registrarFiltroIdoneidad siendo jefe. */
     const fila = this.fila;
-    this.abierto = false;
-    this.solicitarCcp.emit(fila);
+    if (!this.esEtapaEspecialista) {
+      this.abierto = false;
+      this.solicitarCcp.emit(fila);
+      return;
+    }
+
+    this.guardando = true;
+    this.requerimientoService.registrarFiltroIdoneidad(this.detalle.IdRequerimiento, this.filtros).subscribe({
+      next: (guardado: any) => {
+        this.guardando = false;
+        if (guardado?.estado !== 1) {
+          this.funciones.mensaje('error', guardado?.mensaje || 'No se guardaron los filtros.');
+          return;
+        }
+        this.abierto = false;
+        this.solicitarCcp.emit(fila);
+      },
+      error: () => {
+        this.guardando = false;
+        this.funciones.mensaje('error', 'No fue posible guardar los filtros.');
+      }
+    });
   }
 
   pedirObservar(): void {
@@ -550,7 +589,19 @@ export class ModalFiltrosIdoneidadComponent {
     });
   }
 
-  private cargarPdf(filtro: FiltroIdoneidadVista | undefined, archivo?: File): void {
+  private cargarPdfs(filtro: FiltroIdoneidadVista | undefined, archivos: File[]): void {
+    const archivo = archivos[0];
+    if (!filtro || !archivo) {
+      return;
+    }
+    this.cargarPdf(filtro, archivo, true, () => {
+      if (archivos.length > 1) {
+        this.cargarPdfs(filtro, archivos.slice(1));
+      }
+    });
+  }
+
+  private cargarPdf(filtro: FiltroIdoneidadVista | undefined, archivo?: File, agregar = false, alTerminar?: () => void): void {
     if (!filtro || !archivo || this.subiendoCodigo) {
       return;
     }
@@ -565,15 +616,23 @@ export class ModalFiltrosIdoneidadComponent {
         const documentoSistema = idDocumentoSistema(respuesta?.documento_sistema);
         if (!documentoSistema) {
           this.funciones.mensaje('error', 'No se obtuvo el identificador del PDF.');
+          alTerminar?.();
           return;
         }
-        filtro.GeneradoDocumentoEvidencia = documentoSistema;
-        filtro.NombreDocumentoEvidencia = archivo.name;
+        if (agregar) {
+          const actuales = evidenciasFiltro(filtro);
+          guardarEvidencias(filtro, [...actuales, { id: documentoSistema, nombre: archivo.name }]);
+        } else {
+          filtro.GeneradoDocumentoEvidencia = documentoSistema;
+          filtro.NombreDocumentoEvidencia = archivo.name;
+        }
         filtro.Origen = filtro.Origen === 'PID' ? 'PID' : 'MANUAL';
+        alTerminar?.();
       },
       error: () => {
         this.subiendoCodigo = null;
         this.funciones.mensaje('error', 'No fue posible subir el PDF.');
+        alTerminar?.();
       }
     });
   }

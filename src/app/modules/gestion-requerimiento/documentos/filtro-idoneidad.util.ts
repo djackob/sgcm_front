@@ -1,3 +1,4 @@
+import { idDocumentoSistema } from '../../../shared/funciones/archivo';
 import {
   PedidoRequerimiento,
   ProveedorFormularioRequerimiento,
@@ -72,7 +73,7 @@ export const PORTAL_FILTRO: Record<string, { etiqueta: string; url: string }> = 
   },
   DEBIDA_DILIGENCIA: {
     etiqueta: 'Debida diligencia del sector público',
-    url: 'https://www.gob.pe/872-plataforma-de-debida-diligencia-del-sector-publico'
+    url: 'https://debidadiligencia.servicios.gob.pe/#/login'
   }
 };
 
@@ -110,6 +111,55 @@ export function documentosDelExpediente(respuesta: any): any[] {
     }
   }
   return [];
+}
+
+export interface EvidenciaFiltro {
+  id: string;
+  nombre: string;
+}
+
+/** Ids de evidencia. Debida diligencia guarda varios en un JSON; el resto, uno. */
+export function idsEvidencia(valor: string | null | undefined): string[] {
+  const texto = String(valor || '').trim();
+  if (!texto) {
+    return [];
+  }
+  if (texto.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(texto);
+      if (Array.isArray(parsed)) {
+        return parsed.map(item => idDocumentoSistema(String(item || ''))).filter(Boolean);
+      }
+    } catch {
+      /* un id suelto con forma rara */
+    }
+  }
+  const uno = idDocumentoSistema(texto);
+  return uno ? [uno] : [];
+}
+
+export function evidenciasFiltro(filtro: {
+  GeneradoDocumentoEvidencia?: string | null;
+  NombreDocumentoEvidencia?: string | null;
+} | null | undefined): EvidenciaFiltro[] {
+  const ids = idsEvidencia(filtro?.GeneradoDocumentoEvidencia);
+  const nombres = String(filtro?.NombreDocumentoEvidencia || '')
+    .split(' | ')
+    .map(nombre => nombre.trim());
+  return ids.map((id, indice) => ({
+    id,
+    nombre: nombres[indice] || `Archivo ${indice + 1}`
+  }));
+}
+
+export function guardarEvidencias(
+  filtro: { GeneradoDocumentoEvidencia?: string | null; NombreDocumentoEvidencia?: string | null },
+  evidencias: EvidenciaFiltro[]
+): void {
+  filtro.GeneradoDocumentoEvidencia = evidencias.length
+    ? JSON.stringify(evidencias.map(item => item.id))
+    : null;
+  filtro.NombreDocumentoEvidencia = evidencias.map(item => item.nombre).join(' | ');
 }
 
 export function etiquetaCortaFiltro(codigo: string): string {

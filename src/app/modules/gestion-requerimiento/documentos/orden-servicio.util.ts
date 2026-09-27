@@ -3,7 +3,8 @@ import { map } from 'rxjs/operators';
 
 import { RequerimientoDetalle } from '../models/requerimiento.model';
 import { RequerimientoService } from '../services/requerimiento.service';
-import { crearTdrLocacion, normalizarIndicesActividades, normalizarInformesPrevios, TdrLocacion } from './anexo3-tdr.plantilla';
+import { crearTdrLocacion, normalizarIndicesActividades, normalizarInformesPrevios, normalizarRutaInformePrevio, TdrLocacion } from './anexo3-tdr.plantilla';
+import { filasDesdeTextoPenalidad, normalizarFilasPenalidad } from './penalidad';
 import { TIPO_ANEXO_3 } from './anexo3.pdfmake';
 import {
   documentoLocador,
@@ -68,13 +69,19 @@ export function leerTdrDesdePayload(payload: any): Partial<TdrLocacion> | null {
     };
   }
   const informes = normalizarInformesPrevios(tdr);
+  const ruta = normalizarRutaInformePrevio(tdr);
+  const filas = normalizarFilasPenalidad(tdr.OtrasPenalidadesFilas);
   tdr = {
     ...tdr,
+    RutaInformePrevio: ruta,
     InformesPrevios: informes,
     ExigeInformePrevio: tdr.ExigeInformePrevio == null
-      ? informes.length > 0
+      ? (ruta.length > 0 || informes.length > 0)
       : !!tdr.ExigeInformePrevio,
-    UnidadInforme: informes.join('; ')
+    UnidadInforme: informes.join('; '),
+    OtrasPenalidadesFilas: filas.length
+      ? filas
+      : filasDesdeTextoPenalidad(tdr.OtrasPenalidades)
   };
   return tdr;
 }
@@ -96,10 +103,14 @@ export function combinarTdr(detalle: RequerimientoDetalle | any, previo: Partial
     ...previo,
     Entregables: previo.Entregables?.length ? previo.Entregables : base.Entregables,
     Actividades: previo.Actividades?.length ? previo.Actividades : base.Actividades,
+    RutaInformePrevio: normalizarRutaInformePrevio(previo),
     InformesPrevios: Array.isArray(previo.InformesPrevios)
       ? previo.InformesPrevios
       : normalizarInformesPrevios(previo),
-    UnidadConformidad: (detalle?.CentroCostoNombre || previo.UnidadConformidad || base.UnidadConformidad || '').trim()
+    UnidadConformidad: (detalle?.CentroCostoNombre || previo.UnidadConformidad || base.UnidadConformidad || '').trim(),
+    OtrasPenalidadesFilas: Array.isArray(previo.OtrasPenalidadesFilas)
+      ? previo.OtrasPenalidadesFilas
+      : base.OtrasPenalidadesFilas
   };
 }
 

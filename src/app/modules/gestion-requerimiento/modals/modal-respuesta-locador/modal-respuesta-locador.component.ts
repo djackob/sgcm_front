@@ -12,6 +12,9 @@ import { RequerimientoBandeja } from '../../models/requerimiento.model';
 import { CARPETA_ANEXO_6, TIPO_ANEXO_6 } from '../../documentos/anexo6.pdfmake';
 import { CARPETA_ANEXO_7, TIPO_ANEXO_7 } from '../../documentos/anexo7.pdfmake';
 
+export const TIPO_CV_LOCADOR = 'REQ_CV_LOCADOR';
+export const CARPETA_CV_LOCADOR = 'requerimiento';
+
 interface ArchivoCargado {
   documentoSistema: string;
   nombreOriginal: string;
@@ -33,12 +36,13 @@ export class ModalRespuestaLocadorComponent {
   procesando = false;
   vistaReenvio = false;
   observacionReenvio = '';
-  subiendo: 'anexo6' | 'anexo7' | null = null;
-  arrastrando: 'anexo6' | 'anexo7' | null = null;
+  subiendo: 'anexo6' | 'anexo7' | 'cv' | null = null;
+  arrastrando: 'anexo6' | 'anexo7' | 'cv' | null = null;
   paso = '';
   fila: RequerimientoBandeja | null = null;
   archivo6: ArchivoCargado | null = null;
   archivo7: ArchivoCargado | null = null;
+  archivoCv: ArchivoCargado | null = null;
 
   constructor(
     private requerimientoService: RequerimientoService,
@@ -51,6 +55,7 @@ export class ModalRespuestaLocadorComponent {
     this.fila = fila;
     this.archivo6 = null;
     this.archivo7 = null;
+    this.archivoCv = null;
     this.paso = '';
     this.vistaReenvio = false;
     this.observacionReenvio = '';
@@ -67,14 +72,17 @@ export class ModalRespuestaLocadorComponent {
   }
 
   urlDescarga(archivo: ArchivoCargado): string {
-    return this.maestraService.urlDescarga(archivo.documentoSistema, CARPETA_ANEXO_6);
+    const carpeta = archivo === this.archivoCv
+      ? CARPETA_CV_LOCADOR
+      : archivo === this.archivo7 ? CARPETA_ANEXO_7 : CARPETA_ANEXO_6;
+    return this.maestraService.urlDescarga(archivo.documentoSistema, carpeta);
   }
 
-  examinar(zona: 'anexo6' | 'anexo7', input: HTMLInputElement): void {
+  examinar(zona: 'anexo6' | 'anexo7' | 'cv', input: HTMLInputElement): void {
     input.click();
   }
 
-  onSeleccionado(zona: 'anexo6' | 'anexo7', event: Event): void {
+  onSeleccionado(zona: 'anexo6' | 'anexo7' | 'cv', event: Event): void {
     const input = event.target as HTMLInputElement;
     const archivo = input.files?.[0];
     input.value = '';
@@ -83,19 +91,19 @@ export class ModalRespuestaLocadorComponent {
     }
   }
 
-  onDragOver(zona: 'anexo6' | 'anexo7', event: DragEvent): void {
+  onDragOver(zona: 'anexo6' | 'anexo7' | 'cv', event: DragEvent): void {
     event.preventDefault();
     this.arrastrando = zona;
   }
 
-  onDragLeave(zona: 'anexo6' | 'anexo7', event: DragEvent): void {
+  onDragLeave(zona: 'anexo6' | 'anexo7' | 'cv', event: DragEvent): void {
     event.preventDefault();
     if (this.arrastrando === zona) {
       this.arrastrando = null;
     }
   }
 
-  onDrop(zona: 'anexo6' | 'anexo7', event: DragEvent): void {
+  onDrop(zona: 'anexo6' | 'anexo7' | 'cv', event: DragEvent): void {
     event.preventDefault();
     this.arrastrando = null;
     const archivo = event.dataTransfer?.files?.[0];
@@ -104,14 +112,16 @@ export class ModalRespuestaLocadorComponent {
     }
   }
 
-  quitar(zona: 'anexo6' | 'anexo7'): void {
+  quitar(zona: 'anexo6' | 'anexo7' | 'cv'): void {
     if (this.procesando) {
       return;
     }
     if (zona === 'anexo6') {
       this.archivo6 = null;
-    } else {
+    } else if (zona === 'anexo7') {
       this.archivo7 = null;
+    } else {
+      this.archivoCv = null;
     }
   }
 
@@ -147,13 +157,13 @@ export class ModalRespuestaLocadorComponent {
     if (!this.fila || this.procesando) {
       return;
     }
-    if (!this.archivo6 || !this.archivo7) {
-      this.funciones.mensaje('info', 'Cargue el Anexo 6 y el Anexo 7 firmados por el locador.');
+    if (!this.archivo6 || !this.archivo7 || !this.archivoCv) {
+      this.funciones.mensaje('info', 'Cargue el Anexo 6, el Anexo 7 y el CV del locador.');
       return;
     }
 
     this.procesando = true;
-    this.paso = 'Registrando la cotización y la declaración jurada…';
+    this.paso = 'Registrando la cotización, la declaración jurada y el CV…';
 
     forkJoin({
       a6: this.requerimientoService.registrarDocumento(
@@ -169,6 +179,13 @@ export class ModalRespuestaLocadorComponent {
         this.archivo7.documentoSistema,
         this.archivo7.nombreOriginal,
         { Origen: 'RESPUESTA_LOCADOR' }
+      ),
+      cv: this.requerimientoService.registrarDocumento(
+        this.fila.IdExpediente,
+        TIPO_CV_LOCADOR,
+        this.archivoCv.documentoSistema,
+        this.archivoCv.nombreOriginal,
+        { Origen: 'RESPUESTA_LOCADOR' }
       )
     }).subscribe({
       next: (alta) => {
@@ -182,9 +199,13 @@ export class ModalRespuestaLocadorComponent {
           this.funciones.mensaje('error', alta?.a7?.mensaje || 'No se registró el Anexo 7.');
           return;
         }
+        if (alta?.cv?.estado !== 1) {
+          this.funciones.mensaje('error', alta?.cv?.mensaje || 'No se registró el CV del locador.');
+          return;
+        }
         this.funciones.mensaje(
           'success',
-          'Se registró la respuesta del locador (Anexos 6 y 7). Ya puede iniciar los filtros de idoneidad.'
+          'Se registró la respuesta del locador (Anexos 6 y 7 y CV). Ya puede iniciar los filtros de idoneidad.'
         );
         this.abierto = false;
         this.completado.emit(this.fila!);
@@ -197,13 +218,19 @@ export class ModalRespuestaLocadorComponent {
     });
   }
 
-  private subir(zona: 'anexo6' | 'anexo7', archivo: File): void {
-    if (!archivo.name.toLowerCase().endsWith('.pdf')) {
-      this.funciones.mensaje('info', 'Solo se admite PDF.');
+  private subir(zona: 'anexo6' | 'anexo7' | 'cv', archivo: File): void {
+    const nombre = archivo.name.toLowerCase();
+    const esCv = zona === 'cv';
+    const admitido = esCv
+      ? /\.(pdf|doc|docx)$/.test(nombre)
+      : nombre.endsWith('.pdf');
+    if (!admitido) {
+      this.funciones.mensaje('info', esCv ? 'El CV debe ser PDF o Word.' : 'Solo se admite PDF.');
       return;
     }
     this.subiendo = zona;
-    const carpeta = zona === 'anexo6' ? CARPETA_ANEXO_6 : CARPETA_ANEXO_7;
+    const carpeta = zona === 'anexo6' ? CARPETA_ANEXO_6
+      : zona === 'anexo7' ? CARPETA_ANEXO_7 : CARPETA_CV_LOCADOR;
     this.documentoService.subirArchivo(archivo, carpeta).subscribe({
       next: (respuesta: any) => {
         this.subiendo = null;
@@ -218,8 +245,10 @@ export class ModalRespuestaLocadorComponent {
         };
         if (zona === 'anexo6') {
           this.archivo6 = item;
-        } else {
+        } else if (zona === 'anexo7') {
           this.archivo7 = item;
+        } else {
+          this.archivoCv = item;
         }
       },
       error: () => {

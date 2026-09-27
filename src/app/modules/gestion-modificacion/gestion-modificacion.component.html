@@ -365,6 +365,10 @@
         </div>
 
         <div class="modal-cuerpo" [hidden]="pestana !== 'trazabilidad'">
+          <button type="button" class="btn btn-app-secundario btn-sm" (click)="imprimirHistorial()">
+            <i class="mdi mdi-printer" aria-hidden="true"></i>
+            Imprimir
+          </button>
           <section class="seccion">
             <h3 class="contenido-titulo">Historial · {{ trazaTitulo }}</h3>
             <ol class="linea-tiempo">

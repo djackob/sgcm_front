@@ -33,6 +33,21 @@
         </div>
 
         <ng-container *ngIf="!cargando && detalle">
+          <div class="campo" *ngIf="propuestas.length > 1">
+            <label class="campo-etiqueta" for="tdrPropuesta">Propuesta del Anexo 5</label>
+            <select
+              id="tdrPropuesta"
+              class="campo-control"
+              name="tdrPropuesta"
+              [(ngModel)]="indicePropuesta"
+              (ngModelChange)="onPropuestaChange()"
+            >
+              <option *ngFor="let p of propuestas; let i = index" [ngValue]="i">{{ nombrePropuesta(p, i) }}</option>
+            </select>
+            <p class="req-nota">
+              El TDR sale con la denominación, el plazo y los pedidos de esta fila. Cada propuesta del Anexo 5 tiene el suyo.
+            </p>
+          </div>
           <div class="req-grid req-grid--documento">
             <div class="campo campo--corto">
               <label class="campo-etiqueta" for="tdrAno">Año</label>
@@ -316,39 +331,53 @@
                 />
                 <p class="req-nota">Se hereda del área usuaria requirente del encabezado y no se edita.</p>
               </div>
+              <p class="req-nota">
+                Previo a la emisión de la conformidad, se requiere informe técnico / visto bueno de:
+              </p>
               <div class="campo">
                 <label class="campo-check">
                   <input type="checkbox" [(ngModel)]="tdr.ExigeInformePrevio" (ngModelChange)="onExigeInformePrevio()" />
-                  ¿Se requiere un informe previo o visto bueno antes de la conformidad?
+                  Indicar el área, cargo o especialista del informe técnico / visto bueno
                 </label>
               </div>
               <ng-container *ngIf="tdr.ExigeInformePrevio">
                 <div class="req-bloque__cabecera">
-                  <h4 class="req-bloque__titulo">Informe previo / visto bueno requerido</h4>
+                  <h4 class="req-bloque__titulo">Informe técnico / visto bueno</h4>
                   <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarInformePrevio()">
                     <i class="mdi mdi-plus" aria-hidden="true"></i>
                     Agregar
                   </button>
                 </div>
                 <p class="req-nota">
-                  Indique el área, cargo o persona (p. ej. Unidad de Soporte, Gerente de Proyecto).
-                  El texto se concatena en la sección Conformidad del TDR; no bloquea el flujo de pagos.
+                  Cada fila es un área y su perfil. Al presentar el entregable, el pago pasa por ellas en este orden
+                  y después llega al área que emite la conformidad.
                 </p>
-                <div class="tdr-fila" *ngFor="let _ of tdr.InformesPrevios; let i = index; trackBy: trackByIndice">
+                <div class="tdr-fila" *ngFor="let paso of tdr.RutaInformePrevio; let i = index; trackBy: trackByIndice">
                   <span class="tdr-fila__nro">{{ i + 1 }}</span>
-                  <textarea
+                  <select
                     class="campo-control"
-                    rows="2"
-                    [ngModel]="tdr.InformesPrevios[i]"
-                    (ngModelChange)="onInformePrevioChange(i, $event)"
-                    [name]="'tdrInformePrevio' + i"
-                    placeholder="Área, cargo o especialista del informe / visto bueno"
-                  ></textarea>
+                    [ngModel]="paso.IdUnidad"
+                    (ngModelChange)="onUnidadInforme(i, $event)"
+                    [name]="'tdrUnidadInforme' + i"
+                  >
+                    <option value="">Área</option>
+                    <option *ngFor="let u of unidadesArea" [value]="u.IdUnidad">{{ u.Nombre }}</option>
+                  </select>
+                  <select
+                    class="campo-control"
+                    [ngModel]="paso.CodigoRol"
+                    (ngModelChange)="onRolInforme(i, $event)"
+                    [name]="'tdrRolInforme' + i"
+                    [disabled]="!paso.IdUnidad"
+                  >
+                    <option value="">Perfil</option>
+                    <option *ngFor="let p of perfilesDe(paso)" [value]="p.CodigoRol">{{ p.Nombre }}</option>
+                  </select>
                   <button
                     type="button"
                     class="btn-icon-outline"
                     title="Quitar"
-                    *ngIf="tdr.InformesPrevios.length > 1"
+                    *ngIf="tdr.RutaInformePrevio.length > 1"
                     (click)="quitarInformePrevio(i)"
                   >
                     <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
@@ -371,12 +400,57 @@
               <textarea class="campo-control" rows="3" [(ngModel)]="tdr.LugarPrestacion" placeholder="lugar 1"></textarea>
             </accordion-group>
 
+            <accordion-group [(isOpen)]="acordeonPenalidadMora">
+              <span accordion-heading class="req-acordeon__cabecera">
+                <span class="req-acordeon__titulo">11. PENALIDAD POR MORA (Obligatorio)</span>
+                <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
+              </span>
+              <p class="req-nota">{{ penalidadIntro }}</p>
+              <pre class="tdr-label-fijo">{{ penalidadMora }}</pre>
+            </accordion-group>
+
             <accordion-group [(isOpen)]="acordeonOtrasPenalidades">
               <span accordion-heading class="req-acordeon__cabecera">
                 <span class="req-acordeon__titulo">12. Otras Penalidades (De corresponder)</span>
                 <i class="mdi mdi-chevron-down req-acordeon__expand" aria-hidden="true"></i>
               </span>
-              <textarea class="campo-control" rows="3" [(ngModel)]="tdr.OtrasPenalidades" placeholder="otras penalidades (de corresponder)"></textarea>
+              <p class="req-nota">
+                Distinta de la penalidad por mora. Cada supuesto se registra en el cuadro.
+              </p>
+              <div class="req-bloque__cabecera">
+                <h4 class="req-bloque__titulo">Cuadro de otras penalidades</h4>
+                <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarPenalidad()">
+                  <i class="mdi mdi-plus" aria-hidden="true"></i>
+                  Agregar
+                </button>
+              </div>
+              <div class="table-responsive" *ngIf="tdr.OtrasPenalidadesFilas.length">
+                <table class="table scm-table">
+                  <thead>
+                    <tr>
+                      <th>N.°</th>
+                      <th>Supuestos de aplicación de la penalidad</th>
+                      <th>Forma de cálculo</th>
+                      <th>Procedimiento</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let fila of tdr.OtrasPenalidadesFilas; let i = index; trackBy: trackByIndice">
+                      <td>{{ i + 1 }}</td>
+                      <td><textarea class="campo-control" rows="2" [(ngModel)]="fila.Supuesto" [name]="'penSupuesto' + i"></textarea></td>
+                      <td><textarea class="campo-control" rows="2" [(ngModel)]="fila.FormaCalculo" [name]="'penCalculo' + i"></textarea></td>
+                      <td><textarea class="campo-control" rows="2" [(ngModel)]="fila.Procedimiento" [name]="'penProc' + i"></textarea></td>
+                      <td>
+                        <button type="button" class="btn-icon-outline" title="Quitar" (click)="quitarPenalidad(i)">
+                          <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="req-nota" *ngIf="!tdr.OtrasPenalidadesFilas.length">Sin otras penalidades.</p>
             </accordion-group>
           </accordion>
           </div>

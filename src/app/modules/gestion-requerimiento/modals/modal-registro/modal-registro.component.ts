@@ -31,7 +31,9 @@ import {
   crearItemFormularioRequerimiento,
   crearPedidoFormularioRequerimiento,
   crearProveedorFormularioRequerimiento,
-  montoTotalProveedor
+  montoTotalProveedor,
+  numerosPedidoDeProveedor,
+  sincronizarPedidosProveedor
 } from '../../models/requerimiento.model';
 
 /**
@@ -113,11 +115,6 @@ export class ModalRegistroRequerimientoComponent {
   denominacion = '';
   /** Último Nombre Item Pedido copiado a denominación; evita pisar edición manual. */
   private denominacionDesdePedido = '';
-
-  /** Varios pedidos SIGA: denominación única y constante en el encabezado TDR. */
-  get denominacionBloqueada(): boolean {
-    return this.pedidos.filter(p => (p.NumeroPedido || '').trim()).length > 1;
-  }
 
   codigoTipoContratacion: TipoContratacionRequerimiento = 'LOCACION';
   /** Monto de cabecera para Bien / Servicio / Consultoría (sin Anexo 5). */
@@ -494,7 +491,10 @@ export class ModalRegistroRequerimientoComponent {
       CantidadEntregables: prov?.CantidadEntregables ?? null,
       MontoMensual: prov?.MontoMensual ?? null,
       Email: prov?.Email || '',
-      NumeroPedido: prov?.NumeroPedido || '',
+      Denominacion: prov?.Denominacion || '',
+      PlazoDias: prov?.PlazoDias ?? null,
+      NumerosPedido: numerosPedidoDeProveedor(prov),
+      NumeroPedido: numerosPedidoDeProveedor(prov)[0] || '',
       Direccion: prov?.Direccion || '',
       CodDepartamento: prov?.CodDepartamento || '',
       Departamento: prov?.Departamento || '',
@@ -566,13 +566,15 @@ export class ModalRegistroRequerimientoComponent {
       .filter(n => !!n);
 
     this.proveedores.forEach(proveedor => {
-      const actual = (proveedor.NumeroPedido || '').trim();
+      const actuales = numerosPedidoDeProveedor(proveedor);
       if (unicos.length === 1) {
-        proveedor.NumeroPedido = unicos[0];
+        proveedor.NumerosPedido = [unicos[0]];
+        sincronizarPedidosProveedor(proveedor);
         return;
       }
-      if (!actual && elegido) {
-        proveedor.NumeroPedido = elegido;
+      if (!actuales.length && elegido) {
+        proveedor.NumerosPedido = [elegido];
+        sincronizarPedidosProveedor(proveedor);
       }
     });
 
@@ -616,14 +618,21 @@ export class ModalRegistroRequerimientoComponent {
           item.NumeroPedido = '';
         }
       });
+      this.proveedores.forEach(proveedor => {
+        proveedor.NumerosPedido = numerosPedidoDeProveedor(proveedor)
+          .filter(n => n !== numero);
+        sincronizarPedidosProveedor(proveedor);
+      });
     }
   }
 
   agregarProveedor(): void {
     const nuevo = crearProveedorFormularioRequerimiento();
-    if (this.pedidos.length === 1) {
-      nuevo.NumeroPedido = this.pedidos[0].NumeroPedido || '';
+    if (this.pedidos.length === 1 && (this.pedidos[0].NumeroPedido || '').trim()) {
+      nuevo.NumerosPedido = [this.pedidos[0].NumeroPedido.trim()];
+      sincronizarPedidosProveedor(nuevo);
     }
+    nuevo.PlazoDias = Number(this.plazoDias) > 0 ? Number(this.plazoDias) : null;
     this.proveedores = [...this.proveedores, nuevo];
     this.acordeonProveedor = true;
   }
@@ -857,10 +866,13 @@ export class ModalRegistroRequerimientoComponent {
   }
 
   private armarDatosAdicionales(): any {
-    const proveedores = this.proveedores.map(p => ({
-      ...p,
-      MontoTotal: montoTotalProveedor(p)
-    }));
+    const proveedores = this.proveedores.map(p => {
+      sincronizarPedidosProveedor(p);
+      return {
+        ...p,
+        MontoTotal: montoTotalProveedor(p)
+      };
+    });
     const pedidosExtra = this.pedidos.map(p => ({
       AnoPedido: p.AnoPedido,
       ActividadOperativa: p.ActividadOperativa,

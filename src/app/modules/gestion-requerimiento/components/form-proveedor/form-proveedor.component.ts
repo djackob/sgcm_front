@@ -8,7 +8,9 @@ import { RequerimientoService } from '../../services/requerimiento.service';
 import {
   PedidoFormularioRequerimiento,
   ProveedorFormularioRequerimiento,
-  montoTotalProveedor
+  montoTotalProveedor,
+  numerosPedidoDeProveedor,
+  sincronizarPedidosProveedor
 } from '../../models/requerimiento.model';
 
 export interface UbigeoDepartamento {
@@ -266,7 +268,13 @@ export class FormProveedorComponent implements OnInit, OnChanges {
     if (!(Number(this.proveedor.MontoMensual) > 0)) {
       e['montoMensual'] = obligatorio;
     }
-    if (!(this.proveedor.NumeroPedido || '').trim()) {
+    if (!(this.proveedor.Denominacion || '').trim()) {
+      e['denominacion'] = obligatorio;
+    }
+    if (!(Number(this.proveedor.PlazoDias) > 0)) {
+      e['plazo'] = obligatorio;
+    }
+    if (!numerosPedidoDeProveedor(this.proveedor).length) {
       e['pedido'] = obligatorio;
     }
 
@@ -325,10 +333,38 @@ export class FormProveedorComponent implements OnInit, OnChanges {
     return (this.pedidos || []).filter(p => !!(p.NumeroPedido || '').trim());
   }
 
+  fijarPedidoEscrito(valor: string): void {
+    const clave = (valor || '').trim();
+    this.proveedor.NumerosPedido = clave ? [clave] : [];
+    this.proveedor.NumeroPedido = clave;
+    this.limpiarError('pedido');
+  }
+
+  pedidoMarcado(numero: string): boolean {
+    return numerosPedidoDeProveedor(this.proveedor).includes((numero || '').trim());
+  }
+
+  alternarPedido(numero: string, marcado: boolean): void {
+    const clave = (numero || '').trim();
+    if (!clave) {
+      return;
+    }
+    const set = new Set(numerosPedidoDeProveedor(this.proveedor));
+    if (marcado) {
+      set.add(clave);
+    } else {
+      set.delete(clave);
+    }
+    this.proveedor.NumerosPedido = [...set];
+    sincronizarPedidosProveedor(this.proveedor);
+    this.limpiarError('pedido');
+  }
+
   private aplicarPedidoPorDefecto(): void {
     const numeros = this.pedidosConNumero.map(p => p.NumeroPedido.trim());
-    if (numeros.length === 1) {
-      this.proveedor.NumeroPedido = numeros[0];
+    if (numeros.length === 1 && !numerosPedidoDeProveedor(this.proveedor).length) {
+      this.proveedor.NumerosPedido = [numeros[0]];
+      sincronizarPedidosProveedor(this.proveedor);
     }
   }
 

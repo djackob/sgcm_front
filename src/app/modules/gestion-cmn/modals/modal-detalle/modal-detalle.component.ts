@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { CmnService } from '../../services/cmn.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import { idDocumentoSistema } from '../../../../shared/funciones/archivo';
+import { imprimirHistorialExpediente } from '../../../../shared/funciones/imprimir-trazabilidad';
+import { DocumentoService } from '../../../../core/services/documento.service';
 import { MaestraService } from '../../../../shared/services/maestra.service';
 import {
   HistorialCmn,
@@ -42,6 +44,7 @@ export class ModalDetalleComponent {
   puedeCambiarTipo = false;
   transicionFirmar: TransicionCmn | null = null;
   guardandoTipo = false;
+  archivoCambio: File | null = null;
 
   tipoInclusionEdicion: 'ORDINARIA' | 'EXTRAORDINARIA' | '' = '';
   justificacionUrgenciaEdicion = '';
@@ -93,8 +96,15 @@ export class ModalDetalleComponent {
     return this.tipoInclusionEdicion === 'EXTRAORDINARIA';
   }
 
+  /** Paso de ordinaria a extraordinaria: el cambio se sustenta con un archivo. */
+  get cambioAExtraordinaria(): boolean {
+    return this.detalle?.TipoInclusion === 'ORDINARIA'
+      && this.tipoInclusionEdicion === 'EXTRAORDINARIA';
+  }
+
   constructor(
     private cmnService: CmnService,
+    private documentoService: DocumentoService,
     private maestraService: MaestraService,
     private funciones: Funciones
   ) { }
@@ -177,6 +187,10 @@ export class ModalDetalleComponent {
       this.funciones.mensaje('error', 'Una solicitud extraordinaria debe justificar la urgencia.');
       return;
     }
+    if (this.cambioAExtraordinaria && !this.archivoCambio) {
+      this.funciones.mensaje('error', 'Adjunte el archivo que sustenta el cambio a extraordinaria.');
+      return;
+    }
 
     this.guardandoTipo = true;
     this.cmnService.cambiarTipoInclusion(
@@ -194,13 +208,13 @@ export class ModalDetalleComponent {
         if (!solicitud) {
           return;
         }
+        const archivo = this.cambioAExtraordinaria ? this.archivoCambio : null;
         if (this.detalle) {
           this.detalle.TipoInclusion = this.tipoInclusionEdicion;
           this.detalle.JustificacionUrgencia = justificacion;
         }
         solicitud.TipoInclusion = this.tipoInclusionEdicion;
-        this.funciones.mensaje('success', respuesta?.mensaje || 'Tipo de solicitud actualizado.');
-        this.tipoCambiado.emit(solicitud);
+        this.subirArchivoCambio(solicitud, archivo, respuesta?.mensaje);
       },
       error: (error: any) => {
         this.guardandoTipo = false;
@@ -216,6 +230,71 @@ export class ModalDetalleComponent {
       : tipo === 'ORDINARIA' ? 'ORDINARIA'
       : '';
     this.justificacionUrgenciaEdicion = this.detalle?.JustificacionUrgencia || '';
+  }
+
+  elegirArchivoCambio(evento: Event): void {
+    const input = evento.target as HTMLInputElement;
+    this.archivoCambio = input.files?.[0] || null;
+  }
+
+  imprimirHistorial(): void {
+    imprimirHistorialExpediente(
+      `Trazabilidad · ${this.detalle?.Codigo || this.resumen?.Codigo || 'CMN'}`,
+      this.historialVisible
+    );
+  }
+
+  private subirArchivoCambio(
+    solicitud: SolicitudCmn,
+    archivo: File | null,
+    mensaje: string | null | undefined
+  ): void {
+    if (!archivo || !solicitud.IdExpediente) {
+      this.archivoCambio = null;
+      this.funciones.mensaje('success', mensaje || 'Tipo de solicitud actualizado.');
+      this.tipoCambiado.emit(solicitud);
+      return;
+    }
+
+    this.documentoService.subirArchivo(archivo, 'cmn').subscribe({
+      next: (subido: any) => {
+        const documentoSistema = idDocumentoSistema(subido?.documento_sistema);
+        if (subido?.estado !== 1 || !documentoSistema) {
+          this.funciones.mensaje('warning',
+            subido?.mensaje || 'El tipo cambió, pero el archivo de cambio no quedó en el servidor.');
+          this.tipoCambiado.emit(solicitud);
+          return;
+        }
+        this.cmnService.registrarDocumento(
+          solicitud.IdExpediente,
+          'CMN_SUSTENTO_URGENCIA',
+          documentoSistema,
+          subido.documento_original || archivo.name,
+          { Codigo: solicitud.Codigo, Motivo: 'Cambio de ordinaria a extraordinaria' }
+        ).subscribe({
+          next: (doc: any) => {
+            this.archivoCambio = null;
+            if (doc?.estado !== 1) {
+              this.funciones.mensaje('warning',
+                doc?.mensaje || 'El tipo cambió, pero el archivo de cambio no quedó registrado.');
+            } else {
+              this.funciones.mensaje('success', 'Tipo de solicitud actualizado y archivo de cambio registrado.');
+            }
+            this.tipoCambiado.emit(solicitud);
+          },
+          error: () => {
+            this.funciones.mensaje('warning',
+              'El tipo cambió, pero el archivo de cambio no quedó registrado.');
+            this.tipoCambiado.emit(solicitud);
+          }
+        });
+      },
+      error: () => {
+        this.funciones.mensaje('warning',
+          'El tipo cambió, pero el archivo de cambio no quedó en el servidor.');
+        this.tipoCambiado.emit(solicitud);
+      }
+    });
   }
 
   private filtrarTrazabilidadAu(pasos: HistorialCmn[]): HistorialCmn[] {

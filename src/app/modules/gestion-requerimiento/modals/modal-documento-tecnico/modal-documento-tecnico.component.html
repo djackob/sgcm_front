@@ -55,6 +55,45 @@
           <label class="campo-etiqueta" for="docPago">Forma de pago<span class="campo-req">*</span></label>
           <textarea id="docPago" class="campo-control" rows="2" [(ngModel)]="formulario.FormaPago"></textarea>
 
+          <h3 class="contenido-titulo">8. Penalidad por mora</h3>
+          <pre class="tdr-label-fijo">{{ penalidadMora }}</pre>
+
+          <div class="req-bloque__cabecera">
+            <h3 class="contenido-titulo">9. Otras penalidades</h3>
+            <button type="button" class="btn btn-app-secundario btn-sm" (click)="agregarPenalidad()">
+              <i class="mdi mdi-plus" aria-hidden="true"></i>
+              Agregar
+            </button>
+          </div>
+          <p class="req-nota">Distinta de la penalidad por mora. Cada supuesto se registra en el cuadro.</p>
+          <div class="table-responsive" *ngIf="formulario.OtrasPenalidades.length">
+            <table class="table scm-table">
+              <thead>
+                <tr>
+                  <th>N.°</th>
+                  <th>Supuestos de aplicación de la penalidad</th>
+                  <th>Forma de cálculo</th>
+                  <th>Procedimiento</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let fila of formulario.OtrasPenalidades; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><textarea class="campo-control" rows="2" [(ngModel)]="fila.Supuesto" [name]="'docPenSupuesto' + i"></textarea></td>
+                  <td><textarea class="campo-control" rows="2" [(ngModel)]="fila.FormaCalculo" [name]="'docPenCalculo' + i"></textarea></td>
+                  <td><textarea class="campo-control" rows="2" [(ngModel)]="fila.Procedimiento" [name]="'docPenProc' + i"></textarea></td>
+                  <td>
+                    <button type="button" class="btn-icon-outline" title="Quitar" (click)="quitarPenalidad(i)">
+                      <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="req-nota" *ngIf="!formulario.OtrasPenalidades.length">Sin otras penalidades.</p>
+
           <div class="doc-acciones">
             <button type="button" class="btn btn-app-primary" [disabled]="guardando" (click)="guardar()">
               <i class="mdi mdi-loading mdi-spin" *ngIf="guardando" aria-hidden="true"></i>

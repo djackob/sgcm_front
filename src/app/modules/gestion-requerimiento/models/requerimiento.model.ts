@@ -63,6 +63,8 @@ export interface RequerimientoBandeja {
   Items: number;
   Pedidos: number;
   ActualizadoEn: string;
+  /** Fecha de registro del expediente. La bandeja se ordena por ella. */
+  CreadoEn?: string;
   /** Id de archivo (documento_sistema) del documento técnico vigente. */
   DocumentoSistema?: string | null;
   NombreDocumento?: string | null;
@@ -340,7 +342,16 @@ export interface ProveedorFormularioRequerimiento {
   CantidadEntregables: number | null;
   MontoMensual: number | null;
   Email: string;
-  /** Pedido SIGA de esta fila del Anexo 5 (una propuesta = un pedido). */
+  /**
+   * Denominación de esta fila del Anexo 5. En el papel cada proveedor
+   * contrata un servicio distinto; si queda vacía, se usa la del expediente.
+   */
+  Denominacion: string;
+  /** Plazo de esta fila, en días calendario. Vacío: se usa el del expediente. */
+  PlazoDias: number | null;
+  /** Pedidos SIGA de esta fila. En el papel una propuesta agrupa varios. */
+  NumerosPedido: string[];
+  /** Primer pedido de la lista. Lo siguen leyendo la orden y la CCP. */
   NumeroPedido: string;
   Direccion: string;
   CodDepartamento: string;
@@ -349,6 +360,24 @@ export interface ProveedorFormularioRequerimiento {
   Provincia: string;
   CodDistrito: string;
   Distrito: string;
+}
+
+/** Pedidos de una fila del Anexo 5. Acepta el arreglo nuevo o el pedido único anterior. */
+export function numerosPedidoDeProveedor(
+  proveedor: { NumeroPedido?: string; NumerosPedido?: string[] } | null | undefined
+): string[] {
+  const lista = Array.isArray(proveedor?.NumerosPedido)
+    ? proveedor!.NumerosPedido.map(x => String(x || '').trim()).filter(Boolean)
+    : [];
+  const base = lista.length ? lista : [String(proveedor?.NumeroPedido || '').trim()].filter(Boolean);
+  return [...new Set(base)];
+}
+
+/** Deja NumeroPedido igual al primero de la lista, para la orden y la CCP. */
+export function sincronizarPedidosProveedor(proveedor: ProveedorFormularioRequerimiento): void {
+  const lista = numerosPedidoDeProveedor(proveedor);
+  proveedor.NumerosPedido = lista;
+  proveedor.NumeroPedido = lista[0] || '';
 }
 
 export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequerimiento {
@@ -365,6 +394,9 @@ export function crearProveedorFormularioRequerimiento(): ProveedorFormularioRequ
     CantidadEntregables: null,
     MontoMensual: null,
     Email: '',
+    Denominacion: '',
+    PlazoDias: null,
+    NumerosPedido: [],
     NumeroPedido: '',
     Direccion: '',
     CodDepartamento: '',

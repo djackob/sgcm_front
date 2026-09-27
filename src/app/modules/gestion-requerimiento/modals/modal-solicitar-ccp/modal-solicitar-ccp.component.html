@@ -45,14 +45,16 @@
             <ul>
               <li *ngFor="let filtro of filtros">
                 <span>{{ filtro.Tipo }}</span>
-                <a
-                  *ngIf="urlEvidencia(filtro); else sinEvidencia"
-                  [href]="urlEvidencia(filtro)"
-                  target="_blank"
-                  rel="noopener"
-                >
-                  {{ filtro.NombreDocumentoEvidencia || 'Ver PDF' }}
-                </a>
+                <ng-container *ngIf="listaEvidencias(filtro).length; else sinEvidencia">
+                  <a
+                    *ngFor="let archivo of listaEvidencias(filtro)"
+                    [href]="archivo.url"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    {{ archivo.nombre }}
+                  </a>
+                </ng-container>
                 <ng-template #sinEvidencia>
                   <span class="ccp-evidencias__falta">Sin evidencia registrada</span>
                 </ng-template>

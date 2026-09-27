@@ -4,6 +4,8 @@
  * son lo que el especialista completa en el formulario.
  */
 
+import { FilaOtraPenalidad } from './penalidad';
+
 export interface TdrActividad {
   Descripcion: string;
 }
@@ -17,6 +19,14 @@ export interface TdrEntregable {
    * unión de todos debe cubrir el TDR completo.
    */
   IndicesActividades: number[];
+}
+
+/** Un paso del 8.1: el perfil de un área que otorga informe o visto bueno. */
+export interface PasoInformePrevio {
+  IdUnidad: string;
+  NombreUnidad: string;
+  CodigoRol: string;
+  NombreRol: string;
 }
 
 export interface TdrLocacion {
@@ -40,17 +50,24 @@ export interface TdrLocacion {
   UnidadOrganizacional: string;
   /** Área usuaria requirente; se hereda del encabezado y no se edita. */
   UnidadConformidad: string;
-  /** Si true, se exige informe previo / VB textual antes de la conformidad. */
+  /** Si true, la conformidad espera el informe / visto bueno de los perfiles de la ruta. */
   ExigeInformePrevio: boolean;
   /**
-   * Ítems libres (área, cargo, gerente, etc.) que se concatenan en la
-   * sección 8 del TDR. No bloquean el flujo de pagos: solo son sustento.
+   * Perfiles que revisan antes de que el área usuaria emita la conformidad.
+   * El pago copia esta lista al abrir el expediente y la recorre en este orden.
+   */
+  RutaInformePrevio: PasoInformePrevio[];
+  /**
+   * Texto impreso en la sección 8, derivado de RutaInformePrevio.
+   * Los TDR anteriores guardaban aquí frases libres.
    */
   InformesPrevios: string[];
   /** Compatibilidad con TDRs grabados antes de InformesPrevios. */
   UnidadInforme: string;
   LugarPrestacion: string;
+  /** Texto legado. El cuadro dinámico vive en OtrasPenalidadesFilas. */
   OtrasPenalidades: string;
+  OtrasPenalidadesFilas: FilaOtraPenalidad[];
   Entregables: TdrEntregable[];
 }
 
@@ -110,6 +127,45 @@ export const RECURSOS_PROVEEDOR =
 export const CONFORMIDAD_FIJA =
   'La conformidad se emite en un plazo máximo de siete días (07) contabilizados desde el día siguiente de recibido el entregable, salvo que se requiera efectuar pruebas que permitan verificar el cumplimiento de la obligación, bajo responsabilidad del servidor o funcionario que debe emitir la conformidad.\n\nDe corresponder, deberá contener un informe donde el funcionario responsable verifique, dependiendo de la naturaleza de la prestación, la calidad, cantidad y cumplimiento de las condiciones contractuales.\n\nAsimismo, son aplicables las disposiciones correspondientes a la conformidad establecidas en el artículo 144 del Reglamento de la Ley N° 32069, Ley General de Contrataciones Públicas, aprobado mediante Decreto Supremo N° 009-2025-EF.';
 
+export function pasoInformeVacio(): PasoInformePrevio {
+  return { IdUnidad: '', NombreUnidad: '', CodigoRol: '', NombreRol: '' };
+}
+
+export function etiquetaPasoInforme(paso: Partial<PasoInformePrevio> | null | undefined): string {
+  const unidad = String(paso?.NombreUnidad || '').trim();
+  const rol = String(paso?.NombreRol || '').trim();
+  if (unidad && rol) {
+    return `${unidad} — ${rol}`;
+  }
+  return unidad || rol;
+}
+
+/** Filas del 8.1 con unidad y perfil. Las incompletas no entran a la ruta ni al texto. */
+export function normalizarRutaInformePrevio(tdr: Partial<TdrLocacion> | null | undefined): PasoInformePrevio[] {
+  const lista = Array.isArray(tdr?.RutaInformePrevio) ? tdr!.RutaInformePrevio : [];
+  const vistos = new Set<string>();
+  const salida: PasoInformePrevio[] = [];
+  lista.forEach(paso => {
+    const idUnidad = String(paso?.IdUnidad || '').trim();
+    const codigoRol = String(paso?.CodigoRol || '').trim();
+    if (!idUnidad || !codigoRol) {
+      return;
+    }
+    const clave = `${idUnidad}|${codigoRol}`;
+    if (vistos.has(clave)) {
+      return;
+    }
+    vistos.add(clave);
+    salida.push({
+      IdUnidad: idUnidad,
+      NombreUnidad: String(paso?.NombreUnidad || '').trim(),
+      CodigoRol: codigoRol,
+      NombreRol: String(paso?.NombreRol || '').trim()
+    });
+  });
+  return salida;
+}
+
 /** Normaliza la lista de informes/VB previos (payload nuevo o UnidadInforme legado). */
 export function normalizarInformesPrevios(tdr: Partial<TdrLocacion> | null | undefined): string[] {
   const lista = Array.isArray(tdr?.InformesPrevios)
@@ -122,27 +178,28 @@ export function normalizarInformesPrevios(tdr: Partial<TdrLocacion> | null | und
   return legado ? [legado] : [];
 }
 
-/** Sincroniza InformesPrevios ↔ UnidadInforme antes de grabar o imprimir. */
+/** Deja la ruta y el texto impreso diciendo lo mismo antes de grabar. */
 export function sincronizarInformesPrevios(tdr: TdrLocacion): void {
-  const limpios = (tdr.InformesPrevios || []).map(x => String(x || '').trim()).filter(Boolean);
-  tdr.InformesPrevios = limpios.length ? limpios : (tdr.ExigeInformePrevio ? [''] : []);
-  const textos = (tdr.InformesPrevios || []).map(x => String(x || '').trim()).filter(Boolean);
-  tdr.UnidadInforme = textos.join('; ');
+  const ruta = normalizarRutaInformePrevio(tdr);
   if (!tdr.ExigeInformePrevio) {
+    tdr.RutaInformePrevio = [];
     tdr.InformesPrevios = [];
     tdr.UnidadInforme = '';
+    return;
   }
+  tdr.RutaInformePrevio = ruta;
+  const textos = ruta.map(etiquetaPasoInforme).filter(Boolean);
+  tdr.InformesPrevios = textos;
+  tdr.UnidadInforme = textos.join('; ');
 }
 
-/** Párrafos adicionales de la sección 8 cuando hay informe previo / VB. */
+/** Párrafos de la sección 8.1, inmediatamente después del área que emite la conformidad. */
 export function parrafosInformePrevioConformidad(tdr: TdrLocacion): string[] {
-  if (!tdr.ExigeInformePrevio) {
-    return [];
-  }
-  const items = normalizarInformesPrevios(tdr);
+  const ruta = normalizarRutaInformePrevio(tdr).map(etiquetaPasoInforme).filter(Boolean);
+  const items = ruta.length ? ruta : normalizarInformesPrevios(tdr);
   if (!items.length) {
     return [
-      'Previo a la emisión de la conformidad, se requiere informe técnico / visto bueno de: [indicar área, cargo o especialista].'
+      'Previo a la emisión de la conformidad, se requiere informe técnico / visto bueno de: ...'
     ];
   }
   if (items.length === 1) {
@@ -156,10 +213,15 @@ export function parrafosInformePrevioConformidad(tdr: TdrLocacion): string[] {
   ];
 }
 
-/** Texto completo de la sección Conformidad (fijo + concatenación del check). */
+/** Texto completo de la sección 8: área, visto bueno y luego el texto fijo. */
 export function textoConformidadCompleto(tdr: TdrLocacion): string {
-  const extra = parrafosInformePrevioConformidad(tdr);
-  return extra.length ? `${CONFORMIDAD_FIJA}\n\n${extra.join('\n')}` : CONFORMIDAD_FIJA;
+  const unidad = (tdr.UnidadConformidad || '').trim();
+  const extra = parrafosInformePrevioConformidad(tdr).join('\n');
+  const cabecera = [
+    unidad ? `Área usuaria que emite la conformidad: ${unidad}` : '',
+    extra
+  ].filter(Boolean).join('\n');
+  return cabecera ? `${cabecera}\n\n${CONFORMIDAD_FIJA}` : CONFORMIDAD_FIJA;
 }
 
 export const FORMA_PAGO_DOCUMENTOS =
@@ -356,10 +418,12 @@ export function crearTdrLocacion(valores: {
     UnidadOrganizacional: unidad || UNIDAD_ORGANIZACIONAL_EJEMPLO,
     UnidadConformidad: unidad,
     ExigeInformePrevio: false,
+    RutaInformePrevio: [],
     InformesPrevios: [],
     UnidadInforme: '',
     LugarPrestacion: LUGAR_EJEMPLO,
     OtrasPenalidades: OTRAS_PENALIDADES_EJEMPLO,
+    OtrasPenalidadesFilas: [],
     Entregables: [{ Nombre: nombreEntregableUnico(plazo), Dias: plazo, IndicesActividades: [] }]
   };
 }

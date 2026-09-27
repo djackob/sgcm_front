@@ -318,27 +318,41 @@
                       </span>
                     </td>
                     <td>
-                      <a
-                        *ngIf="urlEvidenciaFiltro(filtro)"
-                        [href]="urlEvidenciaFiltro(filtro)"
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        {{ filtro.NombreDocumentoEvidencia || 'Ver PDF' }}
-                      </a>
+                      <ng-container *ngIf="filtro.CodigoFiltro === 'DEBIDA_DILIGENCIA'; else evidenciaUnica">
+                        <a
+                          *ngFor="let archivo of listaEvidenciasFiltro(filtro)"
+                          [href]="archivo.url"
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          {{ archivo.nombre }}
+                        </a>
+                      </ng-container>
+                      <ng-template #evidenciaUnica>
+                        <a
+                          *ngIf="urlEvidenciaFiltro(filtro)"
+                          [href]="urlEvidenciaFiltro(filtro)"
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          {{ filtro.NombreDocumentoEvidencia || 'Ver PDF' }}
+                        </a>
+                      </ng-template>
                       <label class="filtro-evidencia" *ngIf="puedeEditarFiltros">
                         <input
                           type="file"
                           accept="application/pdf,.pdf"
+                          [attr.multiple]="filtro.CodigoFiltro === 'DEBIDA_DILIGENCIA' ? '' : null"
                           (change)="subirEvidenciaFiltro(filtro, $event)"
                           [disabled]="subiendoEvidencia === filtro.CodigoFiltro"
                         />
                         <span *ngIf="subiendoEvidencia === filtro.CodigoFiltro">Subiendo…</span>
-                        <span *ngIf="subiendoEvidencia !== filtro.CodigoFiltro">
+                        <span *ngIf="subiendoEvidencia !== filtro.CodigoFiltro && filtro.CodigoFiltro === 'DEBIDA_DILIGENCIA'">Agregar PDF</span>
+                        <span *ngIf="subiendoEvidencia !== filtro.CodigoFiltro && filtro.CodigoFiltro !== 'DEBIDA_DILIGENCIA'">
                           {{ filtro.NombreDocumentoEvidencia || 'Adjuntar PDF' }}
                         </span>
                       </label>
-                      <span *ngIf="!puedeEditarFiltros && !urlEvidenciaFiltro(filtro)" class="cell-muted">—</span>
+                      <span *ngIf="!puedeEditarFiltros && !listaEvidenciasFiltro(filtro).length" class="cell-muted">—</span>
                     </td>
                     <td>
                       <input
@@ -489,7 +503,13 @@
           </ng-container>
 
           <!-- Trazabilidad -->
-          <h3 class="det-seccion">Trazabilidad</h3>
+          <h3 class="det-seccion">
+            Trazabilidad
+            <button type="button" class="btn btn-app-secundario btn-sm" (click)="imprimirHistorial()">
+              <i class="mdi mdi-printer" aria-hidden="true"></i>
+              Imprimir
+            </button>
+          </h3>
 
           <ol class="det-historial">
             <li *ngFor="let paso of historial">

@@ -329,23 +329,57 @@
     </div>
 
     <div class="campo req-grid__ancho">
-      <label class="campo-etiqueta" [attr.for]="prefijo + '-pedido'">
-        N.° Pedido SIGA<span class="campo-req" aria-hidden="true">*</span>
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-denominacion'">
+        Denominación de la contratación (TDR)<span class="campo-req" aria-hidden="true">*</span>
       </label>
-      <select
-        *ngIf="pedidosConNumero.length; else pedidoTexto"
-        [id]="prefijo + '-pedido'"
+      <textarea
+        [id]="prefijo + '-denominacion'"
         class="campo-control"
-        [class.campo-control--invalido]="!!errorCampo['pedido']"
-        [name]="prefijo + '-pedido'"
-        [(ngModel)]="proveedor.NumeroPedido"
-        (ngModelChange)="limpiarError('pedido')"
-      >
-        <option value="">Seleccione el pedido de esta propuesta</option>
-        <option *ngFor="let pedido of pedidosConNumero" [value]="pedido.NumeroPedido">
-          {{ pedido.NumeroPedido }}{{ pedido.NombreItemPedido ? ' — ' + pedido.NombreItemPedido : '' }}
-        </option>
-      </select>
+        rows="3"
+        maxlength="500"
+        [class.campo-control--invalido]="!!errorCampo['denominacion']"
+        [name]="prefijo + '-denominacion'"
+        [(ngModel)]="proveedor.Denominacion"
+        (ngModelChange)="limpiarError('denominacion')"
+        placeholder="Servicio de esta propuesta, como figura en el Anexo 5"
+      ></textarea>
+      <p class="req-campo-error" *ngIf="errorCampo['denominacion']">{{ errorCampo['denominacion'] }}</p>
+    </div>
+
+    <div class="campo">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-plazo'">
+        Plazo de ejecución (días calendario)<span class="campo-req" aria-hidden="true">*</span>
+      </label>
+      <input
+        [id]="prefijo + '-plazo'"
+        type="number"
+        min="1"
+        class="campo-control"
+        [class.campo-control--invalido]="!!errorCampo['plazo']"
+        [name]="prefijo + '-plazo'"
+        [(ngModel)]="proveedor.PlazoDias"
+        (ngModelChange)="limpiarError('plazo')"
+      />
+      <p class="req-campo-error" *ngIf="errorCampo['plazo']">{{ errorCampo['plazo'] }}</p>
+    </div>
+
+    <div class="campo req-grid__ancho">
+      <label class="campo-etiqueta" [attr.for]="prefijo + '-pedido'">
+        Pedidos SIGA<span class="campo-req" aria-hidden="true">*</span>
+      </label>
+      <div class="req-pedidos-propuesta" *ngIf="pedidosConNumero.length; else pedidoTexto">
+        <label class="campo-check" *ngFor="let pedido of pedidosConNumero">
+          <input
+            type="checkbox"
+            [name]="prefijo + '-pedido-' + pedido.NumeroPedido"
+            [checked]="pedidoMarcado(pedido.NumeroPedido)"
+            (change)="alternarPedido(pedido.NumeroPedido, $any($event.target).checked)"
+          />
+          {{ pedido.NumeroPedido }}
+          <span *ngIf="pedido.ProdPy"> · CUI {{ pedido.ProdPy }}</span>
+          <span *ngIf="pedido.MetaPresupuestaria"> · meta {{ pedido.MetaPresupuestaria }}</span>
+        </label>
+      </div>
       <ng-template #pedidoTexto>
         <input
           [id]="prefijo + '-pedido'"
@@ -354,9 +388,11 @@
           [class.campo-control--invalido]="!!errorCampo['pedido']"
           [name]="prefijo + '-pedido'"
           [(ngModel)]="proveedor.NumeroPedido"
-          (ngModelChange)="limpiarError('pedido')"
+          (ngModelChange)="fijarPedidoEscrito($event)"
+          placeholder="Número de pedido"
         />
       </ng-template>
+      <p class="req-nota">Una propuesta puede agrupar varios pedidos. En el Anexo 5 salen uno debajo de otro.</p>
       <p class="req-campo-error" *ngIf="errorCampo['pedido']">{{ errorCampo['pedido'] }}</p>
     </div>
 

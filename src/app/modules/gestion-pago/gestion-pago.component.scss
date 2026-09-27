@@ -109,6 +109,19 @@
   font-size: 0.85rem;
 }
 
+.pago-ruta {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+
+  li {
+    margin: 0.35rem 0;
+  }
+
+  .status-pill {
+    margin-left: 0.5rem;
+  }
+}
+
 .pago-obs {
   background: #fff7ed;
 }

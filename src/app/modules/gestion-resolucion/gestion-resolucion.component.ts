@@ -13,6 +13,7 @@ import { DocumentoService } from '../../core/services/documento.service';
 import { FirmaDigitalService } from '../../core/services/firma-digital.service';
 import { MaestraService } from '../../shared/services/maestra.service';
 import { Funciones } from '../../shared/funciones/funciones';
+import { imprimirHistorialExpediente } from '../../shared/funciones/imprimir-trazabilidad';
 import { idDocumentoSistema } from '../../shared/funciones/archivo';
 import {
   CARPETA_RESOLUCION, CAUSALES, Causal, ProcedimientoBandeja, ProcedimientoDetalle,
@@ -544,6 +545,10 @@ export class GestionResolucionComponent implements OnInit {
   }
 
   /* ------------------------------------------------------------- trazabilidad */
+
+  imprimirHistorial(): void {
+    imprimirHistorialExpediente(`Trazabilidad · ${this.trazaTitulo || 'resolución'}`, this.historial);
+  }
 
   verTrazabilidad(idExpediente: string, titulo: string): void {
     this.trazaTitulo = titulo;

@@ -114,6 +114,12 @@ export interface ExpedientePagoDetalle extends ExpedientePagoBandeja {
   NotaPagoDocumento?: string | null;
   ConstanciaDocumento?: string | null;
   PapeletaPenalidadDocumento?: string | null;
+  RutaInformePrevio?: {
+    Orden: number;
+    NombreUnidad: string;
+    NombreRol: string | null;
+    Otorgado: boolean;
+  }[];
   Checklist?: ChecklistPago[];
   Hitos?: HitoPago[];
 }

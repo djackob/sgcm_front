@@ -265,6 +265,18 @@
       </div>
     </dl>
 
+    <section class="seccion" *ngIf="seleccionado.RutaInformePrevio?.length">
+      <h3 class="contenido-titulo">Informe técnico / visto bueno previo</h3>
+      <ol class="pago-ruta">
+        <li *ngFor="let paso of seleccionado.RutaInformePrevio">
+          {{ paso.NombreUnidad }} — {{ paso.NombreRol }}
+          <span class="status-pill" [ngClass]="paso.Otorgado ? 'status-pill--success' : 'status-pill--neutral'">
+            {{ paso.Otorgado ? 'Otorgado' : 'Pendiente' }}
+          </span>
+        </li>
+      </ol>
+    </section>
+
     <p class="pago-obs" *ngIf="seleccionado.ObservacionAu">
       <strong>Observación AU:</strong> {{ seleccionado.ObservacionAu }}
       <span *ngIf="seleccionado.FechaLimiteSubsanacion">
@@ -479,7 +491,13 @@
 
         <div class="modal-cuerpo" [hidden]="pestana !== 'trazabilidad'">
           <section class="seccion">
-            <h3 class="contenido-titulo">Historial</h3>
+            <h3 class="contenido-titulo">
+              Historial
+              <button type="button" class="btn btn-app-secundario btn-sm" (click)="imprimirHistorial()">
+                <i class="mdi mdi-printer" aria-hidden="true"></i>
+                Imprimir
+              </button>
+            </h3>
             <ol class="linea-tiempo">
               <li *ngFor="let paso of historial">
                 <span class="linea-tiempo__punto"></span>

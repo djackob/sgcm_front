@@ -61,6 +61,12 @@ export const routes: Routes = [
       .then(m => m.MantenimientoSsoComponent),
   },
   {
+    /* sigcm.Modulo.Ruta de DASHBOARD_ABAST (S051): jefe y coordinador de Abastecimiento. */
+    path: 'dashboard-abastecimiento',
+    loadComponent: () => import('../dashboard-abastecimiento/dashboard-abastecimiento.component')
+      .then(m => m.DashboardAbastecimientoComponent),
+  },
+  {
     path: 'mantenimiento-firmantes-a4',
     loadComponent: () => import('../mantenimiento-firmantes-a4/mantenimiento-firmantes-a4.component')
       .then(m => m.MantenimientoFirmantesA4Component),

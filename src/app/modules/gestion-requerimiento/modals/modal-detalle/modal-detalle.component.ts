@@ -10,7 +10,8 @@ import { MaestraService } from '../../../../shared/services/maestra.service';
 import { SessionService } from '../../../../core/services/session.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import { esPdfDelFileServer, idDocumentoSistema } from '../../../../shared/funciones/archivo';
-import { CARPETA_MEMO_CCP, CARPETA_EVAL_TDR, TIPO_EVAL_CUMPLIMIENTO_TDR, documentosDelExpediente } from '../../documentos/filtro-idoneidad.util';
+import { imprimirHistorialExpediente } from '../../../../shared/funciones/imprimir-trazabilidad';
+import { CARPETA_MEMO_CCP, CARPETA_EVAL_TDR, TIPO_EVAL_CUMPLIMIENTO_TDR, documentosDelExpediente, evidenciasFiltro, guardarEvidencias, idsEvidencia } from '../../documentos/filtro-idoneidad.util';
 import { nombreProveedor, numeroDocumentoProveedor } from '../../models/requerimiento.model';
 import { CARPETA_ANEXO_5 } from '../../documentos/anexo5.pdfmake';
 import { CARPETA_ANEXO_3, TIPO_ANEXO_3 } from '../../documentos/anexo3.pdfmake';
@@ -377,6 +378,13 @@ export class ModalDetalleRequerimientoComponent {
     });
   }
 
+  imprimirHistorial(): void {
+    imprimirHistorialExpediente(
+      `Trazabilidad · ${this.detalle?.Codigo || 'requerimiento'}`,
+      this.historial
+    );
+  }
+
   private aplicarCcpOs(detalle: any): void {
     const ccp = detalle?.Ccp;
     if (ccp) {
@@ -446,8 +454,18 @@ export class ModalDetalleRequerimientoComponent {
   }
 
   urlEvidenciaFiltro(filtro: { GeneradoDocumentoEvidencia?: string | null }): string {
-    const id = idDocumentoSistema(filtro.GeneradoDocumentoEvidencia);
+    const id = idsEvidencia(filtro.GeneradoDocumentoEvidencia)[0];
     return id ? this.maestraService.urlDescarga(id, CARPETA_MEMO_CCP) : '';
+  }
+
+  listaEvidenciasFiltro(filtro: {
+    GeneradoDocumentoEvidencia?: string | null;
+    NombreDocumentoEvidencia?: string | null;
+  }): { id: string; nombre: string; url: string }[] {
+    return evidenciasFiltro(filtro).map(item => ({
+      ...item,
+      url: this.maestraService.urlDescarga(item.id, CARPETA_MEMO_CCP)
+    }));
   }
 
   subirEvidenciaFiltro(filtro: {
@@ -456,16 +474,18 @@ export class ModalDetalleRequerimientoComponent {
     NombreDocumentoEvidencia?: string | null;
   }, event: Event): void {
     const input = event.target as HTMLInputElement;
-    const archivo = input.files?.[0];
+    const archivos = Array.from(input.files || []);
     input.value = '';
+    const archivo = archivos[0];
     if (!archivo || this.subiendoEvidencia) {
       return;
     }
-    if (!archivo.name.toLowerCase().endsWith('.pdf')) {
+    if (archivos.some(item => !item.name.toLowerCase().endsWith('.pdf'))) {
       this.funciones.mensaje('info', 'La evidencia debe ser un archivo PDF.');
       return;
     }
 
+    const varios = filtro.CodigoFiltro === 'DEBIDA_DILIGENCIA';
     this.subiendoEvidencia = filtro.CodigoFiltro;
     this.documentoService.subirArchivo(archivo, CARPETA_MEMO_CCP).subscribe({
       next: (respuesta: any) => {
@@ -475,12 +495,53 @@ export class ModalDetalleRequerimientoComponent {
           this.funciones.mensaje('error', 'No se obtuvo el identificador del PDF.');
           return;
         }
-        filtro.GeneradoDocumentoEvidencia = documentoSistema;
-        filtro.NombreDocumentoEvidencia = archivo.name;
+        if (varios) {
+          guardarEvidencias(filtro, [
+            ...evidenciasFiltro(filtro),
+            { id: documentoSistema, nombre: respuesta.documento_original || archivo.name }
+          ]);
+          if (archivos.length > 1) {
+            this.subirEvidenciasSeguidas(filtro, archivos.slice(1));
+          }
+        } else {
+          filtro.GeneradoDocumentoEvidencia = documentoSistema;
+          filtro.NombreDocumentoEvidencia = archivo.name;
+        }
       },
       error: () => {
         this.subiendoEvidencia = null;
         this.funciones.mensaje('error', 'No fue posible subir la evidencia.');
+      }
+    });
+  }
+
+  private subirEvidenciasSeguidas(filtro: {
+    CodigoFiltro: string;
+    GeneradoDocumentoEvidencia?: string | null;
+    NombreDocumentoEvidencia?: string | null;
+  }, archivos: File[]): void {
+    const archivo = archivos[0];
+    if (!archivo) {
+      return;
+    }
+    this.subiendoEvidencia = filtro.CodigoFiltro;
+    this.documentoService.subirArchivo(archivo, CARPETA_MEMO_CCP).subscribe({
+      next: (respuesta: any) => {
+        this.subiendoEvidencia = null;
+        const documentoSistema = idDocumentoSistema(respuesta?.documento_sistema);
+        if (documentoSistema) {
+          guardarEvidencias(filtro, [
+            ...evidenciasFiltro(filtro),
+            { id: documentoSistema, nombre: respuesta.documento_original || archivo.name }
+          ]);
+        }
+        if (archivos.length > 1) {
+          this.subirEvidenciasSeguidas(filtro, archivos.slice(1));
+        }
+      },
+      error: () => {
+        this.subiendoEvidencia = null;
+        this.funciones.mensaje('error', 'No fue posible subir uno de los PDF.');
       }
     });
   }

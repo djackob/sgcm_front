@@ -13,6 +13,7 @@ import { FirmaDigitalService } from '../../core/services/firma-digital.service';
 import { MaestraService } from '../../shared/services/maestra.service';
 import { Funciones } from '../../shared/funciones/funciones';
 import { idDocumentoSistema } from '../../shared/funciones/archivo';
+import { imprimirHistorialExpediente } from '../../shared/funciones/imprimir-trazabilidad';
 import {
   CARPETA_PAGO,
   ChecklistPago,
@@ -271,6 +272,13 @@ export class GestionPagoComponent implements OnInit {
     });
   }
 
+  imprimirHistorial(): void {
+    imprimirHistorialExpediente(
+      `Trazabilidad · ${this.seleccionado?.Codigo || 'pago'}`,
+      this.historial
+    );
+  }
+
   private leerTrazabilidad(idExpediente: string): void {
     this.historial = [];
     this.observaciones = [];
@@ -388,6 +396,10 @@ export class GestionPagoComponent implements OnInit {
       this.observar();
       return;
     }
+    if (codigo === 'PAG_OTORGAR_VB_SIGUIENTE' || codigo === 'PAG_OTORGAR_VB_AU') {
+      this.otorgarVistoBueno();
+      return;
+    }
     if (codigo === 'PAG_APROBAR_TECNICO') {
       this.aprobarTecnico();
       return;
@@ -478,6 +490,17 @@ export class GestionPagoComponent implements OnInit {
       this.seleccionado.Version,
       this.comentario.trim()
     ).subscribe({
+      next: (r: any) => this.terminar(r),
+      error: () => this.fallar()
+    });
+  }
+
+  private otorgarVistoBueno(): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    this.ejecutando = true;
+    this.pago.otorgarVistoBueno(this.seleccionado.IdExpediente, this.seleccionado.Version).subscribe({
       next: (r: any) => this.terminar(r),
       error: () => this.fallar()
     });

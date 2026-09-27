@@ -3,7 +3,8 @@ import {
   ProveedorFormularioRequerimiento,
   RequerimientoDetalle,
   montoTotalProveedor,
-  nombreProveedor
+  nombreProveedor,
+  numerosPedidoDeProveedor
 } from '../models/requerimiento.model';
 
 /**
@@ -140,10 +141,9 @@ export function construirAnexo5(detalle: RequerimientoDetalle | any): any {
       },
       {
         unbreakable: true,
-        columnGap: 40,
         columns: [
-          espacioFirmaAnexo5('1. Especialista del Área usuaria'),
-          espacioFirmaAnexo5('2. Jefe del Área usuaria')
+          { width: '*', text: '' },
+          { ...espacioFirmaAnexo5('2. Jefe del Área usuaria'), width: 260 }
         ]
       }
     ],
@@ -205,10 +205,14 @@ function filaPropuesta(
   const nombre = nombreProveedor(proveedor);
   const mensual = Number(proveedor.MontoMensual);
   const total = montoTotalProveedor(proveedor);
-  const nroPedido = proveedor.NumeroPedido
-    || pedido?.NumeroPedido
-    || pedidoExtra?.NumeroPedido
-    || '';
+  const numeros = numerosPedidoDeProveedor(proveedor);
+  const nroPedido = (numeros.length ? numeros : [
+    proveedor.NumeroPedido,
+    pedido?.NumeroPedido,
+    pedidoExtra?.NumeroPedido
+  ].map(x => (x || '').trim()).filter(Boolean)).join('\n');
+  const denominacion = (proveedor.Denominacion || '').trim() || comunes.denominacion;
+  const plazo = Number(proveedor.PlazoDias) > 0 ? String(proveedor.PlazoDias) : comunes.plazo;
 
   return [
     celdaTd(String(indice + 1), 'center'),
@@ -218,10 +222,10 @@ function filaPropuesta(
     celdaTd(proveedor.Dni || '', 'center'),
     celdaTd(proveedor.Email || ''),
     celdaTd(proveedor.Celular || '', 'center'),
-    celdaTd(comunes.denominacion),
+    celdaTd(denominacion),
     celdaTd(numero(mensual), 'right'),
     celdaTd(numero(total), 'right'),
-    celdaTd(comunes.plazo, 'center'),
+    celdaTd(plazo, 'center'),
     celdaTd(proveedor.TipoRegistro || '', 'center'),
     celdaTd(nroPedido, 'center')
   ];

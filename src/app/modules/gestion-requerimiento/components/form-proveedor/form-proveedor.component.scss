@@ -2,6 +2,12 @@
   display: block;
 }
 
+.req-pedidos-propuesta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .req-instancia {
   & + & {
     margin-top: 1.1rem;

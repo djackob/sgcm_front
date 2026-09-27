@@ -30,6 +30,11 @@ export class RequerimientoService {
   /* Requerimiento                                                          */
   /* ---------------------------------------------------------------------- */
 
+  /** Unidades y perfiles que pueden recibir el informe previo del 8.1. */
+  listarPerfilArea(): Observable<any> {
+    return this.apiService.GET('api/requerimiento/listarPerfilArea', {});
+  }
+
   /** Filas de la bandeja. Cada una trae Transiciones para pintar botones. */
   listarRequerimiento(filtro: any): Observable<any> {
     return this.apiService.GET('api/requerimiento/listarRequerimiento', { Filtro: filtro });

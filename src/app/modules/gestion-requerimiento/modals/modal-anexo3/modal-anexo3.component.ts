@@ -30,6 +30,9 @@ import {
   MESA_PARTES,
   OBSERVACION_ENTREGABLES,
   OTRAS_CONSIDERACIONES,
+  PENALIDAD_INTRO,
+  PENALIDAD_MORA_CIERRE,
+  PENALIDAD_MORA_TEXTO,
   PLAZO_NOTA,
   RECURSOS_PROVEEDOR,
   RESOLUCION_CONTRACTUAL,
@@ -39,7 +42,9 @@ import {
   aplicarNombreProyectoTdr,
   crearTdrLocacion,
   diasAcumuladosEntregable,
-  normalizarInformesPrevios,
+  normalizarRutaInformePrevio,
+  pasoInformeVacio,
+  PasoInformePrevio,
   plazoEntregables,
   recalcularNombresEntregables,
   reindexarActividadesTrasQuitar,
@@ -58,7 +63,9 @@ import {
   pedidosDesdeDetalle
 } from '../../documentos/anexo3.pdfmake';
 import { proveedoresDelRequerimiento } from '../../documentos/anexo5.pdfmake';
+import { nombreProveedor, numerosPedidoDeProveedor, ProveedorFormularioRequerimiento } from '../../models/requerimiento.model';
 import { combinarTdr, leerTdrDesdePayload } from '../../documentos/orden-servicio.util';
+import { filaOtraPenalidadVacia, sincronizarOtrasPenalidades } from '../../documentos/penalidad';
 
 /**
  * TDR de locación (Anexo 3). Se abre después de registrar el Anexo 5.
@@ -113,13 +120,19 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   acordeonConformidad = false;
   acordeonFormaPago = false;
   acordeonLugar = false;
+  acordeonPenalidadMora = false;
   acordeonOtrasPenalidades = false;
+  readonly penalidadIntro = PENALIDAD_INTRO;
+  readonly penalidadMora = `${PENALIDAD_MORA_TEXTO}\n\nPenalidad diaria = (0.10 × monto) / (0.40 × plazo)\n\n${PENALIDAD_MORA_CIERRE}`;
   acordeonOtras = false;
   acordeonResolucion = false;
   acordeonControversias = false;
 
   detalle: RequerimientoDetalle | null = null;
+  /** Fila del Anexo 5 cuyo TDR se está redactando. */
+  indicePropuesta = 0;
   tdr: TdrLocacion = crearTdrLocacion({});
+  unidadesArea: { IdUnidad: string; Nombre: string; Perfiles: { CodigoRol: string; Nombre: string }[] }[] = [];
   pedidos: PedidoFormularioRequerimiento[] = [];
   cantidadEntregables = 1;
   /** Cantidad de entregables capturada en el Anexo 5. Si es > 0, el TDR no la cambia. */
@@ -141,8 +154,41 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
       .join(' — ');
   }
 
+  get propuestas(): ProveedorFormularioRequerimiento[] {
+    return proveedoresDelRequerimiento(this.detalle);
+  }
+
+  get propuesta(): ProveedorFormularioRequerimiento | null {
+    return this.propuestas[this.indicePropuesta] || this.propuestas[0] || null;
+  }
+
+  /** Pedidos de la propuesta elegida. Sin lista, el TDR usa todos los del expediente. */
+  get pedidosDelTdr(): PedidoFormularioRequerimiento[] {
+    const numeros = new Set(numerosPedidoDeProveedor(this.propuesta));
+    if (!numeros.size) {
+      return this.pedidos;
+    }
+    const propios = this.pedidos.filter(p => numeros.has((p.NumeroPedido || '').trim()));
+    return propios.length ? propios : this.pedidos;
+  }
+
   get plazoContrato(): number {
+    const propio = Number(this.propuesta?.PlazoDias);
+    if (propio > 0) {
+      return propio;
+    }
     return Number(this.detalle?.PlazoDias) > 0 ? Number(this.detalle?.PlazoDias) : 0;
+  }
+
+  nombrePropuesta(proveedor: ProveedorFormularioRequerimiento, indice: number): string {
+    const nombre = nombreProveedor(proveedor) || `Propuesta ${indice + 1}`;
+    const pedidos = numerosPedidoDeProveedor(proveedor).join(', ');
+    return pedidos ? `${nombre} · ${pedidos}` : nombre;
+  }
+
+  onPropuestaChange(): void {
+    this.sincronizarEntregablesConAnexo5();
+    this.completarNombreProyecto(this.detalle);
   }
 
   /** Alias: el plazo del Anexo 5 no se recalcula con los entregables. */
@@ -181,25 +227,53 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
 
   onExigeInformePrevio(): void {
     if (!this.tdr.ExigeInformePrevio) {
+      this.tdr.RutaInformePrevio = [];
       this.tdr.InformesPrevios = [];
       this.tdr.UnidadInforme = '';
       return;
     }
-    if (!(this.tdr.InformesPrevios || []).length) {
-      const legado = (this.tdr.UnidadInforme || '').trim();
-      this.tdr.InformesPrevios = legado ? [legado] : [''];
+    if (!normalizarRutaInformePrevio(this.tdr).length && !(this.tdr.RutaInformePrevio || []).length) {
+      this.tdr.RutaInformePrevio = [pasoInformeVacio()];
     }
   }
 
   agregarInformePrevio(): void {
-    this.tdr.InformesPrevios = [...(this.tdr.InformesPrevios || []), ''];
+    this.tdr.RutaInformePrevio = [...(this.tdr.RutaInformePrevio || []), pasoInformeVacio()];
   }
 
   quitarInformePrevio(indice: number): void {
-    this.tdr.InformesPrevios = (this.tdr.InformesPrevios || []).filter((_, i) => i !== indice);
-    if (!this.tdr.InformesPrevios.length) {
-      this.tdr.InformesPrevios = [''];
+    this.tdr.RutaInformePrevio = (this.tdr.RutaInformePrevio || []).filter((_, i) => i !== indice);
+    if (!this.tdr.RutaInformePrevio.length) {
+      this.tdr.RutaInformePrevio = [pasoInformeVacio()];
     }
+  }
+
+  perfilesDe(paso: PasoInformePrevio): { CodigoRol: string; Nombre: string }[] {
+    return this.unidadesArea.find(u => u.IdUnidad === paso.IdUnidad)?.Perfiles || [];
+  }
+
+  onUnidadInforme(indice: number, idUnidad: string): void {
+    const paso = this.tdr.RutaInformePrevio?.[indice];
+    if (!paso) {
+      return;
+    }
+    const unidad = this.unidadesArea.find(u => u.IdUnidad === idUnidad);
+    paso.IdUnidad = unidad?.IdUnidad || '';
+    paso.NombreUnidad = unidad?.Nombre || '';
+    if (!unidad?.Perfiles.some(p => p.CodigoRol === paso.CodigoRol)) {
+      paso.CodigoRol = '';
+      paso.NombreRol = '';
+    }
+  }
+
+  onRolInforme(indice: number, codigoRol: string): void {
+    const paso = this.tdr.RutaInformePrevio?.[indice];
+    if (!paso) {
+      return;
+    }
+    const perfil = this.perfilesDe(paso).find(p => p.CodigoRol === codigoRol);
+    paso.CodigoRol = perfil?.CodigoRol || '';
+    paso.NombreRol = perfil?.Nombre || '';
   }
 
   /** Evita que *ngFor destruya el textarea al cambiar el string (pérdida de foco). */
@@ -207,13 +281,15 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
     return index;
   }
 
-  onInformePrevioChange(indice: number, valor: string): void {
-    const lista = this.tdr.InformesPrevios || [];
-    if (indice < 0 || indice >= lista.length) {
-      return;
+  agregarPenalidad(): void {
+    if (!Array.isArray(this.tdr.OtrasPenalidadesFilas)) {
+      this.tdr.OtrasPenalidadesFilas = [];
     }
-    /* Mutación in-place: no reemplazar el arreglo en cada tecla. */
-    lista[indice] = valor ?? '';
+    this.tdr.OtrasPenalidadesFilas = [...this.tdr.OtrasPenalidadesFilas, filaOtraPenalidadVacia()];
+  }
+
+  quitarPenalidad(indice: number): void {
+    this.tdr.OtrasPenalidadesFilas = (this.tdr.OtrasPenalidadesFilas || []).filter((_, i) => i !== indice);
   }
 
   get textoFormaPagoVista(): string {
@@ -238,9 +314,11 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   abrir(idRequerimiento: string): void {
     this.abierto = true;
     this.cargando = true;
+    this.cargarUnidadesArea();
     this.guardando = false;
     this.acordeonMarco = true;
     this.detalle = null;
+    this.indicePropuesta = 0;
     this.tdr = crearTdrLocacion({});
     this.pedidos = [crearPedidoFormularioRequerimiento()];
     this.cantidadDesdeAnexo5 = 0;
@@ -268,6 +346,8 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
             const lista = this.listaDocumentos(docs);
             const tdrDoc = lista.find((d: any) => d.CodigoTipoDocumento === TIPO_ANEXO_3);
             const previo = leerTdrDesdePayload(tdrDoc?.Payload);
+            const indice = this.indiceDesdePayload(tdrDoc?.Payload);
+            this.indicePropuesta = indice < proveedoresDelRequerimiento(detalle).length ? indice : 0;
             /* combinarTdr conserva Actividades y Entregables del Payload; el
                merge suelto solo cuidaba Entregables y las actividades
                guardadas no reaparecian al reeditar. */
@@ -278,13 +358,15 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
             }
             if (this.tdr.ExigeInformePrevio == null) {
               this.tdr.ExigeInformePrevio = !!(this.tdr.UnidadInforme || '').trim()
-                || !!(this.tdr.InformesPrevios || []).some(x => !!(x || '').trim());
+                || !!(this.tdr.InformesPrevios || []).some(x => !!(x || '').trim())
+                || normalizarRutaInformePrevio(this.tdr).length > 0;
             }
-            this.tdr.InformesPrevios = this.tdr.ExigeInformePrevio
-              ? (normalizarInformesPrevios(this.tdr).length
-                  ? normalizarInformesPrevios(this.tdr)
-                  : [''])
-              : [];
+            if (!Array.isArray(this.tdr.RutaInformePrevio)) {
+              this.tdr.RutaInformePrevio = [];
+            }
+            if (this.tdr.ExigeInformePrevio && !this.tdr.RutaInformePrevio.length) {
+              this.tdr.RutaInformePrevio = [pasoInformeVacio()];
+            }
             this.tdr.UnidadConformidad = (detalle.CentroCostoNombre || this.tdr.UnidadConformidad || '').trim();
             this.tdr.Actividades = [...(this.tdr.Actividades || [])];
             this.sincronizarEntregablesConAnexo5();
@@ -442,7 +524,8 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   }
 
   private leerCantidadAnexo5(detalle: any): number {
-    const proveedores = proveedoresDelRequerimiento(detalle);
+    const elegida = this.propuesta ? [this.propuesta] : [];
+    const proveedores = elegida.length ? elegida : proveedoresDelRequerimiento(detalle);
     for (const proveedor of proveedores) {
       const n = Math.floor(Number(proveedor?.CantidadEntregables) || 0);
       if (n > 0) {
@@ -468,11 +551,11 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
    * NombreProyectoSiga: se consulta PEDIDO_DETALLE y se pinta siempre.
    */
   private completarNombreProyecto(detalle: RequerimientoDetalle | any): void {
-    const pendientes = this.pedidos.filter(p =>
+    const pendientes = this.pedidosDelTdr.filter(p =>
       !!(p.NumeroPedido || '').trim() && !(p.NombreProyectoSiga || '').trim()
     );
     if (!pendientes.length) {
-      aplicarNombreProyectoTdr(this.tdr, this.pedidos);
+      aplicarNombreProyectoTdr(this.tdr, this.pedidosDelTdr);
       this.cargando = false;
       return;
     }
@@ -500,11 +583,11 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
           pedido.TipoActProy = fila.TipoActProy || pedido.TipoActProy || '';
           pedido.NombreProyectoSiga = fila.NombreActProy || pedido.NombreProyectoSiga || '';
         });
-        aplicarNombreProyectoTdr(this.tdr, this.pedidos);
+        aplicarNombreProyectoTdr(this.tdr, this.pedidosDelTdr);
         this.cargando = false;
       },
       error: () => {
-        aplicarNombreProyectoTdr(this.tdr, this.pedidos);
+        aplicarNombreProyectoTdr(this.tdr, this.pedidosDelTdr);
         this.cargando = false;
       }
     });
@@ -536,12 +619,22 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
       return;
     }
 
-    if (this.tdr.ExigeInformePrevio
-        && !(this.tdr.InformesPrevios || []).some(x => !!(x || '').trim())
-        && !(this.tdr.UnidadInforme || '').trim()) {
-      this.marcarError('informePrevio', 'Indique al menos un informe previo / visto bueno, o desactive el check.');
-      this.dirigirAObservacion('informePrevio', () => { this.acordeonConformidad = true; });
-      return;
+    if (this.tdr.ExigeInformePrevio) {
+      const filas = this.tdr.RutaInformePrevio || [];
+      const incompleta = filas.some(p => !(p.IdUnidad || '').trim() || !(p.CodigoRol || '').trim());
+      const claves = filas
+        .filter(p => (p.IdUnidad || '').trim() && (p.CodigoRol || '').trim())
+        .map(p => `${p.IdUnidad}|${p.CodigoRol}`);
+      if (incompleta || !claves.length || claves.length !== new Set(claves).size) {
+        this.marcarError(
+          'informePrevio',
+          incompleta || !claves.length
+            ? 'Elija el área y el perfil de cada fila, o desactive el check.'
+            : 'Cada área y perfil se indica una sola vez.'
+        );
+        this.dirigirAObservacion('informePrevio', () => { this.acordeonConformidad = true; });
+        return;
+      }
     }
 
     const errEntregables = validarEntregablesTdr(this.tdr, this.cantidadDesdeAnexo5, this.plazoContrato);
@@ -579,9 +672,18 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
     this.tdr.IntroActividades = INTRO_ACTIVIDADES;
     this.tdr.UnidadConformidad = (this.detalle.CentroCostoNombre || this.tdr.UnidadConformidad || '').trim();
     sincronizarInformesPrevios(this.tdr);
-    aplicarNombreProyectoTdr(this.tdr, this.pedidos);
+    if (!Array.isArray(this.tdr.OtrasPenalidadesFilas)) {
+      this.tdr.OtrasPenalidadesFilas = [];
+    }
+    sincronizarOtrasPenalidades(this.tdr);
+    aplicarNombreProyectoTdr(this.tdr, this.pedidosDelTdr);
     this.guardando = true;
-    const definicion = construirAnexo3Tdr(this.detalle, this.tdr, this.pedidos);
+    const detallePdf = {
+      ...this.detalle,
+      Denominacion: (this.propuesta?.Denominacion || '').trim() || this.detalle.Denominacion,
+      PlazoDias: this.plazoContrato || this.detalle.PlazoDias
+    };
+    const definicion = construirAnexo3Tdr(detallePdf, this.tdr, this.pedidosDelTdr);
     const nombre = nombreArchivoAnexo3(this.detalle);
 
     this.documentoService.generarYSubir(definicion, nombre, CARPETA_ANEXO_3).subscribe({
@@ -598,7 +700,7 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
           TIPO_ANEXO_3,
           documentoSistema,
           archivo.documento_original,
-          { Codigo: this.detalle!.Codigo, Tdr: this.tdr }
+          { Codigo: this.detalle!.Codigo, IndicePropuesta: this.indicePropuesta, Tdr: this.tdr }
         ).subscribe({
           next: (doc: any) => {
             this.guardando = false;
@@ -634,6 +736,34 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
         this.funciones.mensaje('error', 'No se pudo subir el Anexo 3 al servidor.');
       }
     });
+  }
+
+  private cargarUnidadesArea(): void {
+    if (this.unidadesArea.length) {
+      return;
+    }
+    this.requerimientoService.listarPerfilArea().subscribe({
+      next: (r: any) => {
+        const lista = r?.Unidades ?? r?.unidades ?? [];
+        this.unidadesArea = Array.isArray(lista) ? lista : [];
+      },
+      error: () => {
+        this.unidadesArea = [];
+      }
+    });
+  }
+
+  private indiceDesdePayload(payload: any): number {
+    let datos = payload;
+    if (typeof datos === 'string') {
+      try {
+        datos = JSON.parse(datos);
+      } catch {
+        return 0;
+      }
+    }
+    const n = Number(datos?.IndicePropuesta);
+    return Number.isInteger(n) && n >= 0 ? n : 0;
   }
 
   private listaDocumentos(docs: any): any[] {

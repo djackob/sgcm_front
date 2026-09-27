@@ -1,4 +1,6 @@
 import { DOCUMENTO_TECNICO, PedidoRequerimiento, RequerimientoDetalle, TipoContratacionRequerimiento } from '../models/requerimiento.model';
+import { PENALIDAD_INTRO, PENALIDAD_MORA_CIERRE, PENALIDAD_MORA_TEXTO } from './anexo3-tdr.plantilla';
+import { FilaOtraPenalidad, filasDesdeTextoPenalidad, normalizarFilasPenalidad, tablaOtrasPenalidades, textoFilasPenalidad } from './penalidad';
 
 export const CARPETA_DOCUMENTO_TECNICO = 'requerimiento';
 
@@ -9,6 +11,7 @@ export interface DocumentoTecnicoFormulario {
   Requisitos: string;
   Conformidad: string;
   FormaPago: string;
+  OtrasPenalidades: FilaOtraPenalidad[];
 }
 
 export function crearDocumentoTecnico(): DocumentoTecnicoFormulario {
@@ -18,7 +21,8 @@ export function crearDocumentoTecnico(): DocumentoTecnicoFormulario {
     Lugar: '',
     Requisitos: '',
     Conformidad: '',
-    FormaPago: ''
+    FormaPago: '',
+    OtrasPenalidades: []
   };
 }
 
@@ -27,10 +31,14 @@ export function leerDocumentoTecnico(payload: any): DocumentoTecnicoFormulario {
   const base = crearDocumentoTecnico();
   (Object.keys(base) as (keyof DocumentoTecnicoFormulario)[]).forEach(clave => {
     const valor = src[clave];
-    if (typeof valor === 'string') {
-      base[clave] = valor;
+    if (typeof valor === 'string' && clave !== 'OtrasPenalidades') {
+      (base as unknown as Record<string, string>)[clave] = valor;
     }
   });
+  const filas = normalizarFilasPenalidad(src.OtrasPenalidades);
+  base.OtrasPenalidades = filas.length
+    ? filas
+    : filasDesdeTextoPenalidad(typeof src.OtrasPenalidades === 'string' ? src.OtrasPenalidades : '');
   return base;
 }
 
@@ -119,6 +127,13 @@ export function construirDocumentoTecnico(
       parrafo(formulario.Conformidad),
       titulo('7. Forma de pago'),
       parrafo(formulario.FormaPago),
+      titulo('8. Penalidad por mora'),
+      parrafo(PENALIDAD_INTRO),
+      parrafo(PENALIDAD_MORA_TEXTO),
+      parrafo('Penalidad diaria = (0.10 × monto) / (0.40 × plazo)'),
+      parrafo(PENALIDAD_MORA_CIERRE),
+      titulo('9. Otras penalidades'),
+      tablaOtrasPenalidades(formulario.OtrasPenalidades) || parrafo(textoFilasPenalidad(formulario.OtrasPenalidades) || 'No se establecen otras penalidades.'),
       {
         text: 'Firma del Jefe del Área usuaria',
         bold: true,
