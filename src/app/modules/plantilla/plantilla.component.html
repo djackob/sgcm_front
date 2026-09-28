@@ -5,6 +5,55 @@
         <span class="nombre-app">Sistema de Gestión de Contratos Menores</span>
     </div>
     <div class="usuario">
+        @if(alertas){
+            <button type="button" class="campana" title="Alertas" aria-label="Alertas" (click)="ActivarCampana()">
+                <i class="mdi mdi-bell-outline"></i>
+                @if(totalAlertas > 0){
+                    <span class="campana__badge" [class.campana__badge--vencido]="alertas.Vencidos > 0">{{ totalAlertas > 99 ? '99+' : totalAlertas }}</span>
+                }
+            </button>
+        }
+        @if(campana_activa && alertas){
+            <div class="campana__panel">
+                <div class="campana__resumen">
+                    <span class="campana__chip campana__chip--vencido">{{ alertas.Vencidos }} vencidos</span>
+                    <span class="campana__chip campana__chip--vence">{{ alertas.PorVencer }} por vencer (7 días)</span>
+                    <span class="campana__chip">{{ alertas.Pendientes }} por atender</span>
+                </div>
+                @if(alertas.Modulos.length){
+                    <div class="campana__modulos">
+                        @for(m of alertas.Modulos; track m.CodigoModulo){
+                            <button type="button" class="campana__modulo" (click)="AbrirModulo(m)">
+                                <span>{{ m.Modulo }}</span>
+                                <span class="campana__conteos">
+                                    @if(m.Vencidos){ <b class="campana__tipo--vencido">{{ m.Vencidos }}</b> }
+                                    @if(m.PorVencer){ <b class="campana__tipo--vence">{{ m.PorVencer }}</b> }
+                                    @if(m.Pendientes){ <b>{{ m.Pendientes }}</b> }
+                                </span>
+                            </button>
+                        }
+                    </div>
+                }
+                @if(alertas.Items.length){
+                    <ul>
+                        @for(item of alertas.Items; track item.IdExpediente + item.Tipo){
+                            <li>
+                                <a href="javascript:void(0)" (click)="AbrirAlerta(item)">
+                                    <span class="campana__tipo" [class.campana__tipo--vencido]="item.Tipo === 'VENCIDO'" [class.campana__tipo--vence]="item.Tipo === 'POR_VENCER'">
+                                        {{ EtiquetaTipo(item.Tipo) }} · {{ item.Modulo }}
+                                    </span>
+                                    <strong>{{ item.Codigo }}</strong>
+                                    @if(item.Descripcion){ <small>{{ item.Descripcion }}</small> }
+                                    <small>{{ item.Estado }}@if(item.FechaLimite){ · vence {{ item.FechaLimite | date:'dd/MM/yyyy' }}}</small>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                } @else {
+                    <p class="campana__vacio">Sin alertas pendientes.</p>
+                }
+            </div>
+        }
         <span class="user" (click)="ActivarMenu()">{{siglas_usuario}}
             <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" style="--color: var(--primary-icon);"><g fill-rule="evenodd" transform="translate(-448 -544)"><path fill-rule="nonzero" d="M452.707 549.293a1 1 0 0 0-1.414 1.414l4 4a1 1 0 0 0 1.414 0l4-4a1 1 0 0 0-1.414-1.414L456 552.586l-3.293-3.293z"></path></g></svg>
         </span>

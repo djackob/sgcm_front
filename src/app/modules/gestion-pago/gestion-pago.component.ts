@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { forkJoin, of } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { PagoService } from './services/pago.service';
@@ -17,7 +18,14 @@ import { imprimirHistorialExpediente } from '../../shared/funciones/imprimir-tra
 import {
   CARPETA_PAGO,
   ChecklistPago,
+  ConstanciaPrestacion,
+  CorreoEnviado,
+  DocumentoAdicionalPago,
+  EstadoConstancia,
+  TIPO_CONSTANCIA_PRESTACION,
   ExpedientePagoBandeja,
+  ResumenAlertasPago,
+  TOOLTIP_PENALIDAD,
   ExpedientePagoDetalle,
   OrdenPortalLocador,
   OrdenServicioSiga,
@@ -33,7 +41,7 @@ import {
 import { construirAnexo11, nombreArchivoAnexo11 } from './documentos/anexo11.pdfmake';
 import { TIPO_ANEXO_9, construirAnexo9, nombreArchivoAnexo9 } from './documentos/anexo9.pdfmake';
 import { TIPO_ANEXO_10, construirAnexo10, nombreArchivoAnexo10 } from './documentos/anexo10.pdfmake';
-
+import { construirConstanciaPrestacion, nombreArchivoConstancia } from './documentos/constancia-prestacion.pdfmake';
 @Component({
   selector: 'app-gestion-pago',
   standalone: true,
@@ -51,8 +59,30 @@ export class GestionPagoComponent implements OnInit {
      todo lo de la oficina y marca con `MeToca` lo que le toca a este perfil, que
      la base devuelve ordenado primero. Ya no es un check de la pantalla —el
      mismo criterio que se aplicó en la bandeja de CMN—, y por eso queda fijo. */
-  filtro = { SoloMiBandeja: true, Texto: '', Limite: 10, Desplazamiento: 0 };
+  filtro = { SoloMiBandeja: true, Texto: '', Limite: 10, Desplazamiento: 0, Alerta: '' };
   readonly opcionesPaginacion = [10, 20, 50, 100];
+  readonly tooltipPenalidad = TOOLTIP_PENALIDAD;
+  /** Abastecimiento puede consultar todos los expedientes de la entidad. */
+  verTodos = false;
+  alertas: ResumenAlertasPago | null = null;
+
+  /* Asignación manual del entregable recibido (jefe o secretaria del área). */
+  puestosAsignacion: any[] = [];
+  responsableAsignar = '';
+  cargandoAsignacion = false;
+
+  numeroContrato = '';
+  adicionalesFiles: File[] = [];
+  adicionalDescripcion = '';
+  correos: CorreoEnviado[] = [];
+  /** Constancia de prestación de la orden (se emite tras el último giro). */
+  estadoConstancia: EstadoConstancia | null = null;
+
+  /* Visor en paralelo al checklist del Anexo 9: el especialista de
+     Abastecimiento contrasta cada documento sin cerrar la verificación. */
+  visorLateralUrl: SafeResourceUrl | null = null;
+  visorLateralObjectUrl = '';
+  visorLateralTitulo = '';
   cargando = false;
   total = 0;
   expedientes: ExpedientePagoBandeja[] = [];
@@ -112,14 +142,81 @@ export class GestionPagoComponent implements OnInit {
     private firma: FirmaDigitalService,
     private maestra: MaestraService,
     private funciones: Funciones,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private route: ActivatedRoute
   ) { }
 
   ngOnInit(): void {
     const perfil = this.sesion.getUsuario()?.detalle?.[0]?.perfil?.[0];
     this.codigoRol = perfil?.cod_perfil || '';
     this.esLocador = this.codigoRol === 'PROVEEDOR';
+    /* La campanita del encabezado llega con ?alerta= (filtro) o ?exp= (abre
+       el expediente). */
+    this.route.queryParamMap.subscribe(params => {
+      const alerta = params.get('alerta') || '';
+      if (['PENDIENTE', 'POR_VENCER', 'VENCIDO'].includes(alerta)) {
+        this.filtro.Alerta = alerta;
+        this.filtro.Desplazamiento = 0;
+      }
+      this.cargar();
+      const exp = params.get('exp');
+      if (exp) {
+        this.abrir({ IdExpediente: exp });
+      }
+    });
+  }
+
+  get esAbast(): boolean {
+    return this.codigoRol.startsWith('ABAST_');
+  }
+
+  get puedeAsignar(): boolean {
+    return !!this.seleccionado
+      && this.seleccionado.CodigoEstado === 'PAG_RECIBIDO_AU'
+      && (this.codigoRol === 'AREA_JEFE' || this.codigoRol === 'AREA_SECRETARIA');
+  }
+
+  get puedeEditarContrato(): boolean {
+    return !!this.seleccionado
+      && (this.codigoRol === 'AREA_JEFE' || this.esAbast)
+      && this.seleccionado.CodigoEstado !== 'PAG_PAGO_EFECTUADO';
+  }
+
+  get verChecklist(): boolean {
+    return this.codigoRol === 'ABAST_ESPECIALISTA' || this.codigoRol === 'ABAST_COORDINADOR';
+  }
+
+  /** CCI del Anexo 6 contra el que se contrasta el registrado en SIAF Web. */
+  cciDistinto(item: ChecklistPago): boolean {
+    const siaf = (item.Observacion || '').replace(/\D/g, '');
+    const anexo6 = (this.seleccionado?.Cci || '').replace(/\D/g, '');
+    return !!siaf && !!anexo6 && siaf !== anexo6;
+  }
+
+  etiquetaOrden(item: { TipoOrden?: string | null; NumeroOrdenSiga: string | null }): string {
+    if (!item.NumeroOrdenSiga) {
+      return '—';
+    }
+    return `${item.TipoOrden === 'OC' ? 'O/C' : 'O/S'} ${item.NumeroOrdenSiga}`;
+  }
+
+  filtrarAlerta(tipo: string): void {
+    this.filtro.Alerta = this.filtro.Alerta === tipo ? '' : tipo;
+    this.filtro.Desplazamiento = 0;
     this.cargar();
+  }
+
+  cambiarVerTodos(): void {
+    this.filtro.SoloMiBandeja = !this.verTodos;
+    this.filtro.Desplazamiento = 0;
+    this.cargar();
+  }
+
+  private cargarAlertas(): void {
+    this.pago.resumenAlertas().subscribe({
+      next: (r: any) => { this.alertas = r?.estado === 1 ? r : null; },
+      error: () => { this.alertas = null; }
+    });
   }
 
   get desde(): number {
@@ -144,6 +241,7 @@ export class GestionPagoComponent implements OnInit {
       return;
     }
     this.cargando = true;
+    this.cargarAlertas();
     this.pago.listarPago(this.filtro).subscribe({
       next: (r: any) => {
         this.cargando = false;
@@ -215,11 +313,30 @@ export class GestionPagoComponent implements OnInit {
         this.cci = this.seleccionado?.Cci || '';
         this.retrasoJustificado = !!this.seleccionado?.RetrasoJustificado;
         this.confirmarAlerta = false;
+        this.numeroContrato = this.seleccionado?.NumeroContrato || '';
+        this.adicionalesFiles = [];
+        this.adicionalDescripcion = '';
+        this.responsableAsignar = '';
+        this.puestosAsignacion = [];
+        this.cerrarVisorLateral();
+        if (this.seleccionado?.CodigoEstado === 'PAG_OBSERVADO_AU' || this.seleccionado?.CodigoEstado === 'PAG_OBS_AU_ABAST') {
+          this.comentario = '';
+        }
         this.pestana = 'detalle';
         this.hitos = this.seleccionado?.Hitos || [];
         this.leerOrdenSiga(fila.IdExpediente);
         this.leerAnexo11(fila.IdExpediente);
         this.leerTrazabilidad(fila.IdExpediente);
+        if (!this.esLocador) {
+          this.leerCorreos(fila.IdExpediente);
+        }
+        this.estadoConstancia = null;
+        if (!this.esLocador && this.seleccionado?.CodigoEstado === 'PAG_PAGO_EFECTUADO') {
+          this.leerConstancia(fila.IdExpediente);
+        }
+        if (this.puedeAsignar) {
+          this.cargarAsignacion();
+        }
       },
       error: () => this.funciones.mensaje('error', 'No se pudo obtener el expediente.')
     });
@@ -331,13 +448,42 @@ export class GestionPagoComponent implements OnInit {
       this.funciones.mensaje('info', 'Este documento no tiene archivo en el file server.');
       return;
     }
+    if (this.verChecklist) {
+      this.abrirVisorLateral(id, doc.Nombre || doc.CodigoTipoDocumento);
+      return;
+    }
     this.abrirVisorPdf(id, doc.Nombre || doc.CodigoTipoDocumento,
       doc.Estado === 'FIRMADO' ? 'Firmado digitalmente' : 'Sin firma');
+  }
+
+  private abrirVisorLateral(documentoSistema: string, titulo: string): void {
+    this.maestra.descargarArchivo(documentoSistema, CARPETA_PAGO).subscribe({
+      next: (blob: Blob) => {
+        this.cerrarVisorLateral();
+        const esPdf = blob.type === 'application/pdf' || /\.pdf$/i.test(documentoSistema) || /\.pdf$/i.test(titulo);
+        this.visorLateralObjectUrl = URL.createObjectURL(
+          esPdf && blob.type !== 'application/pdf' ? new Blob([blob], { type: 'application/pdf' }) : blob
+        );
+        this.visorLateralUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.visorLateralObjectUrl);
+        this.visorLateralTitulo = titulo;
+      },
+      error: () => this.funciones.mensaje('error', `No fue posible abrir el documento (${documentoSistema}).`)
+    });
+  }
+
+  cerrarVisorLateral(): void {
+    if (this.visorLateralObjectUrl) {
+      URL.revokeObjectURL(this.visorLateralObjectUrl);
+    }
+    this.visorLateralObjectUrl = '';
+    this.visorLateralUrl = null;
+    this.visorLateralTitulo = '';
   }
 
   cerrarDetalle(): void {
     this.seleccionado = null;
     this.cerrarVisorPdf();
+    this.cerrarVisorLateral();
   }
 
   /**
@@ -361,12 +507,11 @@ export class GestionPagoComponent implements OnInit {
     return Number(valor || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  /* Las fechas de SQL llegan sin zona: new Date('2026-09-30') las toma como
+     UTC y en Lima se mostraban un día antes. */
   fecha(valor: string | null | undefined): string {
-    if (!valor) {
-      return '—';
-    }
-    const d = new Date(valor);
-    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-PE');
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(valor || '');
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : '—';
   }
 
   urlArchivo(id: string | null | undefined): string {
@@ -390,6 +535,14 @@ export class GestionPagoComponent implements OnInit {
     const codigo = transicion.CodigoTransicion;
     if (codigo === 'PAG_PRESENTAR' || codigo === 'PAG_SUBSANAR') {
       this.presentar();
+      return;
+    }
+    if (codigo === 'PAG_ASIGNAR_ESPECIALISTA') {
+      this.asignar();
+      return;
+    }
+    if (codigo === 'PAG_NOTIFICAR_OBS_PROVEEDOR') {
+      this.notificarObservacion();
       return;
     }
     if (codigo === 'PAG_OBSERVAR_AU') {
@@ -493,6 +646,209 @@ export class GestionPagoComponent implements OnInit {
       next: (r: any) => this.terminar(r),
       error: () => this.fallar()
     });
+  }
+
+  private cargarAsignacion(): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    this.cargandoAsignacion = true;
+    this.pago.listarDestinatarioDerivacion(this.seleccionado.IdExpediente, 'PAG_ASIGNAR_ESPECIALISTA').subscribe({
+      next: (r: any) => {
+        this.cargandoAsignacion = false;
+        this.puestosAsignacion = r?.estado === 1 ? (r.Puestos || []) : [];
+        const personas = this.puestosAsignacion.flatMap((p: any) => p.Personas || []);
+        if (personas.length === 1) {
+          this.responsableAsignar = personas[0].IdUsuario;
+        }
+      },
+      error: () => { this.cargandoAsignacion = false; }
+    });
+  }
+
+  private asignar(): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    if (!this.responsableAsignar) {
+      this.funciones.mensaje('info', 'Seleccione el especialista al que asigna el entregable.');
+      return;
+    }
+    this.ejecutando = true;
+    this.pago.asignarEspecialista(
+      this.seleccionado.IdExpediente,
+      this.seleccionado.Version,
+      this.responsableAsignar,
+      this.comentario.trim() || null
+    ).subscribe({
+      next: (r: any) => this.terminar(r),
+      error: () => this.fallar()
+    });
+  }
+
+  private notificarObservacion(): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    this.ejecutando = true;
+    this.pago.notificarObservacion(
+      this.seleccionado.IdExpediente,
+      this.seleccionado.Version,
+      this.comentario.trim() || null
+    ).subscribe({
+      next: (r: any) => this.terminar(r),
+      error: () => this.fallar()
+    });
+  }
+
+  onAdicionales(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.adicionalesFiles = [...this.adicionalesFiles, ...Array.from(input.files || [])];
+    input.value = '';
+  }
+
+  quitarAdicional(indice: number): void {
+    this.adicionalesFiles = this.adicionalesFiles.filter((_, i) => i !== indice);
+  }
+
+  /** Sube N archivos y los registra como «otros documentos» del pago. */
+  subirAdicionales(): void {
+    if (!this.seleccionado || !this.adicionalesFiles.length || this.ejecutando) {
+      return;
+    }
+    const det = this.seleccionado;
+    const archivos = [...this.adicionalesFiles];
+    const descripcion = this.adicionalDescripcion.trim() || null;
+    this.ejecutando = true;
+    forkJoin(archivos.map(f => this.documentos.subirArchivo(f, CARPETA_PAGO))).pipe(
+      switchMap((subidos: any[]) => this.pago.registrarDocumentoAdicional(det.IdExpediente,
+        subidos.map((s: any, i: number) => ({
+          GeneradoDocumento: s?.documento_sistema,
+          NombreDocumento: archivos[i].name,
+          Descripcion: descripcion
+        }))))
+    ).subscribe({
+      next: (r: any) => {
+        this.ejecutando = false;
+        if (r?.estado !== 1) {
+          this.funciones.mensaje('error', r?.mensaje || 'No se registraron los documentos.');
+          return;
+        }
+        this.funciones.mensaje('success', r.mensaje);
+        this.abrir({ IdExpediente: det.IdExpediente });
+      },
+      error: () => this.fallar()
+    });
+  }
+
+  retirarAdicional(doc: DocumentoAdicionalPago): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    const id = this.seleccionado.IdExpediente;
+    this.pago.anularDocumentoAdicional(doc.IdDocumentoAdicional).subscribe({
+      next: (r: any) => {
+        if (r?.estado !== 1) {
+          this.funciones.mensaje('error', r?.mensaje || 'No se pudo retirar el documento.');
+          return;
+        }
+        this.abrir({ IdExpediente: id });
+      },
+      error: () => this.fallar()
+    });
+  }
+
+  verAdicional(doc: DocumentoAdicionalPago): void {
+    this.verDocumento({ GeneradoDocumento: doc.GeneradoDocumento, Nombre: doc.NombreDocumento });
+  }
+
+  guardarNumeroContrato(): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    const id = this.seleccionado.IdExpediente;
+    this.pago.actualizarNumeroContrato(id, this.numeroContrato.trim()).subscribe({
+      next: (r: any) => {
+        if (r?.estado !== 1) {
+          this.funciones.mensaje('error', r?.mensaje || 'No se registró el número de contrato.');
+          return;
+        }
+        if (this.seleccionado) {
+          this.seleccionado.NumeroContrato = r.NumeroContrato;
+        }
+        this.funciones.mensaje('success', r.mensaje);
+      },
+      error: () => this.fallar()
+    });
+  }
+
+  private leerCorreos(idExpediente: string): void {
+    this.correos = [];
+    this.pago.listarCorreo(idExpediente).subscribe({
+      next: (r: any) => { this.correos = r?.estado === 1 ? (r.Correos || []) : []; },
+      error: () => { }
+    });
+  }
+
+  /** Reconstruye el correo enviado como HTML, para descargarlo o imprimirlo a PDF. */
+  private conCorreo(correo: CorreoEnviado, accion: (html: string, c: CorreoEnviado) => void): void {
+    this.pago.obtenerCorreo(correo.IdCorreo).subscribe({
+      next: (r: any) => {
+        const c: CorreoEnviado = r?.Correo;
+        if (r?.estado !== 1 || !c) {
+          this.funciones.mensaje('error', r?.mensaje || 'No se pudo recuperar el correo.');
+          return;
+        }
+        accion(this.htmlCorreo(c), c);
+      },
+      error: () => this.fallar()
+    });
+  }
+
+  descargarCorreoHtml(correo: CorreoEnviado): void {
+    this.conCorreo(correo, (html, c) => {
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Correo ${c.CodigoExpediente || ''} ${(c.EnviadoEn || '').substring(0, 10)}.html`.trim();
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+  }
+
+  imprimirCorreo(correo: CorreoEnviado): void {
+    this.conCorreo(correo, html => {
+      const ventana = window.open('', '_blank');
+      if (!ventana) {
+        this.funciones.mensaje('info', 'Permita las ventanas emergentes para imprimir el correo.');
+        return;
+      }
+      ventana.document.open();
+      ventana.document.write(html);
+      ventana.document.close();
+      ventana.focus();
+      setTimeout(() => ventana.print(), 300);
+    });
+  }
+
+  private htmlCorreo(c: CorreoEnviado): string {
+    const esc = (v: string | null | undefined) => (v || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const fechaHora = (c.EnviadoEn || '').replace('T', ' ').substring(0, 19);
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>${esc(c.Asunto)}</title>
+<style>body{font-family:Arial,sans-serif;font-size:13px;margin:24px}
+table.cab{border-collapse:collapse;margin-bottom:16px}table.cab td{padding:3px 8px;vertical-align:top}
+table.cab td:first-child{font-weight:bold;color:#444}hr{border:0;border-top:1px solid #ccc}</style></head><body>
+<table class="cab">
+<tr><td>Fecha</td><td>${esc(fechaHora)}</td></tr>
+<tr><td>De</td><td>${esc(c.Remitente)} (SGCM)</td></tr>
+<tr><td>Para</td><td>${esc(c.Destinatario)}</td></tr>
+<tr><td>CC</td><td>${esc(c.Copia)}</td></tr>
+<tr><td>Asunto</td><td>${esc(c.Asunto)}</td></tr>
+<tr><td>Expediente</td><td>${esc(c.CodigoExpediente)}</td></tr>
+<tr><td>Resultado</td><td>${c.Enviado ? 'Enviado' : 'No enviado'} · ${esc(c.Resultado)}</td></tr>
+</table><hr>${c.Cuerpo || ''}</body></html>`;
   }
 
   private otorgarVistoBueno(): void {
@@ -625,12 +981,29 @@ export class GestionPagoComponent implements OnInit {
     if (!this.seleccionado || this.ejecutando) {
       return;
     }
+    const numero = this.numeroContrato.trim();
+    if (this.puedeEditarContrato && numero !== (this.seleccionado.NumeroContrato || '')) {
+      this.ejecutando = true;
+      this.pago.actualizarNumeroContrato(this.seleccionado.IdExpediente, numero).subscribe({
+        next: (r: any) => {
+          this.ejecutando = false;
+          if (r?.estado !== 1) {
+            this.funciones.mensaje('error', r?.mensaje || 'No se registró el número de contrato.');
+            return;
+          }
+          this.seleccionado!.NumeroContrato = r.NumeroContrato;
+          this.generarAnexo11();
+        },
+        error: () => this.fallar()
+      });
+      return;
+    }
     const det = this.seleccionado;
     const nombre = nombreArchivoAnexo11(det);
     this.ejecutando = true;
     this.paso = 'Generando el Anexo 11…';
 
-    this.documentos.generarPdf(construirAnexo11(det)).then(blob => {
+    this.documentos.generarPdf(construirAnexo11(det, this.ordenSiga)).then(blob => {
       const archivo = new File([blob], nombre, { type: 'application/pdf' });
       this.documentos.subirArchivo(archivo, CARPETA_PAGO).pipe(
         switchMap((sub: any) => this.pago.registrarDocumento(
@@ -851,7 +1224,7 @@ export class GestionPagoComponent implements OnInit {
     this.ejecutando = true;
     const id = this.seleccionado.IdExpediente;
     const version = this.seleccionado.Version;
-    const hayPenalidad = Number(this.seleccionado.MontoPenalidad || 0) > 0;
+    const hayPenalidad = !!this.seleccionado.CorrespondePenalidad;
     forkJoin({
       nota: this.documentos.subirArchivo(this.notaPagoFile, CARPETA_PAGO),
       cons: this.documentos.subirArchivo(this.constanciaFile, CARPETA_PAGO),
@@ -876,9 +1249,126 @@ export class GestionPagoComponent implements OnInit {
         PapeletaPenalidadDocumento: arch.pap?.documento_sistema || null
       }))))
     ).subscribe({
-      next: (r: any) => this.terminar(r),
+      next: (r: any) => {
+        this.terminar(r);
+        if (r?.estado === 1) {
+          this.emitirConstanciaSiCorresponde(id);
+        }
+      },
       error: () => this.fallar()
     });
+  }
+
+  /* ------------------------------------------------ constancia de prestación */
+
+  private leerConstancia(idExpediente: string): void {
+    this.pago.emitirConstancia(idExpediente, false).subscribe({
+      next: (r: any) => { this.estadoConstancia = r?.estado === 1 ? r : null; },
+      error: () => { this.estadoConstancia = null; }
+    });
+  }
+
+  /**
+   * Tras el giro: si era el último entregable de la orden, emite la constancia,
+   * genera el PDF, lo registra en el expediente y la notifica al proveedor.
+   */
+  private emitirConstanciaSiCorresponde(idExpediente: string): void {
+    this.pago.emitirConstancia(idExpediente, true).subscribe({
+      next: (r: any) => {
+        if (r?.estado !== 1) {
+          if (r?.codigo !== 52505) {
+            this.funciones.mensaje('error', r?.mensaje || 'No se pudo emitir la constancia de prestación.');
+          }
+          return;
+        }
+        this.estadoConstancia = r;
+        const c: ConstanciaPrestacion | undefined = r.Constancia;
+        if (c && !c.GeneradoDocumento) {
+          this.generarYNotificarConstancia(c, true);
+        }
+      },
+      error: () => { }
+    });
+  }
+
+  /** Genera (o regenera) el PDF de la constancia y, si se pide, la notifica. */
+  generarYNotificarConstancia(c: ConstanciaPrestacion, notificar: boolean): void {
+    const nombre = nombreArchivoConstancia(c);
+    this.ejecutando = true;
+    this.paso = 'Generando la constancia de prestación…';
+    this.documentos.generarPdf(construirConstanciaPrestacion(c)).then(blob => {
+      const archivo = new File([blob], nombre, { type: 'application/pdf' });
+      this.documentos.subirArchivo(archivo, CARPETA_PAGO).pipe(
+        switchMap((sub: any) => forkJoin({
+          reg: this.pago.registrarConstanciaDocumento(c.IdExpediente, sub.documento_sistema, nombre),
+          doc: this.pago.registrarDocumento(c.IdExpediente, TIPO_CONSTANCIA_PRESTACION,
+            sub.documento_sistema, nombre, { Numero: c.Numero })
+        })),
+        switchMap((res: any) => {
+          if (res?.reg?.estado !== 1) {
+            throw res.reg;
+          }
+          this.paso = notificar ? 'Notificando al proveedor…' : '';
+          return notificar ? this.pago.notificarConstancia(c.IdExpediente) : of({ estado: 1, mensaje: 'Constancia generada.' });
+        })
+      ).subscribe({
+        next: (r: any) => {
+          this.ejecutando = false;
+          this.paso = '';
+          this.funciones.mensaje(r?.estado === 1 && r?.CorreoEnviado !== false ? 'success' : 'warning',
+            r?.mensaje || 'Constancia de prestación generada.');
+          if (this.seleccionado) {
+            this.leerConstancia(this.seleccionado.IdExpediente);
+          }
+        },
+        error: (e: any) => {
+          this.ejecutando = false;
+          this.paso = '';
+          this.funciones.mensaje('error', e?.mensaje || 'No se pudo generar la constancia de prestación.');
+        }
+      });
+    }).catch(() => this.fallar());
+  }
+
+  emitirConstanciaManual(): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    const c = this.estadoConstancia?.Constancia;
+    if (c) {
+      this.generarYNotificarConstancia(c, !c.NotificadaEn);
+      return;
+    }
+    this.emitirConstanciaSiCorresponde(this.seleccionado.IdExpediente);
+  }
+
+  reenviarConstancia(): void {
+    const c = this.estadoConstancia?.Constancia;
+    if (!c || this.ejecutando) {
+      return;
+    }
+    this.ejecutando = true;
+    this.pago.notificarConstancia(c.IdExpediente).subscribe({
+      next: (r: any) => {
+        this.ejecutando = false;
+        this.funciones.mensaje(r?.estado === 1 && r?.CorreoEnviado !== false ? 'success' : 'warning',
+          r?.mensaje || 'Se registró el envío.');
+        if (this.seleccionado) {
+          this.leerConstancia(this.seleccionado.IdExpediente);
+        }
+      },
+      error: () => this.fallar()
+    });
+  }
+
+  verConstancia(): void {
+    const c = this.estadoConstancia?.Constancia;
+    const id = idDocumentoSistema(c?.GeneradoDocumento);
+    if (!c || !id) {
+      return;
+    }
+    this.abrirVisorPdf(id, `Constancia de prestación ${c.Numero}`,
+      c.NotificadaEn ? `Notificada el ${this.fecha(c.NotificadaEn)}` : 'Pendiente de notificación');
   }
 
   guardarProrroga(): void {

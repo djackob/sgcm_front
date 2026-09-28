@@ -67,6 +67,12 @@ export const routes: Routes = [
       .then(m => m.DashboardAbastecimientoComponent),
   },
   {
+    /* sigcm.Modulo.Ruta de REPORTES (S053): perfiles ABAST_. */
+    path: 'reportes-expediente',
+    loadComponent: () => import('../reportes-expediente/reportes-expediente.component')
+      .then(m => m.ReportesExpedienteComponent),
+  },
+  {
     path: 'mantenimiento-firmantes-a4',
     loadComponent: () => import('../mantenimiento-firmantes-a4/mantenimiento-firmantes-a4.component')
       .then(m => m.MantenimientoFirmantesA4Component),

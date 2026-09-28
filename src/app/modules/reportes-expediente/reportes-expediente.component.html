@@ -1,0 +1,181 @@
+<div class="container-componentes p-3">
+  <header class="cabecera-pagina">
+    <div class="cabecera">
+      <app-breadcrumb [items]="breadcrumb" />
+      <h1 class="page-title">Expediente por orden de compra o de servicio</h1>
+    </div>
+  </header>
+
+  <section class="content-card">
+    <div class="req-filtros">
+      <div class="req-filtros__campo">
+        <label class="campo-etiqueta" for="filtroTexto">N.° de orden</label>
+        <input id="filtroTexto" type="text" class="campo-control" autocomplete="off"
+               placeholder="Escriba el número completo o una parte (también acepta el código del requerimiento)"
+               [(ngModel)]="filtro.Texto" (keyup.enter)="buscar()" />
+      </div>
+      <div class="req-filtros__campo req-filtros__campo--corto">
+        <label class="campo-etiqueta" for="filtroTipo">Tipo</label>
+        <select id="filtroTipo" class="campo-control" [(ngModel)]="filtro.TipoOrden" (change)="buscar()">
+          <option value="">OC y OS</option>
+          <option value="OC">Orden de compra</option>
+          <option value="OS">Orden de servicio</option>
+        </select>
+      </div>
+      <div class="req-filtros__campo req-filtros__campo--corto">
+        <label class="campo-etiqueta" for="filtroAnio">Año</label>
+        <select id="filtroAnio" class="campo-control" [(ngModel)]="filtro.AnoEje" (change)="buscar()">
+          <option [ngValue]="null">Todos</option>
+          <option *ngFor="let a of anios" [ngValue]="a">{{ a }}</option>
+        </select>
+      </div>
+      <div class="rep-filtros__acciones">
+        <button type="button" class="btn btn-app-primary btn-sm" [disabled]="buscando" (click)="buscar()"><i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar</button>
+        <button type="button" class="btn btn-app-secundario btn-sm" (click)="limpiar()">Limpiar</button>
+      </div>
+    </div>
+
+    <div class="contenido-cabecera">
+      <h2 class="contenido-titulo">{{ buscado ? 'Coincidencias' : 'Órdenes más recientes' }}</h2>
+      <span class="contenido-conteo" *ngIf="total > ordenes.length">mostrando {{ ordenes.length }} de {{ total }}; afine la búsqueda</span>
+      <span class="contenido-conteo" *ngIf="total <= ordenes.length">{{ total }} orden(es)</span>
+    </div>
+    <div class="req-cargando" *ngIf="buscando"><i class="mdi mdi-loading mdi-spin"></i> Buscando…</div>
+    <div class="table-responsive" *ngIf="!buscando">
+      <table class="table scm-table">
+        <thead><tr><th>Orden</th><th>Denominación</th><th>Proveedor</th><th>Monto</th><th>Pagos</th><th>Estado</th><th>Acción</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let o of ordenes" class="rep-fila" [class.rep-fila--activa]="esSeleccionada(o)" (click)="seleccionar(o)">
+            <td data-column-name="Orden">
+              <span class="cell-title rep-orden">{{ numeroOrden(o) }}</span>
+              <span class="cell-subtitle">{{ fecha(o.FechaOrden) }} · {{ o.CodigoRequerimiento }}</span>
+            </td>
+            <td data-column-name="Denominación"><span class="cell-title rep-texto-largo">{{ o.Denominacion || '—' }}</span><span class="cell-subtitle">{{ o.UnidadSigla || o.Unidad }}</span></td>
+            <td data-column-name="Proveedor"><span class="cell-title">{{ o.Proveedor || '—' }}</span><span class="cell-subtitle">{{ o.RucProveedor }}</span></td>
+            <td data-column-name="Monto">{{ o.Monto != null ? 'S/ ' + monto(o.Monto) : '—' }}</td>
+            <td data-column-name="Pagos">{{ o.Entregables ? o.EntregablesPagados + ' de ' + o.Entregables : '—' }}</td>
+            <td data-column-name="Estado"><span class="status-pill status-pill--info">{{ o.Estado }}</span></td>
+            <td data-column-name="Acción" class="td-acciones">
+              <div class="action-cell">
+                <button type="button" class="btn-icon-outline btn-accion" title="Ver el expediente de la orden" aria-label="Ver el expediente de la orden"
+                        [disabled]="!!cargandoDetalle" (click)="$event.stopPropagation(); seleccionar(o)">
+                  <i class="mdi" [ngClass]="cargandoDetalle === o.IdOrdenServicio ? 'mdi-loading mdi-spin' : 'mdi-eye-outline'" aria-hidden="true"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="ordenes.length === 0"><td colspan="7"><div class="req-vacio"><i class="mdi mdi-file-search-outline" aria-hidden="true"></i><h3>No hay órdenes que coincidan</h3></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="modal-fondo" *ngIf="seleccionado as det" role="presentation">
+  <div class="modal-app-dialog modal-app-dialog--ancho" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+  <div class="modal-app">
+    <div class="modal-cabecera">
+      <div class="modal-cabecera-info">
+        <h2 class="modal-titulo">{{ det.Cabecera.TipoOrden === 'OC' ? 'Orden de compra' : 'Orden de servicio' }} {{ det.Cabecera.NumeroOrden || '(sin número SIGA)' }}</h2>
+        <p class="modal-subtitulo">{{ det.Cabecera.CodigoRequerimiento }} · {{ det.Cabecera.Denominacion }}</p>
+      </div>
+      <div class="rep-descarga">
+        <button type="button" class="btn btn-app-primary btn-sm" [disabled]="generando"
+                title="Arma todos los documentos en un solo PDF, con índice y trazabilidad, y lo muestra antes de descargarlo" (click)="descargar('PDF')">
+          <i class="mdi" [ngClass]="generando ? 'mdi-loading mdi-spin' : 'mdi-file-pdf-box'" aria-hidden="true"></i> Ver expediente PDF
+        </button>
+        <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="generando"
+                title="Archivos originales en un ZIP, una carpeta por expediente, con índice" (click)="descargar('ZIP')">
+          <i class="mdi mdi-folder-zip-outline" aria-hidden="true"></i> ZIP
+        </button>
+      </div>
+      <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarDetalle()"><i class="mdi mdi-close" aria-hidden="true"></i></button>
+    </div>
+    <p class="rep-paso" *ngIf="generando && paso"><i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> {{ paso }}</p>
+
+    <nav class="detalle-tabs">
+      <button type="button" class="detalle-tabs__boton" [class.detalle-tabs__activo]="pestana === 'orden'" (click)="pestana = 'orden'">Orden</button>
+      <button type="button" class="detalle-tabs__boton" [class.detalle-tabs__activo]="pestana === 'documentos'" (click)="pestana = 'documentos'">Documentos <span class="detalle-tabs__conteo">{{ det.Documentos.length }}</span></button>
+      <button type="button" class="detalle-tabs__boton" [class.detalle-tabs__activo]="pestana === 'trazabilidad'" (click)="pestana = 'trazabilidad'">Trazabilidad <span class="detalle-tabs__conteo" *ngIf="det.Historial.length">{{ det.Historial.length }}</span></button>
+    </nav>
+
+    <div class="modal-cuerpo" [hidden]="pestana !== 'orden'">
+    <dl class="rep-datos">
+      <div><dt>Fecha de la orden</dt><dd>{{ fecha(det.Cabecera.FechaOrden) || '—' }}</dd></div>
+      <div><dt>Monto</dt><dd>{{ det.Cabecera.Monto != null ? 'S/ ' + monto(det.Cabecera.Monto) : '—' }}</dd></div>
+      <div><dt>Proveedor</dt><dd>{{ det.Cabecera.Proveedor || '—' }}<span class="cell-subtitle">{{ det.Cabecera.RucProveedor }}</span></dd></div>
+      <div><dt>Área usuaria</dt><dd>{{ det.Cabecera.Unidad || '—' }}</dd></div>
+      <div><dt>Requerimiento</dt><dd>{{ det.Cabecera.CodigoRequerimiento }}<span class="cell-subtitle">{{ det.Cabecera.EstadoRequerimiento }}</span></dd></div>
+      <div><dt>CMN</dt><dd>{{ det.Cabecera.CodigoCmn || '—' }}</dd></div>
+      <div><dt>Contrato</dt><dd>{{ det.Cabecera.CodigoContrato || '—' }}<span class="cell-subtitle">{{ det.Cabecera.EstadoContrato }}</span></dd></div>
+      <div *ngIf="det.Cabecera.FechaInicio"><dt>Plazo</dt><dd>{{ fecha(det.Cabecera.FechaInicio) }} → {{ fecha(det.Cabecera.FechaFin) }}<span class="cell-subtitle" *ngIf="det.Cabecera.PlazoDias">{{ det.Cabecera.PlazoDias }} días</span></dd></div>
+      <div><dt>Pagos</dt><dd>{{ det.Cabecera.EntregablesPagados }} de {{ det.Cabecera.Entregables }} entregable(s)<span class="cell-subtitle">S/ {{ monto(det.Cabecera.MontoPagado) }} pagado</span></dd></div>
+      <div><dt>Constancia de prestación</dt><dd>{{ det.Cabecera.Constancia || 'No emitida' }}</dd></div>
+    </dl>
+
+      <h3 class="contenido-titulo">Expedientes de la contratación</h3>
+      <div class="table-responsive"><table class="table scm-table">
+        <thead><tr><th>Módulo</th><th>Expediente</th><th>Estado</th><th>Deriva de</th><th>Creado</th><th>Documentos</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let e of det.Expedientes">
+            <td data-column-name="Módulo">{{ e.Modulo }}</td>
+            <td data-column-name="Expediente"><span class="cell-title">{{ e.Codigo }}</span></td>
+            <td data-column-name="Estado"><span class="status-pill" [ngClass]="e.EsFinal ? 'status-pill--success' : 'status-pill--info'">{{ e.Estado }}</span></td>
+            <td data-column-name="Deriva de">{{ e.Padre || '—' }}</td>
+            <td data-column-name="Creado">{{ fecha(e.Creado) }}</td>
+            <td data-column-name="Documentos">{{ e.Documentos }}</td>
+          </tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="modal-cuerpo" [hidden]="pestana !== 'documentos'">
+      <section class="seccion" *ngFor="let g of grupos">
+        <h3 class="contenido-titulo">{{ g.Modulo }} · {{ g.CodigoExpediente }}</h3>
+        <div class="table-responsive"><table class="table scm-table"><tbody>
+          <tr *ngFor="let d of g.documentos">
+            <td data-column-name="Documento"><span class="cell-title">{{ d.Documento }}<ng-container *ngIf="d.Numero"> {{ d.Numero }}</ng-container></span><span class="cell-subtitle">{{ d.NombreDocumento }}</span></td>
+            <td data-column-name="Fecha">{{ fecha(d.Fecha) }}</td>
+            <td data-column-name="Acción" class="td-acciones"><div class="action-cell"><button type="button" class="btn-icon-outline btn-accion" title="Ver el documento" aria-label="Ver el documento" (click)="verDocumento(d)"><i class="mdi mdi-file-document-outline" aria-hidden="true"></i></button></div></td>
+          </tr>
+        </tbody></table></div>
+      </section>
+      <p class="cell-muted" *ngIf="grupos.length === 0">La contratación no tiene documentos registrados.</p>
+    </div>
+
+    <div class="modal-cuerpo" [hidden]="pestana !== 'trazabilidad'">
+      <ol class="linea-tiempo">
+        <li *ngFor="let h of det.Historial">
+          <span class="linea-tiempo__punto"></span>
+          <div class="linea-tiempo__cuerpo">
+            <span class="linea-tiempo__titulo">{{ h.Modulo }} · {{ h.CodigoExpediente }}: {{ h.EstadoOrigen || 'Inicio' }} → {{ h.EstadoDestino }}</span>
+            <span class="linea-tiempo__meta">{{ h.Actor }} · {{ h.ActorRol }} · {{ h.Unidad }} · {{ h.OcurridoEn | date: 'dd/MM/yyyy HH:mm' }}</span>
+            <p class="linea-tiempo__comentario" *ngIf="h.Comentario">{{ h.Comentario }}</p>
+          </div>
+        </li>
+        <li *ngIf="det.Historial.length === 0" class="cell-muted">Sin movimientos registrados.</li>
+      </ol>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-app-secundario" (click)="cerrarDetalle()">Cerrar</button>
+    </div>
+  </div>
+  </div>
+  </div>
+</div>
+
+<div class="modal-fondo" *ngIf="visorPdfUrl" role="presentation">
+  <div class="modal-app-dialog modal-app-dialog--pdf" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+    <div class="modal-app">
+      <div class="modal-cabecera">
+        <div class="modal-cabecera-info"><h2 class="modal-titulo">{{ visorPdfTitulo }}</h2><p class="modal-subtitulo">{{ seleccionado ? numeroOrden(seleccionado.Cabecera) + ' · ' : '' }}{{ visorPdfSubtitulo }}</p></div>
+        <button type="button" class="modal-cerrar" title="Cerrar" (click)="cerrarVisorPdf()"><i class="mdi mdi-close" aria-hidden="true"></i></button>
+      </div>
+      <div class="modal-cuerpo"><div class="rep-pdf-marco"><iframe [src]="visorPdfUrl" [title]="visorPdfTitulo || 'Documento PDF'"></iframe></div></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-app-secundario" (click)="cerrarVisorPdf()">Cerrar</button>
+        <button type="button" class="btn btn-app-primary" (click)="descargarVisor()"><i class="mdi mdi-download" aria-hidden="true"></i> Descargar PDF</button>
+      </div>
+    </div>
+  </div>
+</div>

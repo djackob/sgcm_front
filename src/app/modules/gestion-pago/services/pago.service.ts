@@ -83,6 +83,72 @@ export class PagoService {
     });
   }
 
+  asignarEspecialista(idExpediente: string, version: number, idResponsable: string,
+                      comentario: string | null = null): Observable<any> {
+    return this.api.POST('api/pago/asignarEspecialista', {
+      IdExpediente: idExpediente, Version: version,
+      IdResponsableDestino: idResponsable, Comentario: comentario
+    });
+  }
+
+  notificarObservacion(idExpediente: string, version: number, comentario: string | null): Observable<any> {
+    return this.api.POST('api/pago/notificarObservacion', {
+      IdExpediente: idExpediente, Version: version, Comentario: comentario
+    });
+  }
+
+  actualizarNumeroContrato(idExpediente: string, numeroContrato: string): Observable<any> {
+    return this.api.POST('api/pago/actualizarNumeroContrato', {
+      IdExpediente: idExpediente, NumeroContrato: numeroContrato
+    });
+  }
+
+  registrarDocumentoAdicional(idExpediente: string,
+                              documentos: { GeneradoDocumento: string; NombreDocumento: string; Descripcion: string | null }[]): Observable<any> {
+    return this.api.POST('api/pago/registrarDocumentoAdicional', {
+      IdExpediente: idExpediente, Documentos: documentos
+    });
+  }
+
+  anularDocumentoAdicional(idDocumentoAdicional: string): Observable<any> {
+    return this.api.POST('api/pago/anularDocumentoAdicional', {
+      IdDocumentoAdicional: idDocumentoAdicional
+    });
+  }
+
+  resumenAlertas(): Observable<any> {
+    return this.api.GET('api/pago/resumenAlertas', {});
+  }
+
+  listarCorreo(idExpediente: string): Observable<any> {
+    return this.api.GET('api/pago/listarCorreo', { IdExpediente: idExpediente });
+  }
+
+  obtenerCorreo(idCorreo: string): Observable<any> {
+    return this.api.GET('api/pago/listarCorreo', { IdCorreo: idCorreo });
+  }
+
+  emitirConstancia(idExpediente: string, emitir: boolean): Observable<any> {
+    return this.api.POST('api/pago/emitirConstancia', { IdExpediente: idExpediente, Emitir: emitir });
+  }
+
+  registrarConstanciaDocumento(idExpediente: string, generadoDocumento: string, nombreDocumento: string): Observable<any> {
+    return this.api.POST('api/pago/registrarConstanciaDocumento', {
+      IdExpediente: idExpediente, GeneradoDocumento: generadoDocumento, NombreDocumento: nombreDocumento
+    });
+  }
+
+  notificarConstancia(idExpediente: string): Observable<any> {
+    return this.api.POST('api/pago/notificarConstancia', { IdExpediente: idExpediente });
+  }
+
+  listarDestinatarioDerivacion(idExpediente: string, codigoTransicion: string): Observable<any> {
+    return this.api.GET('api/sigcm/listarDestinatarioDerivacion', {
+      IdExpediente: idExpediente,
+      CodigoTransicion: codigoTransicion
+    });
+  }
+
   ejecutarTransicion(idExpediente: string, codigoTransicion: string,
                      version: number, comentario: string | null = null): Observable<any> {
     return this.api.POST('api/sigcm/ejecutarTransicion', {

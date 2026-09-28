@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { ActivatedRoute } from '@angular/router';
 import { map, switchMap } from 'rxjs/operators';
 import { forkJoin, from, of, throwError } from 'rxjs';
 
@@ -274,7 +275,8 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     private firmaDigital: FirmaDigitalService,
     private maestraService: MaestraService,
     private funciones: Funciones,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private ruta: ActivatedRoute
   ) { }
 
   ngOnInit(): void {
@@ -289,7 +291,14 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     this.breadcrumb = ['Requerimiento', this.unidad, this.rol].filter(x => !!x);
 
     this.registrarListenerFirma();
-    this.cargarBandeja();
+    this.ruta.queryParamMap.subscribe(params => {
+      const buscar = params.get('buscar');
+      if (buscar) {
+        this.filtro.Texto = buscar;
+        this.filtro.offset = 0;
+      }
+      this.cargarBandeja();
+    });
   }
 
   ngOnDestroy(): void {

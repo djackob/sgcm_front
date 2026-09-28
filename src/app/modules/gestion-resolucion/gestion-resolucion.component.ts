@@ -102,7 +102,14 @@ export class GestionResolucionComponent implements OnInit {
     this.nombreActor = [usuario?.nombre, usuario?.apellido_paterno, usuario?.apellido_materno].filter(Boolean).join(' ');
     this.esProveedor = this.codigoRol === 'PROVEEDOR';
     this.esAu = this.codigoRol.startsWith('AREA_');
-    this.cargar();
+    this.ruta.queryParamMap.subscribe(p => {
+      const buscar = p.get('buscar');
+      if (buscar) {
+        this.filtro.Texto = buscar;
+        this.filtro.Desplazamiento = 0;
+      }
+      this.cargar();
+    });
 
     const contrato = this.ruta.snapshot.queryParamMap.get('contrato');
     if (contrato && (this.esProveedor || this.esAu)) {

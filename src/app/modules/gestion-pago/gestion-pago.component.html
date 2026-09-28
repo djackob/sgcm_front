@@ -22,7 +22,7 @@
     <article class="pago-orden" *ngFor="let orden of ordenes">
       <header>
         <strong>{{ orden.CodigoRequerimiento }}</strong>
-        <span class="cell-muted">O/S {{ orden.NumeroOrdenSiga || '—' }}</span>
+        <span class="cell-muted">O/S u O/C {{ orden.NumeroOrdenSiga || '—' }}</span>
         <span>{{ orden.Denominacion }}</span>
       </header>
       <div class="table-responsive">
@@ -77,14 +77,44 @@
       <h2 class="contenido-titulo">Bandeja de pagos</h2>
       <span class="contenido-conteo">{{ total }} expediente(s)</span>
     </div>
+    <div class="pago-alertas" *ngIf="alertas">
+      <button type="button" class="pago-alerta-card pago-alerta-card--pendiente"
+              [class.pago-alerta-card--activa]="filtro.Alerta === 'PENDIENTE'"
+              (click)="filtrarAlerta('PENDIENTE')">
+        <i class="mdi mdi-bell-ring-outline" aria-hidden="true"></i>
+        <span class="pago-alerta-card__numero">{{ alertas.Pendientes }}</span>
+        <span class="pago-alerta-card__texto">Pendientes de mi atención</span>
+      </button>
+      <button type="button" class="pago-alerta-card pago-alerta-card--vence"
+              [class.pago-alerta-card--activa]="filtro.Alerta === 'POR_VENCER'"
+              (click)="filtrarAlerta('POR_VENCER')">
+        <i class="mdi mdi-calendar-clock" aria-hidden="true"></i>
+        <span class="pago-alerta-card__numero">{{ alertas.PorVencer }}</span>
+        <span class="pago-alerta-card__texto">Entregables que vencen en 7 días</span>
+      </button>
+      <button type="button" class="pago-alerta-card pago-alerta-card--vencido"
+              [class.pago-alerta-card--activa]="filtro.Alerta === 'VENCIDO'"
+              (click)="filtrarAlerta('VENCIDO')">
+        <i class="mdi mdi-alert-circle-outline" aria-hidden="true"></i>
+        <span class="pago-alerta-card__numero">{{ alertas.Vencidos }}</span>
+        <span class="pago-alerta-card__texto">Vencidos sin presentación</span>
+      </button>
+    </div>
     <div class="req-filtros">
       <div class="req-filtros__campo">
         <label class="campo-etiqueta" for="filtroTexto">Buscar</label>
-        <input id="filtroTexto" type="text" class="campo-control" placeholder="Código, O/S o locador"
+        <input id="filtroTexto" type="text" class="campo-control" placeholder="Código, O/S u O/C o locador"
                [(ngModel)]="filtro.Texto" (keyup.enter)="buscar()" />
       </div>
       <button type="button" class="btn btn-app-primary btn-sm" (click)="buscar()">
         <i class="mdi mdi-magnify" aria-hidden="true"></i> Buscar
+      </button>
+      <label class="req-check" *ngIf="esAbast">
+        <input type="checkbox" [(ngModel)]="verTodos" (change)="cambiarVerTodos()" />
+        Ver todos los expedientes de la entidad
+      </label>
+      <button type="button" class="btn btn-app-secundario btn-sm" *ngIf="filtro.Alerta" (click)="filtrarAlerta(filtro.Alerta)">
+        <i class="mdi mdi-filter-remove-outline" aria-hidden="true"></i> Quitar filtro de alerta
       </button>
     </div>
     <div class="req-cargando" *ngIf="cargando">
@@ -95,7 +125,7 @@
         <thead>
           <tr>
             <th>Expediente</th>
-            <th>O/S</th>
+            <th>O/S u O/C</th>
             <th>Entregable</th>
             <th>Locador</th>
             <th>Estado</th>
@@ -114,7 +144,10 @@
               </a>
               <span class="cell-subtitle">{{ item.CodigoRequerimiento }}</span>
             </td>
-            <td data-column-name="O/S">{{ item.NumeroOrdenSiga || '—' }}</td>
+            <td data-column-name="O/S u O/C">
+              <span class="cell-title">{{ etiquetaOrden(item) }}</span>
+              <span class="cell-subtitle" *ngIf="item.FechaLimiteCronograma">vence {{ fecha(item.FechaLimiteCronograma) }}</span>
+            </td>
             <td data-column-name="Entregable">
               <span class="cell-title">{{ item.NombreEntregable }}</span>
               <span class="cell-subtitle">
@@ -124,6 +157,7 @@
             <td data-column-name="Locador">
               <span class="cell-title">{{ item.NombreLocador }}</span>
               <span class="cell-subtitle" *ngIf="item.RucLocador">RUC {{ item.RucLocador }}</span>
+              <span class="cell-subtitle" *ngIf="item.ResponsableAsignado">Asignado a {{ item.ResponsableAsignado }}</span>
             </td>
             <td data-column-name="Estado">
               <!-- El estado abre la trazabilidad: es la pregunta que se hace al
@@ -219,7 +253,6 @@
             <i class="mdi mdi-close" aria-hidden="true"></i>
           </button>
         </div>
-
         <!-- Dos pestañas, como el detalle del CMN: lo que hay que hacer, y lo
              que ya pasó. La trazabilidad contesta «quién lo movió y dónde está»
              sin salir del expediente. -->
@@ -241,13 +274,37 @@
 
     <dl class="pago-datos">
       <div><dt>Requerimiento</dt><dd>{{ seleccionado.CodigoRequerimiento }}</dd></div>
-      <div><dt>O/S SIGA</dt><dd>{{ seleccionado.NumeroOrdenSiga || '—' }}</dd></div>
+      <div>
+        <dt>{{ seleccionado.TipoOrden === 'OC' ? 'O/C' : 'O/S' }} (SIGA)</dt>
+        <dd>
+          {{ ordenSiga?.NumeroOrden || seleccionado.NumeroOrdenSiga || '—' }}
+          <span class="cell-subtitle" *ngIf="ordenSiga?.FechaOrden">emitida el {{ fecha(ordenSiga!.FechaOrden) }}</span>
+        </dd>
+      </div>
       <div><dt>Locador</dt><dd>{{ seleccionado.NombreLocador }} · RUC {{ seleccionado.RucLocador }}</dd></div>
       <div><dt>Monto entregable</dt><dd>S/ {{ monto(seleccionado.MontoEntregable) }}</dd></div>
-      <div><dt>Límite cronograma</dt><dd>{{ fecha(seleccionado.FechaLimiteCronograma) }}</dd></div>
+      <div>
+        <dt>Límite cronograma</dt>
+        <dd>
+          {{ fecha(seleccionado.FechaLimiteCronograma) }}
+          <span class="cell-subtitle">si vence en día inhábil, pasa al siguiente día hábil</span>
+        </dd>
+      </div>
       <div><dt>Presentado</dt><dd>{{ fecha(seleccionado.FechaPresentacion) }}</dd></div>
-      <div><dt>Días de atraso</dt><dd>{{ seleccionado.DiasAtraso }}</dd></div>
-      <div><dt>Penalidad</dt><dd>S/ {{ monto(seleccionado.MontoPenalidad) }}</dd></div>
+      <div><dt>Días de atraso</dt><dd>{{ seleccionado.DiasAtraso }} <span class="cell-subtitle">calendario</span></dd></div>
+      <div *ngIf="esAbast">
+        <dt>
+          Penalidad
+          <i class="mdi mdi-information-outline pago-ayuda" [title]="tooltipPenalidad" aria-hidden="true"></i>
+        </dt>
+        <dd [title]="tooltipPenalidad">S/ {{ monto(seleccionado.MontoPenalidad) }}</dd>
+      </div>
+      <div *ngIf="seleccionado.ResponsableAsignado">
+        <dt>Especialista asignado</dt><dd>{{ seleccionado.ResponsableAsignado }}</dd>
+      </div>
+      <div *ngIf="seleccionado.NumeroContrato">
+        <dt>N.° de contrato</dt><dd>{{ seleccionado.NumeroContrato }}</dd>
+      </div>
       <div *ngIf="ordenSiga?.EnSiga">
         <dt>Estado en SIGA</dt>
         <dd>
@@ -277,7 +334,56 @@
       </ol>
     </section>
 
-    <p class="pago-obs" *ngIf="seleccionado.ObservacionAu">
+    <div class="pago-carga" *ngIf="puedeAsignar">
+      <h3>Asignar a especialista</h3>
+      <p class="cell-muted">
+        El entregable no se distribuye automáticamente: elija al especialista del área que lo revisará.
+      </p>
+      <p class="campo-ayuda" *ngIf="cargandoAsignacion">
+        <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Consultando especialistas…
+      </p>
+      <label class="campo-etiqueta" for="responsableAsignar">
+        Especialista<span class="campo-req" aria-hidden="true">*</span>
+      </label>
+      <select id="responsableAsignar" class="campo-control" [(ngModel)]="responsableAsignar">
+        <option value="">Seleccione…</option>
+        <optgroup *ngFor="let puesto of puestosAsignacion" [label]="puesto.Rol + ' · ' + puesto.Unidad">
+          <option *ngFor="let persona of puesto.Personas" [value]="persona.IdUsuario">
+            {{ persona.NombreCompleto }}
+          </option>
+        </optgroup>
+      </select>
+      <p class="campo-ayuda" *ngIf="!cargandoAsignacion && puestosAsignacion.length === 0">
+        No hay especialistas activos en el área para asignar.
+      </p>
+      <label class="campo-etiqueta">Indicaciones (opcional)</label>
+      <textarea class="campo-control" rows="2" [(ngModel)]="comentario"></textarea>
+    </div>
+
+    <div class="pago-carga" *ngIf="puedeEditarContrato">
+      <div class="req-filtros">
+        <div class="req-filtros__campo">
+          <label class="campo-etiqueta" for="numeroContrato">N.° de contrato (Anexo 11)</label>
+          <input id="numeroContrato" class="campo-control" [(ngModel)]="numeroContrato" maxlength="60"
+                 placeholder="Solo si la contratación supera el ejercicio fiscal" />
+        </div>
+        <button type="button" class="btn btn-app-secundario btn-sm" (click)="guardarNumeroContrato()">
+          Guardar
+        </button>
+      </div>
+    </div>
+
+    <div class="pago-carga" *ngIf="seleccionado.CodigoEstado === 'PAG_OBS_AU_ABAST' && esAbast">
+      <h3>Observación del área usuaria por notificar</h3>
+      <p class="pago-obs"><strong>Observación AU:</strong> {{ seleccionado.ObservacionAu }}</p>
+      <label class="campo-etiqueta">Comentario de Abastecimiento para el proveedor (opcional)</label>
+      <textarea class="campo-control" rows="2" [(ngModel)]="comentario"></textarea>
+      <p class="campo-ayuda">
+        Al notificar, el plazo de subsanación (30% del plazo del entregable) corre desde hoy.
+      </p>
+    </div>
+
+    <p class="pago-obs" *ngIf="seleccionado.ObservacionAu && seleccionado.CodigoEstado !== 'PAG_OBS_AU_ABAST'">
       <strong>Observación AU:</strong> {{ seleccionado.ObservacionAu }}
       <span *ngIf="seleccionado.FechaLimiteSubsanacion">
         · subsanar hasta {{ fecha(seleccionado.FechaLimiteSubsanacion) }}
@@ -350,31 +456,66 @@
       </label>
       <label class="campo-etiqueta">Observaciones técnicas</label>
       <textarea class="campo-control" rows="3" [(ngModel)]="comentario"></textarea>
+      <p class="campo-ayuda">
+        La observación se envía al especialista de Abastecimiento, que la notifica formalmente al proveedor.
+      </p>
     </div>
 
-    <div class="pago-carga" *ngIf="codigoRol === 'ABAST_ESPECIALISTA' || codigoRol === 'ABAST_COORDINADOR'">
+    <div class="pago-carga" *ngIf="verChecklist">
       <h3>Anexo 9 — Checklist de control de pagos</h3>
-      <div class="table-responsive" *ngIf="seleccionado.Checklist?.length">
-        <table class="table scm-table">
-          <thead>
-            <tr><th>Verificación</th><th>Marca</th></tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of seleccionado.Checklist">
-              <td data-column-name="Verificación">
-                {{ item.Nombre }} <span class="cell-muted" *ngIf="item.Obligatorio">*</span>
-              </td>
-              <td data-column-name="Marca">
-                <select class="campo-control" [(ngModel)]="item.Valor">
-                  <option value="">—</option>
-                  <option value="SI">Sí</option>
-                  <option value="NO_APLICA">No aplica</option>
-                  <option value="NO">No</option>
-                </select>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="pago-checklist" [class.pago-checklist--con-visor]="visorLateralUrl">
+        <div class="pago-checklist__lista">
+          <div class="pago-checklist__docs">
+            <span class="cell-muted">Documentos para contrastar:</span>
+            <button type="button" class="btn btn-app-secundario btn-sm"
+                    *ngFor="let doc of documentosExpediente" (click)="verDocumento(doc)">
+              <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i> {{ doc.TipoDocumento || doc.CodigoTipoDocumento }}
+            </button>
+            <button type="button" class="btn btn-app-secundario btn-sm"
+                    *ngFor="let doc of seleccionado.DocumentosAdicionales || []" (click)="verAdicional(doc)">
+              <i class="mdi mdi-paperclip" aria-hidden="true"></i> {{ doc.NombreDocumento }}
+            </button>
+          </div>
+          <div class="table-responsive" *ngIf="seleccionado.Checklist?.length">
+            <table class="table scm-table">
+              <thead>
+                <tr><th>Verificación</th><th>Marca</th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of seleccionado.Checklist">
+                  <td data-column-name="Verificación">
+                    {{ item.Nombre }} <span class="cell-muted" *ngIf="item.Obligatorio">*</span>
+                    <div class="pago-cci" *ngIf="item.CodigoItem === 'CCI_SIAF'">
+                      <span>CCI del Anexo 6: <b>{{ seleccionado.Cci || 'no consignado' }}</b></span>
+                      <input class="campo-control campo-control--compacto" maxlength="20"
+                             placeholder="CCI registrado en SIAF Web" [(ngModel)]="item.Observacion" />
+                      <span class="text-danger" *ngIf="cciDistinto(item)">
+                        No coincide con el Anexo 6: verifique si el proveedor presentó una actualización de CCI.
+                      </span>
+                    </div>
+                  </td>
+                  <td data-column-name="Marca">
+                    <select class="campo-control" [(ngModel)]="item.Valor">
+                      <option value="">—</option>
+                      <option value="SI">Sí</option>
+                      <option value="NO_APLICA">No aplica</option>
+                      <option value="NO">No</option>
+                    </select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="pago-checklist__visor" *ngIf="visorLateralUrl">
+          <div class="pago-checklist__visor-cabecera">
+            <strong>{{ visorLateralTitulo }}</strong>
+            <button type="button" class="modal-cerrar" title="Cerrar visor" (click)="cerrarVisorLateral()">
+              <i class="mdi mdi-close" aria-hidden="true"></i>
+            </button>
+          </div>
+          <iframe [src]="visorLateralUrl" [title]="visorLateralTitulo || 'Documento'"></iframe>
+        </div>
       </div>
       <label class="req-check" *ngIf="seleccionado.AlertaResolucion || confirmarAlerta">
         <input type="checkbox" [(ngModel)]="confirmarAlerta" />
@@ -425,7 +566,9 @@
         </div>
       </div>
       <div class="campo">
-        <label class="campo-etiqueta">Papeleta de penalidad (si corresponde)</label>
+        <label class="campo-etiqueta">
+          Papeleta de penalidad {{ seleccionado.CorrespondePenalidad ? '(corresponde: hay penalidad liquidada)' : '(no corresponde)' }}
+        </label>
         <div class="campo-archivo">
           <label class="campo-archivo__boton">
             <i class="mdi mdi-paperclip" aria-hidden="true"></i>
@@ -455,6 +598,108 @@
       Expediente cerrado. Neto abonado: S/ {{ monto(seleccionado.MontoNeto) }}
       · SIAF {{ seleccionado.NotaPagoSiaf || '—' }}
     </p>
+
+    <section class="seccion" *ngIf="estadoConstancia">
+      <h3 class="contenido-titulo">Constancia de prestación</h3>
+      <ng-container *ngIf="estadoConstancia.Constancia as c; else sinConstancia">
+        <p>
+          <b>{{ c.Numero }}</b> · emitida el {{ fecha(c.FechaEmision) }}
+          <ng-container *ngIf="c.NombreEmisor"> por {{ c.NombreEmisor }}</ng-container>
+        </p>
+        <p class="cell-muted">
+          <ng-container *ngIf="c.NotificadaEn; else noNotificada">
+            Notificada a {{ c.CorreoDestino }} el {{ fecha(c.NotificadaEn) }}.
+          </ng-container>
+          <ng-template #noNotificada>
+            Aún no notificada al proveedor<ng-container *ngIf="c.ResultadoNotificacion">: {{ c.ResultadoNotificacion }}</ng-container>.
+          </ng-template>
+        </p>
+        <div class="req-filtros">
+          <button type="button" class="btn btn-app-secundario btn-sm" *ngIf="c.GeneradoDocumento" (click)="verConstancia()">
+            <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i> Ver constancia
+          </button>
+          <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando"
+                  *ngIf="estadoConstancia.PuedeEmitir && !c.GeneradoDocumento" (click)="emitirConstanciaManual()">
+            <i class="mdi mdi-file-certificate-outline" aria-hidden="true"></i> Generar y notificar
+          </button>
+          <button type="button" class="btn btn-app-secundario btn-sm" [disabled]="ejecutando"
+                  *ngIf="estadoConstancia.PuedeEmitir && c.GeneradoDocumento" (click)="reenviarConstancia()">
+            <i class="mdi mdi-email-send-outline" aria-hidden="true"></i> {{ c.NotificadaEn ? 'Reenviar' : 'Notificar' }} al proveedor
+          </button>
+        </div>
+      </ng-container>
+      <ng-template #sinConstancia>
+        <p class="cell-muted" *ngIf="!estadoConstancia.Corresponde">
+          Se emitirá automáticamente cuando se registre el giro del último entregable de la orden
+          ({{ estadoConstancia.Pendientes }} entregable(s) por pagar).
+        </p>
+        <div class="req-filtros" *ngIf="estadoConstancia.Corresponde && estadoConstancia.PuedeEmitir">
+          <span class="cell-muted">Todos los entregables están pagados y la constancia aún no se emitió.</span>
+          <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="emitirConstanciaManual()">
+            <i class="mdi mdi-file-certificate-outline" aria-hidden="true"></i> Emitir y notificar
+          </button>
+        </div>
+      </ng-template>
+    </section>
+
+    <section class="seccion">
+      <h3 class="contenido-titulo">Otros documentos</h3>
+      <div class="table-responsive" *ngIf="seleccionado.DocumentosAdicionales?.length">
+        <table class="table scm-table">
+          <tbody>
+            <tr *ngFor="let doc of seleccionado.DocumentosAdicionales">
+              <td data-column-name="Documento">
+                <span class="cell-title">{{ doc.NombreDocumento }}</span>
+                <span class="cell-subtitle">
+                  {{ doc.Descripcion ? doc.Descripcion + ' · ' : '' }}{{ doc.NombreUsuario }} · {{ fecha(doc.SubidoEn) }}
+                </span>
+              </td>
+              <td data-column-name="Acción" class="td-acciones">
+                <div class="action-cell">
+                  <button type="button" class="btn-icon-outline btn-accion" title="Ver el documento"
+                          aria-label="Ver el documento" (click)="verAdicional(doc)">
+                    <i class="mdi mdi-file-document-outline" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="btn-icon-outline btn-accion" title="Retirar el documento"
+                          aria-label="Retirar el documento" *ngIf="doc.PuedeRetirar" (click)="retirarAdicional(doc)">
+                    <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="campo" *ngIf="seleccionado.CodigoEstado !== 'PAG_PAGO_EFECTUADO'">
+        <div class="campo-archivo">
+          <label class="campo-archivo__boton">
+            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+            Agregar archivos
+            <input type="file" multiple (change)="onAdicionales($event)" />
+          </label>
+          <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!adicionalesFiles.length">
+            {{ adicionalesFiles.length ? adicionalesFiles.length + ' archivo(s) por subir' : 'Sin archivos seleccionados' }}
+          </span>
+        </div>
+        <ul class="pago-adjuntos" *ngIf="adicionalesFiles.length">
+          <li *ngFor="let f of adicionalesFiles; let i = index">
+            {{ f.name }}
+            <button type="button" class="btn-link-app" title="Quitar" (click)="quitarAdicional(i)">
+              <i class="mdi mdi-close" aria-hidden="true"></i>
+            </button>
+          </li>
+        </ul>
+        <div class="req-filtros" *ngIf="adicionalesFiles.length">
+          <div class="req-filtros__campo">
+            <label class="campo-etiqueta">Descripción (opcional)</label>
+            <input class="campo-control" [(ngModel)]="adicionalDescripcion" maxlength="500" />
+          </div>
+          <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="subirAdicionales()">
+            <i class="mdi mdi-upload" aria-hidden="true"></i> Subir {{ adicionalesFiles.length }} archivo(s)
+          </button>
+        </div>
+      </div>
+    </section>
 
     <section class="seccion" *ngIf="documentosExpediente.length">
       <h3 class="contenido-titulo">Documentos</h3>
@@ -527,6 +772,44 @@
               <p class="observacion__respuesta" *ngIf="obs.Respuesta">
                 <b>Subsanación:</b> {{ obs.Respuesta }}
               </p>
+            </div>
+          </section>
+
+          <section class="seccion" *ngIf="!esLocador">
+            <h3 class="contenido-titulo">Correos enviados</h3>
+            <p class="cell-muted" *ngIf="correos.length === 0">
+              Sin correos registrados para este expediente ni para su requerimiento.
+            </p>
+            <div class="table-responsive" *ngIf="correos.length">
+              <table class="table scm-table">
+                <tbody>
+                  <tr *ngFor="let c of correos">
+                    <td data-column-name="Correo">
+                      <span class="cell-title">{{ c.Asunto }}</span>
+                      <span class="cell-subtitle">Para {{ c.Destinatario }}<ng-container *ngIf="c.Copia"> · CC {{ c.Copia }}</ng-container></span>
+                      <span class="cell-subtitle">{{ c.EnviadoEn | date: 'dd/MM/yyyy HH:mm' }} · {{ c.CodigoExpediente }} · {{ c.Remitente }}</span>
+                    </td>
+                    <td data-column-name="Estado">
+                      <span class="status-pill" [ngClass]="c.Enviado ? 'status-pill--success' : 'status-pill--warning'"
+                            [title]="c.Resultado || ''">
+                        {{ c.Enviado ? 'Enviado' : 'No enviado' }}
+                      </span>
+                    </td>
+                    <td data-column-name="Acción" class="td-acciones">
+                      <div class="action-cell">
+                        <button type="button" class="btn-icon-outline btn-accion" title="Descargar como HTML"
+                                aria-label="Descargar como HTML" (click)="descargarCorreoHtml(c)">
+                          <i class="mdi mdi-language-html5" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="btn-icon-outline btn-accion" title="Imprimir / guardar como PDF"
+                                aria-label="Imprimir o guardar como PDF" (click)="imprimirCorreo(c)">
+                          <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </section>
 
