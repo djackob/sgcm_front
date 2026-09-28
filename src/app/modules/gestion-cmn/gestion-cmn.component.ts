@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { ActivatedRoute } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -258,7 +259,8 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     private firmaDigital: FirmaDigitalService,
     private maestraService: MaestraService,
     private funciones: Funciones,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private ruta: ActivatedRoute
   ) { }
 
   ngOnInit(): void {
@@ -273,7 +275,14 @@ export class GestionCmnComponent implements OnInit, OnDestroy {
     this.breadcrumb = ['Gestión CMN', this.unidad, this.rol].filter(x => !!x);
 
     this.registrarListenerFirma();
-    this.cargarBandeja();
+    this.ruta.queryParamMap.subscribe(params => {
+      const buscar = params.get('buscar');
+      if (buscar) {
+        this.filtro.Texto = buscar;
+        this.filtro.Desplazamiento = 0;
+      }
+      this.cargarBandeja();
+    });
   }
 
   /* ---------------------------------------------------------------------- */

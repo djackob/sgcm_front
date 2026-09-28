@@ -200,3 +200,121 @@
     background: #e2e8f0;
   }
 }
+
+.pago-alertas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pago-alerta-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #e2e8f0;
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+
+  strong {
+    font-size: 1.4rem;
+    line-height: 1.1;
+  }
+
+  span {
+    font-size: 0.8rem;
+    color: #475569;
+  }
+
+  &--pendiente { border-left-color: #2563eb; }
+  &--vence { border-left-color: #d97706; }
+  &--vencido { border-left-color: #dc2626; }
+  &--activa { box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35); }
+}
+
+.pago-ayuda {
+  margin-left: 0.25rem;
+  color: #2563eb;
+  cursor: help;
+}
+
+.pago-checklist {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  &--con-visor {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+
+  &__docs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+  }
+
+  &__visor {
+    position: sticky;
+    top: 0.5rem;
+    align-self: start;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #e2e8f0;
+
+    iframe {
+      display: block;
+      width: 100%;
+      height: min(78vh, 820px);
+      border: 0;
+    }
+  }
+
+  &__visor-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    background: #f8fafc;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 991px) {
+  .pago-checklist--con-visor {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pago-cci {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+
+  input {
+    max-width: 16rem;
+  }
+}
+
+.pago-adjuntos {
+  margin: 0.5rem 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+
+  button {
+    border: 0;
+    background: none;
+    color: #dc2626;
+    cursor: pointer;
+  }
+}

@@ -101,7 +101,14 @@ export class GestionModificacionComponent implements OnInit {
     this.nombreActor = [usuario?.nombre, usuario?.apellido_paterno, usuario?.apellido_materno].filter(Boolean).join(' ');
     this.esProveedor = this.codigoRol === 'PROVEEDOR';
     this.esAu = this.codigoRol.startsWith('AREA_');
-    this.cargar();
+    this.ruta.queryParamMap.subscribe(p => {
+      const buscar = p.get('buscar');
+      if (buscar) {
+        this.filtro.Texto = buscar;
+        this.filtro.Desplazamiento = 0;
+      }
+      this.cargar();
+    });
 
     /* Desde el detalle del contrato en Ejecucion se llega con el contrato y el
        tipo ya elegidos. */

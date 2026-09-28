@@ -5,6 +5,49 @@ import { SessionService } from '../../core/services/session.service';
 import { SsoLoginService } from '../../core/services/sso-login.service';
 import { Menu } from './models/IMenu';
 import { Login } from '../../core/interfaces/login.interface';
+import { MetodoService } from '../../core/services/metodo.service';
+
+const INTERVALO_ALERTAS_MS = 5 * 60 * 1000;
+
+const RUTA_MODULO: Record<string, string> = {
+  CMN: 'gestion-cmn',
+  REQUERIMIENTO: 'gestion-requerimiento',
+  EJECUCION: 'gestion-ejecucion',
+  MODIFICACION: 'gestion-modificacion',
+  RESOLUCION: 'gestion-resolucion',
+  PAGO: 'gestion-pago'
+};
+
+type TipoAlerta = 'VENCIDO' | 'POR_VENCER' | 'PENDIENTE';
+
+interface AlertaModulo {
+  CodigoModulo: string;
+  Modulo: string;
+  Pendientes: number;
+  PorVencer: number;
+  Vencidos: number;
+}
+
+interface AlertaItem {
+  IdExpediente: string;
+  CodigoModulo: string;
+  Modulo: string;
+  Codigo: string;
+  BuscarCodigo: string;
+  Estado: string;
+  Descripcion: string | null;
+  FechaLimite: string | null;
+  Tipo: TipoAlerta;
+  DiasParaVencer: number | null;
+}
+
+interface ResumenAlertas {
+  Pendientes: number;
+  PorVencer: number;
+  Vencidos: number;
+  Modulos: AlertaModulo[];
+  Items: AlertaItem[];
+}
 
 @Component({
   selector: 'app-plantilla',
@@ -19,17 +62,97 @@ export class PlantillaComponent implements OnInit, OnDestroy {
   perfil_usuario = '';
   menu_activo = false;
   menu: Menu[] = [];
+  alertas: ResumenAlertas | null = null;
+  campana_activa = false;
+  private modulosPermitidos = new Set<string>();
+  private temporizadorAlertas: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private router: Router,
     private SessionService: SessionService,
     private ssoService: SsoLoginService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private api: MetodoService
   ) {
   }
 
   ngOnDestroy(): void {
     document.getElementsByTagName('body')[0].classList.remove('tema-01');
+    if (this.temporizadorAlertas) {
+      clearInterval(this.temporizadorAlertas);
+    }
+  }
+
+  get totalAlertas(): number {
+    return this.alertas ? (this.alertas.Pendientes || 0) + (this.alertas.PorVencer || 0) + (this.alertas.Vencidos || 0) : 0;
+  }
+
+  private iniciarAlertas(): void {
+    const usuario: Login = this.SessionService.getUsuario();
+    const menu: any[] = (usuario?.detalle?.[0]?.perfil?.[0]?.menu as any[]) || [];
+    const urls = menu.map(m => String(m?.url || ''));
+    Object.entries(RUTA_MODULO).forEach(([modulo, ruta]) => {
+      if (urls.some(u => u.includes(ruta))) {
+        this.modulosPermitidos.add(modulo);
+      }
+    });
+    if (this.modulosPermitidos.size === 0) {
+      return;
+    }
+    this.cargarAlertas();
+    this.temporizadorAlertas = setInterval(() => this.cargarAlertas(), INTERVALO_ALERTAS_MS);
+  }
+
+  cargarAlertas(): void {
+    this.api.GET('api/sigcm/resumenAlertas', {}).subscribe({
+      next: (r: any) => { this.alertas = r?.estado === 1 ? this.soloPermitidos(r) : null; },
+      error: () => { this.alertas = null; }
+    });
+  }
+
+  private soloPermitidos(r: ResumenAlertas): ResumenAlertas {
+    const modulos = (r.Modulos || []).filter(m => this.modulosPermitidos.has(m.CodigoModulo));
+    const suma = (campo: 'Pendientes' | 'PorVencer' | 'Vencidos') =>
+      modulos.reduce((total, m) => total + (Number(m[campo]) || 0), 0);
+    return {
+      Pendientes: suma('Pendientes'),
+      PorVencer: suma('PorVencer'),
+      Vencidos: suma('Vencidos'),
+      Modulos: modulos,
+      Items: (r.Items || []).filter(i => this.modulosPermitidos.has(i.CodigoModulo))
+    };
+  }
+
+  ActivarCampana(): void {
+    this.campana_activa = !this.campana_activa;
+    if (this.campana_activa) {
+      this.menu_activo = false;
+      this.cargarAlertas();
+    }
+  }
+
+  AbrirAlerta(item: AlertaItem): void {
+    this.campana_activa = false;
+    const ruta = RUTA_MODULO[item.CodigoModulo];
+    if (!ruta) {
+      return;
+    }
+    const queryParams = item.CodigoModulo === 'PAGO'
+      ? { exp: item.IdExpediente }
+      : { buscar: item.BuscarCodigo };
+    this.router.navigate(['/' + ruta], { queryParams });
+  }
+
+  AbrirModulo(modulo: AlertaModulo): void {
+    this.campana_activa = false;
+    const ruta = RUTA_MODULO[modulo.CodigoModulo];
+    if (ruta) {
+      this.router.navigate(['/' + ruta]);
+    }
+  }
+
+  EtiquetaTipo(tipo: TipoAlerta): string {
+    return tipo === 'VENCIDO' ? 'Vencido' : tipo === 'POR_VENCER' ? 'Por vencer' : 'Por atender';
   }
 
   ngOnInit(): void {
@@ -40,6 +163,7 @@ export class PlantillaComponent implements OnInit, OnDestroy {
     this.siglas_usuario = usuario.nombre.toUpperCase().substring(0, 1) + (usuario.apellido_paterno || '').substring(0, 1);
     this.perfil_usuario = (usuario.detalle[0] != undefined) ? usuario.detalle[0].perfil[0].perfil : '';
     this.ArmarMenu();
+    this.iniciarAlertas();
   }
 
   Salir(e: any) {
@@ -60,6 +184,9 @@ export class PlantillaComponent implements OnInit, OnDestroy {
 
   ActivarMenu() {
     this.menu_activo = !(this.menu_activo);
+    if (this.menu_activo) {
+      this.campana_activa = false;
+    }
   }
 
   ArmarMenu(): Promise<any> {

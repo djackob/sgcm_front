@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 
@@ -101,7 +101,8 @@ export class GestionEjecucionComponent implements OnInit {
     private maestra: MaestraService,
     private funciones: Funciones,
     private sanitizer: DomSanitizer,
-    private router: Router
+    private router: Router,
+    private ruta: ActivatedRoute
   ) { }
 
   /* Los flujos alternos del contrato -modificacion, ampliacion, resolucion-
@@ -125,7 +126,14 @@ export class GestionEjecucionComponent implements OnInit {
     const perfil = this.sesion.getUsuario()?.detalle?.[0]?.perfil?.[0];
     this.codigoRol = perfil?.cod_perfil || '';
     this.esProveedor = this.codigoRol === 'PROVEEDOR';
-    this.cargar();
+    this.ruta.queryParamMap.subscribe(params => {
+      const buscar = params.get('buscar');
+      if (buscar) {
+        this.filtro.Texto = buscar;
+        this.filtro.Desplazamiento = 0;
+      }
+      this.cargar();
+    });
   }
 
   /* ------------------------------------------------------------------ bandeja */

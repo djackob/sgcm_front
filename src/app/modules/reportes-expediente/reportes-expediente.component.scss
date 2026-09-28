@@ -1,0 +1,91 @@
+/* Solo lo propio de esta pantalla; el sistema visual es global. Mismas piezas
+   que gestion-resolucion, con prefijo rep-. */
+
+.req-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: flex-end;
+  padding: 0.25rem 0 1.1rem;
+
+  &__campo {
+    display: flex;
+    flex: 1 1 260px;
+    flex-direction: column;
+    min-width: 0;
+    gap: 0.35rem;
+
+    &--corto { flex: 0 0 160px; }
+  }
+}
+
+.req-cargando,
+.req-vacio {
+  padding: 1.5rem 0;
+  text-align: center;
+  color: #64748b;
+}
+
+.btn-accion {
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  &:hover:not(:disabled) { background: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
+}
+
+.rep-filtros__acciones {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  padding-bottom: 0.1rem;
+}
+
+.rep-fila {
+  cursor: pointer;
+  &:hover { background: #f8fbff; }
+  &--activa {
+    background: #eff6ff;
+    box-shadow: inset 3px 0 0 #2563eb;
+  }
+}
+
+.rep-orden { font-weight: 700; color: #1d4ed8; }
+
+.rep-texto-largo {
+  display: block;
+  max-width: 340px;
+  white-space: normal;
+}
+
+.rep-descarga {
+  display: flex;
+  gap: 0.4rem;
+  margin-left: auto;
+  margin-right: 0.75rem;
+  align-items: center;
+}
+
+.rep-paso {
+  margin: 0;
+  padding: 0.35rem 1rem;
+  font-size: 0.82rem;
+  color: #475569;
+  background: #f8fafc;
+}
+
+.rep-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.75rem 1.2rem;
+  margin: 0 0 1rem;
+  dt { font-size: 0.72rem; color: #64748b; }
+  dd { margin: 0.15rem 0 0; font-size: 0.9rem; .cell-subtitle { display: block; } }
+}
+
+.rep-pdf-marco {
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e2e8f0;
+  iframe { display: block; width: 100%; height: min(72vh, 740px); border: 0; background: #e2e8f0; }
+}
