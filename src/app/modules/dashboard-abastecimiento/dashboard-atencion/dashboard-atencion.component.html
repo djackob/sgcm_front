@@ -1,0 +1,365 @@
+<div class="atn">
+  <div class="atn__barra">
+    <div class="atn__cuadros" role="tablist">
+      <button type="button" *ngFor="let c of cuadros" role="tab"
+              [class.activo]="cuadro === c.id" (click)="cuadro = c.id">{{ c.nombre }}</button>
+    </div>
+    <div class="atn__filtros">
+      <label>
+        <span>Tipo de contratación</span>
+        <select class="campo-control" [(ngModel)]="tipoFiltro" (ngModelChange)="recalcular()" name="tipoFiltro">
+          <option value="">Todos</option>
+          <option *ngFor="let t of tipos" [value]="t">{{ etiquetaTipo[t] }}</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-app-primary" (click)="cargar()" [disabled]="cargando">
+        <i class="mdi" [ngClass]="cargando ? 'mdi-loading mdi-spin' : 'mdi-refresh'" aria-hidden="true"></i>
+        Actualizar
+      </button>
+    </div>
+  </div>
+
+  <div class="dash__error" *ngIf="error">
+    <i class="mdi mdi-alert-outline" aria-hidden="true"></i> {{ error }}
+  </div>
+
+  <ng-container *ngIf="!error">
+
+    <!-- Especialistas vs expedientes asignados en atencion -->
+    <section class="dash__panel" *ngIf="cuadro === 'ASIGNADOS'">
+      <div class="dash__panel-cabecera">
+        <h2>Expedientes asignados en atención <small>(sin CCP ni emisión de orden)</small></h2>
+        <span class="atn__total">Total: {{ totalAsignados }}</span>
+      </div>
+      <p class="dash__vacio" *ngIf="!asignados.length">No hay expedientes en atención.</p>
+      <div class="grafico" *ngIf="asignados.length">
+        <div class="grafico__fila" *ngFor="let a of asignados; trackBy: trackEtiqueta">
+          <span class="grafico__nombre" [title]="a.etiqueta">{{ a.etiqueta }}</span>
+          <div class="grafico__pista">
+            <div class="grafico__barra grafico__barra--tiempo" [style.width.%]="alto(a.total, maximoAsignados)"></div>
+          </div>
+          <span class="grafico__valor">{{ a.total }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Expedientes por tipo vs especialistas -->
+    <section class="dash__panel" *ngIf="cuadro === 'TIPO'">
+      <div class="dash__panel-cabecera">
+        <h2>Expedientes por tipo de contratación y especialista</h2>
+        <span class="atn__total">Total: {{ totalesTipo['TOTAL'] || 0 }}</span>
+      </div>
+      <p class="dash__vacio" *ngIf="!porTipo.length">No hay expedientes en atención.</p>
+      <ng-container *ngIf="porTipo.length">
+        <div class="columnas">
+          <div class="columnas__col" *ngFor="let f of porTipo; trackBy: trackEtiqueta">
+            <div class="columnas__area">
+              <div class="columnas__pila" [style.height.%]="alto(f.total, maximoTipo)">
+                <span class="columnas__valor">{{ f.total }}</span>
+                <ng-container *ngFor="let t of tipos">
+                  <div *ngIf="f.valores[t]" class="columnas__segmento" [ngClass]="claseTipo(t)"
+                       [style.flex-grow]="f.valores[t]" [title]="etiquetaTipo[t] + ': ' + f.valores[t]">
+                    {{ f.valores[t] }}
+                  </div>
+                </ng-container>
+              </div>
+            </div>
+            <span class="columnas__etiqueta" [title]="f.etiqueta">{{ f.etiqueta }}</span>
+          </div>
+        </div>
+        <div class="grafico__leyenda">
+          <span *ngFor="let t of tipos"><i class="punto" [ngClass]="claseTipo(t)"></i> {{ etiquetaTipo[t] }}</span>
+        </div>
+        <div class="tabla-scroll atn__tabla">
+          <table class="table scm-table">
+            <thead>
+              <tr>
+                <th>Especialista</th>
+                <th class="num" *ngFor="let t of tipos">{{ t }}</th>
+                <th class="num">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let f of porTipo; trackBy: trackEtiqueta">
+                <td>{{ f.etiqueta }}</td>
+                <td class="num" *ngFor="let t of tipos">{{ f.valores[t] || '' }}</td>
+                <td class="num"><strong>{{ f.total }}</strong></td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th>Total general</th>
+                <th class="num" *ngFor="let t of tipos">{{ totalesTipo[t] }}</th>
+                <th class="num">{{ totalesTipo['TOTAL'] }}</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </ng-container>
+    </section>
+
+    <!-- Especialistas vs estado de atencion -->
+    <section class="dash__panel" *ngIf="cuadro === 'ESTADO'">
+      <div class="dash__panel-cabecera">
+        <h2>Especialistas por estado de atención</h2>
+        <span class="atn__total">Total: {{ totalesEstado['TOTAL'] || 0 }}</span>
+      </div>
+      <div class="tabla-scroll">
+        <table class="table scm-table atn__pivot">
+          <thead>
+            <tr>
+              <th>Especialista</th>
+              <th class="num" *ngFor="let e of estados">{{ e }}</th>
+              <th class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of porEstado; trackBy: trackEtiqueta">
+              <td>{{ f.etiqueta }}</td>
+              <td class="num" *ngFor="let e of estados">
+                <span class="celda-calor" *ngIf="f.valores[e]">{{ f.valores[e] }}</span>
+              </td>
+              <td class="num"><strong>{{ f.total }}</strong></td>
+            </tr>
+            <tr *ngIf="!porEstado.length">
+              <td [attr.colspan]="estados.length + 2" class="dash__vacio">No hay expedientes en atención.</td>
+            </tr>
+          </tbody>
+          <tfoot *ngIf="porEstado.length">
+            <tr>
+              <th>Total general</th>
+              <th class="num" *ngFor="let e of estados">{{ totalesEstado[e] }}</th>
+              <th class="num">{{ totalesEstado['TOTAL'] }}</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- Alertas de inactividad -->
+    <section class="dash__panel" *ngIf="cuadro === 'INACTIVIDAD'">
+      <div class="dash__panel-cabecera">
+        <h2>Alertas de inactividad de expedientes</h2>
+        <label class="atn__umbral">
+          Alertar desde
+          <input type="number" min="1" class="campo-control" [(ngModel)]="diasAlerta"
+                 (change)="cambiarDiasAlerta()" name="diasAlerta" />
+          días sin movimiento
+        </label>
+      </div>
+      <div class="tabla-scroll">
+        <table class="table scm-table">
+          <thead>
+            <tr>
+              <th>Especialista</th>
+              <th class="num" *ngFor="let r of rangosInactividad">{{ r }}</th>
+              <th class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of porInactividad; trackBy: trackEtiqueta">
+              <td>{{ f.etiqueta }}</td>
+              <td class="num" *ngFor="let r of rangosInactividad">{{ f.valores[r] || '' }}</td>
+              <td class="num"><strong>{{ f.total }}</strong></td>
+            </tr>
+            <tr *ngIf="!porInactividad.length">
+              <td colspan="4" class="dash__vacio">No hay expedientes con {{ diasAlerta }} días o más sin movimiento.</td>
+            </tr>
+          </tbody>
+          <tfoot *ngIf="porInactividad.length">
+            <tr>
+              <th>Total general</th>
+              <th class="num" *ngFor="let r of rangosInactividad">{{ totalesInactividad[r] }}</th>
+              <th class="num">{{ totalesInactividad['TOTAL'] }}</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <ng-container *ngIf="alertas.length">
+        <h3 class="atn__subtitulo">Detalle de expedientes en alerta</h3>
+        <div class="tabla-scroll">
+          <table class="table scm-table">
+            <thead>
+              <tr>
+                <th>Expediente</th>
+                <th>Especialista</th>
+                <th>Estado</th>
+                <th>Último movimiento</th>
+                <th class="num">Días sin movimiento</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let x of alertas; trackBy: trackExpediente">
+                <td>
+                  <strong>{{ x.Codigo }}</strong>
+                  <span class="celda-sub">{{ x.Denominacion }}</span>
+                </td>
+                <td>{{ x.Especialista }}</td>
+                <td>{{ x.Estado }}</td>
+                <td>{{ x.UltimoMovimiento ? (x.UltimoMovimiento | date: 'dd/MM/yyyy') : 'Sin historial' }}</td>
+                <td class="num">
+                  <span class="insignia" [ngClass]="claseDias(x.DiasInactivo)">{{ x.DiasInactivo ?? '—' }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+    </section>
+
+    <!-- Expedientes en atencion por area usuaria -->
+    <section class="dash__panel" *ngIf="cuadro === 'AREA'">
+      <div class="dash__panel-cabecera">
+        <h2>Expedientes en atención por área usuaria</h2>
+        <span class="atn__total">Total: {{ expVisibles.length }}</span>
+      </div>
+      <p class="dash__vacio" *ngIf="!porArea.length">No hay expedientes en atención.</p>
+      <div class="atn__area" *ngIf="porArea.length">
+        <div class="tabla-scroll">
+          <table class="table scm-table">
+            <thead>
+              <tr>
+                <th>Área usuaria</th>
+                <th class="num">Expedientes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let a of porArea; trackBy: trackEtiqueta">
+                <td>{{ a.etiqueta }}</td>
+                <td class="num">{{ a.total }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th>Total general</th>
+                <th class="num">{{ expVisibles.length }}</th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="columnas">
+          <div class="columnas__col" *ngFor="let a of porArea; trackBy: trackEtiqueta">
+            <div class="columnas__area">
+              <div class="columnas__pila" [style.height.%]="alto(a.total, maximoArea)">
+                <span class="columnas__valor">{{ a.total }}</span>
+                <div class="columnas__segmento tipo--servicios" [style.flex-grow]="1"></div>
+              </div>
+            </div>
+            <span class="columnas__etiqueta" [title]="a.etiqueta">{{ a.etiqueta }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Reporte situacional de bienes y servicios -->
+    <section class="dash__panel" *ngIf="cuadro === 'SITUACIONAL'">
+      <div class="dash__panel-cabecera">
+        <h2>Reporte situacional de expedientes de bienes y servicios</h2>
+        <span class="atn__total">Al {{ fechaReporte | date: 'dd/MM/yyyy' }}</span>
+      </div>
+      <div class="tabla-scroll">
+        <table class="table scm-table atn__situacional">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Área usuaria</th>
+              <th>Especialista</th>
+              <th>Denominación del requerimiento</th>
+              <th>Proveedores</th>
+              <th class="num atn__estado-col" *ngFor="let e of estados">{{ e }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let g of situacional">
+              <tr *ngFor="let x of g.filas; let i = index; trackBy: trackExpediente">
+                <td *ngIf="i === 0" [attr.rowspan]="g.filas.length" class="atn__tipo">
+                  <span class="insignia" [ngClass]="claseTipo(g.tipo)">{{ g.tipo }}</span>
+                </td>
+                <td>{{ x.AreaSigla }}</td>
+                <td>{{ x.Especialista }}</td>
+                <td>
+                  {{ x.Denominacion }}
+                  <span class="celda-sub">{{ x.Codigo }} · {{ x.Estado }}</span>
+                </td>
+                <td>{{ x.Proveedores || '—' }}</td>
+                <td class="num" *ngFor="let e of estados">
+                  <span class="marca" *ngIf="x.Grupo === e">1</span>
+                </td>
+              </tr>
+              <tr class="atn__subtotal">
+                <td colspan="5">Total {{ g.tipo }} ({{ g.filas.length }})</td>
+                <td class="num" *ngFor="let e of estados">{{ g.subtotales[e] || '' }}</td>
+              </tr>
+            </ng-container>
+            <tr *ngIf="!situacional.length">
+              <td [attr.colspan]="estados.length + 5" class="dash__vacio">No hay expedientes en atención.</td>
+            </tr>
+          </tbody>
+          <tfoot *ngIf="situacional.length">
+            <tr>
+              <th colspan="5">Total general ({{ expVisibles.length }})</th>
+              <th class="num" *ngFor="let e of estados">{{ totalesSituacional[e] || '' }}</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- Ordenes vigentes -->
+    <section class="dash__panel" *ngIf="cuadro === 'ORDENES'">
+      <div class="dash__panel-cabecera">
+        <h2>Reporte de órdenes vigentes</h2>
+        <span class="atn__total">
+          {{ ordenesVisibles.length }} órdenes · {{ montoOrdenes | number: '1.2-2' }} soles · al {{ fechaReporte | date: 'dd/MM/yyyy' }}
+        </span>
+      </div>
+      <div class="tabla-scroll">
+        <table class="table scm-table">
+          <thead>
+            <tr>
+              <th>Área usuaria</th>
+              <th>N.° de orden</th>
+              <th>Tipo</th>
+              <th>Denominación</th>
+              <th class="num">Monto total</th>
+              <th class="num">Entregables</th>
+              <th>Proveedor</th>
+              <th>RUC / DNI</th>
+              <th>Inicio</th>
+              <th>Fin</th>
+              <th class="num">Días restantes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let o of ordenesVisibles; trackBy: trackOrden">
+              <td>{{ o.AreaSigla }}</td>
+              <td>
+                <strong>{{ o.NumeroOrden || '—' }}</strong>
+                <span class="celda-sub">{{ o.TipoOrden }} · {{ o.CodigoRequerimiento }}</span>
+              </td>
+              <td><span class="insignia" [ngClass]="claseTipo(o.TipoGrupo)">{{ o.TipoGrupo }}</span></td>
+              <td>{{ o.Denominacion }}</td>
+              <td class="num">{{ o.Monto | number: '1.2-2' }}</td>
+              <td class="num">{{ o.Entregables }}</td>
+              <td>{{ o.Proveedor || '—' }}</td>
+              <td>{{ o.Ruc || '—' }}</td>
+              <td>{{ o.FechaInicio | date: 'dd/MM/yyyy' }}</td>
+              <td>{{ o.FechaFin | date: 'dd/MM/yyyy' }}</td>
+              <td class="num">
+                <span class="insignia" [ngClass]="claseRestante(o.DiasRestantes)">{{ o.DiasRestantes ?? '—' }}</span>
+              </td>
+            </tr>
+            <tr *ngIf="!ordenesVisibles.length">
+              <td colspan="11" class="dash__vacio">No hay órdenes vigentes para el tipo seleccionado.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </ng-container>
+
+  <div class="dash__estado" *ngIf="cargando && !expVisibles.length && !ordenesVisibles.length">
+    <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando…
+  </div>
+</div>

@@ -44,6 +44,30 @@
   }
 }
 
+.dash__vistas {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid #cbd5e1;
+
+  button {
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    color: #475569;
+    cursor: pointer;
+
+    &:hover { color: #1e3a8a; }
+
+    &.activo {
+      border-bottom-color: #1e3a8a;
+      color: #1e3a8a;
+      font-weight: 600;
+    }
+  }
+}
+
 .dash__error {
   color: #b91c1c;
   font-size: 0.9rem;

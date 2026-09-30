@@ -1,12 +1,15 @@
 <div class="dash">
   <header class="dash__cabecera">
     <div>
-      <h1 class="dash__titulo">Dashboard de especialistas</h1>
-      <p class="dash__bajada">
+      <h1 class="dash__titulo">Dashboard de Abastecimiento</h1>
+      <p class="dash__bajada" *ngIf="vista === 'DESEMPENO'">
         Seguimiento de las actividades de los especialistas de Abastecimiento y de su efectividad.
       </p>
+      <p class="dash__bajada" *ngIf="vista === 'ATENCION'">
+        Expedientes que están hoy en Abastecimiento y órdenes vigentes.
+      </p>
     </div>
-    <form class="dash__filtros" (ngSubmit)="cargar()">
+    <form class="dash__filtros" (ngSubmit)="cargar()" *ngIf="vista === 'DESEMPENO'">
       <label>
         <span>Desde</span>
         <input type="date" class="campo-control" [(ngModel)]="fechaDesde" name="fechaDesde" />
@@ -19,7 +22,7 @@
         <span>Módulo</span>
         <select class="campo-control" [(ngModel)]="codigoModulo" name="codigoModulo">
           <option value="">Todos</option>
-          <option *ngFor="let m of modulos" [value]="m.CodigoModulo">{{ m.Nombre }}</option>
+          <option *ngFor="let m of modulos; trackBy: trackModulo" [value]="m.CodigoModulo">{{ m.Nombre }}</option>
         </select>
       </label>
       <button type="submit" class="btn btn-app-primary" [disabled]="cargando">
@@ -29,6 +32,18 @@
     </form>
   </header>
 
+  <nav class="dash__vistas" role="tablist">
+    <button type="button" role="tab" [class.activo]="vista === 'DESEMPENO'" (click)="vista = 'DESEMPENO'">
+      <i class="mdi mdi-account-tie-outline" aria-hidden="true"></i> Desempeño de especialistas
+    </button>
+    <button type="button" role="tab" [class.activo]="vista === 'ATENCION'" (click)="vista = 'ATENCION'">
+      <i class="mdi mdi-chart-bar-stacked" aria-hidden="true"></i> Atención de expedientes
+    </button>
+  </nav>
+
+  <app-dashboard-atencion *ngIf="vista === 'ATENCION'"></app-dashboard-atencion>
+
+  <ng-container *ngIf="vista === 'DESEMPENO'">
   <div class="dash__error" *ngIf="error">
     <i class="mdi mdi-alert-outline" aria-hidden="true"></i> {{ error }}
   </div>
@@ -216,4 +231,5 @@
   <div class="dash__estado" *ngIf="cargando && !totales">
     <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Cargando…
   </div>
+  </ng-container>
 </div>

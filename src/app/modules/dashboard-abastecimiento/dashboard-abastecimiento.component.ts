@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MetodoService } from '../../core/services/metodo.service';
+import { DashboardAtencionComponent } from './dashboard-atencion/dashboard-atencion.component';
 
 interface ResumenEspecialista {
   IdUsuario: string;
@@ -55,7 +56,7 @@ type ColumnaOrden = keyof ResumenEspecialista;
 @Component({
   selector: 'app-dashboard-abastecimiento',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DashboardAtencionComponent],
   templateUrl: './dashboard-abastecimiento.component.html',
   styleUrl: './dashboard-abastecimiento.component.scss'
 })
@@ -65,6 +66,7 @@ export class DashboardAbastecimientoComponent implements OnInit {
   fechaHasta = '';
   codigoModulo = '';
   metrica: MetricaGrafico = 'EFECTIVIDAD';
+  vista: 'DESEMPENO' | 'ATENCION' = 'DESEMPENO';
 
   cargando = false;
   error = '';
@@ -112,7 +114,9 @@ export class DashboardAbastecimientoComponent implements OnInit {
         this.totales = r.Totales || null;
         this.especialistas = Array.isArray(r.Especialistas) ? r.Especialistas : [];
         this.pendientes = Array.isArray(r.Pendientes) ? r.Pendientes : [];
-        this.modulos = Array.isArray(r.Modulos) ? r.Modulos : this.modulos;
+        if (!this.modulos.length && Array.isArray(r.Modulos)) {
+          this.modulos = r.Modulos;
+        }
         this.ordenar(this.ordenColumna, false);
       },
       error: (e: any) => {
@@ -144,6 +148,8 @@ export class DashboardAbastecimientoComponent implements OnInit {
     }
     return this.ordenAsc ? 'mdi-arrow-up' : 'mdi-arrow-down';
   }
+
+  trackModulo = (_: number, m: ModuloDashboard) => m.CodigoModulo;
 
   seleccionar(fila: ResumenEspecialista): void {
     this.seleccionado = this.seleccionado?.IdUsuario === fila.IdUsuario ? null : fila;
