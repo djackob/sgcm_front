@@ -75,7 +75,10 @@ export function imprimirTrazabilidad(titulo: string, pasos: PasoTrazabilidadImpr
     ${cuerpo}
     </body></html>`;
 
-  const ventana = window.open('', '_blank', 'noopener,noreferrer,width=960,height=720');
+  // Sin 'noopener'/'noreferrer': con esos tokens window.open devuelve null y no se
+  // puede escribir el documento (la ventana queda en blanco). Aqui abrimos una
+  // ventana propia para volcarle el HTML, no una URL externa, asi que no aplican.
+  const ventana = window.open('', '_blank', 'width=960,height=720');
   if (!ventana) {
     return;
   }
