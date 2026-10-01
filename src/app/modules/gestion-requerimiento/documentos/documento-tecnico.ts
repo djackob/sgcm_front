@@ -1,5 +1,5 @@
 import { DOCUMENTO_TECNICO, PedidoRequerimiento, RequerimientoDetalle, TipoContratacionRequerimiento } from '../models/requerimiento.model';
-import { PENALIDAD_INTRO, PENALIDAD_MORA_CIERRE, PENALIDAD_MORA_TEXTO } from './anexo3-tdr.plantilla';
+import { PENALIDAD_INTRO } from './anexo3-tdr.plantilla';
 import { FilaOtraPenalidad, filasDesdeTextoPenalidad, normalizarFilasPenalidad, tablaOtrasPenalidades, textoFilasPenalidad } from './penalidad';
 
 export const CARPETA_DOCUMENTO_TECNICO = 'requerimiento';
@@ -129,9 +129,6 @@ export function construirDocumentoTecnico(
       parrafo(formulario.FormaPago),
       titulo('8. Penalidad por mora'),
       parrafo(PENALIDAD_INTRO),
-      parrafo(PENALIDAD_MORA_TEXTO),
-      parrafo('Penalidad diaria = (0.10 × monto) / (0.40 × plazo)'),
-      parrafo(PENALIDAD_MORA_CIERRE),
       titulo('9. Otras penalidades'),
       tablaOtrasPenalidades(formulario.OtrasPenalidades) || parrafo(textoFilasPenalidad(formulario.OtrasPenalidades) || 'No se establecen otras penalidades.'),
       {

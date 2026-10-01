@@ -6,15 +6,18 @@ export const CARPETA_ANEXO_11 = 'pago';
 const NEGRO = '#000000';
 const BORDE = '#000000';
 const GRIS = '#D9D9D9';
+const GRIS_MEDIO = '#CCCCCC';
+const GRIS_CALIDO = '#D0CECE';
 
 /**
  * Anexo N.° 11 — Acta de Conformidad.
  *
- * Réplica del formato validado en la reunión del 27-09-2026: cuadro CONTRATO
- * (N.°, fechas y monto, para contrataciones que cruzan el ejercicio fiscal)
- * junto al cuadro TIPO / NÚMERO / SIAF / FECHA DE EMISIÓN de la orden, bloque
- * del proveedor y bloque CONFORMIDAD. Los datos de la orden salen de SIGA, no
- * se digitan; si el dato todavía no existe, va la línea en blanco.
+ * Réplica de «ANEXO 11 - ACTA DE CONFORMIDAD (3).docx»: una sola tabla con el
+ * cuadro CONTRATO (dos filas, para contrataciones que cruzan el ejercicio
+ * fiscal) y, separado por una columna sin bordes, el cuadro TIPO / NÚMERO /
+ * SIAF / FECHA EMISION de la orden; luego el bloque del proveedor y el bloque
+ * CONFORMIDAD. Medidas tomadas del Word (twips / 20 = puntos). Los datos de la
+ * orden salen de SIGA, no se digitan; si el dato todavía no existe, va en blanco.
  */
 
 export function nombreArchivoAnexo11(detalle: ExpedientePagoDetalle): string {
@@ -28,14 +31,14 @@ export function construirAnexo11(detalle: ExpedientePagoDetalle, orden: OrdenSer
 
   return {
     pageSize: 'A4',
-    pageMargins: [56, 48, 56, 44],
+    pageMargins: [85, 71, 85, 71],
     info: {
       title: `Anexo N.° 11 · ${detalle.Codigo}`,
       author: 'Autoridad Nacional de Infraestructura'
     },
     content: [
       { text: 'ANEXO N° 11', style: 'titulo' },
-      { text: 'ACTA DE CONFORMIDAD', style: 'titulo', margin: [0, 0, 0, 14] },
+      { text: 'ACTA DE CONFORMIDAD', style: 'titulo', margin: [0, 0, 0, 18] },
 
       {
         text: [
@@ -52,53 +55,51 @@ export function construirAnexo11(detalle: ExpedientePagoDetalle, orden: OrdenSer
       },
 
       {
-        columns: [
-          {
-            width: '*',
-            table: {
-              widths: [30, '*', '*', '*'],
-              body: [
-                [
-                  { text: 'CONTRATO', style: 'cabecera', alignment: 'center', colSpan: 4, fillColor: GRIS, margin: [3, 3, 3, 3] },
-                  {}, {}, {}
-                ],
-                [
-                  cabeceraCentro('Nº'),
-                  cabeceraCentro('FECHA INICIO'),
-                  cabeceraCentro('FECHA TERMINO'),
-                  cabeceraCentro('MONTO CONTRACTUAL')
-                ],
-                [
-                  celda(detalle.NumeroContrato),
-                  celda(fecha(detalle.FechaInicioContrato)),
-                  celda(fecha(detalle.FechaFinContrato)),
-                  celda(moneda(detalle.MontoContrato))
-                ]
-              ]
-            },
-            layout: marco()
-          },
-          { width: 18, text: '' },
-          {
-            width: 150,
-            table: {
-              widths: [62, '*'],
-              body: [
-                [cabeceraCentro('TIPO:'), { text: tipo, style: 'cabecera', alignment: 'center', margin: [3, 4, 3, 4] }],
-                [cabeceraCentro('NÚMERO:'), celda(orden?.NumeroOrden || detalle.NumeroOrdenSiga)],
-                [cabeceraCentro('SIAF N°:'), celda(orden?.ExpedienteSiaf || detalle.ExpedienteSiaf)],
-                [cabeceraCentro('FECHA EMISION:'), celda(fecha(orden?.FechaOrden))]
-              ]
-            },
-            layout: marco()
-          }
-        ],
-        margin: [0, 0, 0, 16]
+        table: {
+          /* Ancho del Word menos los 4 pt de relleno lateral de marcoCompacto(). */
+          widths: [28, 80, 54, 74, 22, 59, '*'],
+          heights: [15, 15, 15, 15],
+          body: [
+            [
+              cabeceraCentro('CONTRATO', GRIS, 4), {}, {}, {},
+              separador(),
+              cabeceraCentro('TIPO:'),
+              { text: tipo, style: 'cabecera', fontSize: 9, alignment: 'center', margin: [1, 2, 1, 2] }
+            ],
+            [
+              cabeceraCentro('Nº', GRIS_MEDIO),
+              cabeceraCentro('FECHA INICIO'),
+              cabeceraCentro('FECHA TERMINO'),
+              cabeceraCentro('MONTO CONTRACTUAL', GRIS_CALIDO),
+              separador(),
+              cabeceraCentro('NÚMERO'),
+              celdaCentro(orden?.NumeroOrden || detalle.NumeroOrdenSiga)
+            ],
+            [
+              celdaCentro(detalle.NumeroContrato),
+              celdaCentro(fecha(detalle.FechaInicioContrato)),
+              celdaCentro(fecha(detalle.FechaFinContrato)),
+              celdaCentro(moneda(detalle.MontoContrato)),
+              separador(),
+              cabeceraCentro('SIAF N°:'),
+              celdaCentro(orden?.ExpedienteSiaf || detalle.ExpedienteSiaf)
+            ],
+            [
+              celdaCentro(''), celdaCentro(''), celdaCentro(''), celdaCentro(''),
+              separador(),
+              cabeceraCentro('FECHA EMISION:'),
+              celdaCentro(fecha(orden?.FechaOrden))
+            ]
+          ]
+        },
+        layout: marcoCompacto(),
+        margin: [0, 0, 0, 14]
       },
 
       {
         table: {
-          widths: [150, '*'],
+          widths: [146, '*'],
+          heights: [18, 18, 22, 22, 18, 18],
           body: [
             [etiqueta('PROVEEDOR'), celda(detalle.NombreLocador)],
             [etiqueta('RUC'), celda(detalle.RucLocador || detalle.DniLocador)],
@@ -109,15 +110,16 @@ export function construirAnexo11(detalle: ExpedientePagoDetalle, orden: OrdenSer
           ]
         },
         layout: marco(),
-        margin: [0, 0, 0, 16]
+        margin: [0, 0, 0, 14]
       },
 
       {
         table: {
-          widths: [150, '*'],
+          widths: [155, '*'],
+          heights: [22, 19, 32, 32, 22, 22, 22],
           body: [
             [
-              { text: 'CONFORMIDAD', style: 'cabecera', alignment: 'center', colSpan: 2, fillColor: GRIS, margin: [3, 5, 3, 5] },
+              { text: 'CONFORMIDAD', style: 'cabecera', alignment: 'center', colSpan: 2, fillColor: GRIS_MEDIO, margin: [3, 5, 3, 5] },
               {}
             ],
             [etiqueta('AREA USUARIA:'), celda(detalle.UnidadOrigen)],
@@ -139,13 +141,13 @@ export function construirAnexo11(detalle: ExpedientePagoDetalle, orden: OrdenSer
       }
     ],
     styles: {
-      titulo: { fontSize: 11, bold: true, alignment: 'center', color: NEGRO },
-      seccion: { fontSize: 9, bold: true, color: NEGRO },
-      cuerpo: { fontSize: 9, alignment: 'justify', color: NEGRO, lineHeight: 1.15 },
-      cabecera: { fontSize: 8, bold: true, color: NEGRO },
-      valor: { fontSize: 9, color: NEGRO }
+      titulo: { fontSize: 10, bold: true, alignment: 'center', color: NEGRO },
+      seccion: { fontSize: 10, bold: true, color: NEGRO },
+      cuerpo: { fontSize: 10, alignment: 'justify', color: NEGRO, lineHeight: 1.08 },
+      cabecera: { fontSize: 10, bold: true, color: NEGRO },
+      valor: { fontSize: 10, color: NEGRO }
     },
-    defaultStyle: { fontSize: 9, color: NEGRO }
+    defaultStyle: { fontSize: 10, color: NEGRO }
   };
 }
 
@@ -158,8 +160,27 @@ function marco(): any {
   };
 }
 
-function cabeceraCentro(rotulo: string): any {
-  return { text: rotulo, style: 'cabecera', alignment: 'center', fillColor: GRIS, margin: [3, 3, 3, 3] };
+/* Columnas angostas del Word: con el relleno normal, «MONTO CONTRACTUAL» y
+   las fechas se parten. */
+function marcoCompacto(): any {
+  return { ...marco(), paddingLeft: () => 2, paddingRight: () => 2 };
+}
+
+/* Columna que separa los dos cuadros: sin líneas arriba ni abajo, solo los
+   bordes laterales que comparte con las columnas vecinas. */
+function separador(): any {
+  return { text: '', border: [true, false, true, false] };
+}
+
+function cabeceraCentro(rotulo: string, relleno: string = GRIS, colSpan?: number): any {
+  return {
+    text: rotulo, style: 'cabecera', fontSize: 9, alignment: 'center', fillColor: relleno,
+    margin: [1, 2, 1, 2], ...(colSpan ? { colSpan } : {})
+  };
+}
+
+function celdaCentro(valor: string | number | null | undefined): any {
+  return { text: texto(valor), style: 'valor', fontSize: 9, alignment: 'center', margin: [1, 2, 1, 2] };
 }
 
 function etiqueta(rotulo: string): any {

@@ -236,12 +236,6 @@ export const MESA_PARTES =
 export const PENALIDAD_INTRO =
   'La suma de la aplicación de las penalidades por mora y de otras penalidades no puede exceder el 10% del monto del contrato menor.';
 
-export const PENALIDAD_MORA_TEXTO =
-  'En caso de retraso injustificado del contratista en la ejecución de las prestaciones objeto del contrato, la entidad contratante le aplica automáticamente una penalidad por mora por cada día de atraso que le sea imputable. La penalidad se aplica automáticamente y se calcula de acuerdo con la siguiente fórmula:';
-
-export const PENALIDAD_MORA_CIERRE =
-  'Tanto el monto como el plazo se refieren, según corresponda, al monto vigente del contrato, componente o ítem que debió ejecutarse o, en caso de que estos involucren entregables cuantificables en monto y plazo, al monto y plazo del entregable que fuera materia de retraso (para dichos casos, no se considerará el plazo acumulado).\n\nLa Entidad tiene derecho para exigir, además de la penalidad, el cumplimiento de la obligación.';
-
 export const UNIDAD_ORGANIZACIONAL_EJEMPLO = 'unidad organizacional 1';
 
 export const LUGAR_EJEMPLO = 'lugar 1';
@@ -278,8 +272,7 @@ export const RESOLUCION_CONTRACTUAL =
 export const SOLUCION_CONTROVERSIAS =
   'Todas las controversias que surjan entre las partes sobre la validez, nulidad, interpretación, ejecución, terminación o eficacia, se resuelven mediante conciliación, conforme lo dispuesto en el numeral 81.3 del artículo 81 de la Ley. El procedimiento conciliatorio será regulado mediante el numeral 330.2 del artículo 330 del Reglamento.';
 
-export const PENALIDAD_MORA =
-  `${PENALIDAD_INTRO}\n\n11.1. Penalidad por mora (Obligatorio)\n${PENALIDAD_MORA_TEXTO}\n\nPenalidad diaria = (0.10 × monto) / (0.40 × plazo)\n\n${PENALIDAD_MORA_CIERRE}`;
+export const PENALIDAD_MORA = PENALIDAD_INTRO;
 
 const LETRAS = [
   'CERO', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE',

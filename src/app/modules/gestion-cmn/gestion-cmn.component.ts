@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../shared/directives/archivo-maximo.directive';
 import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -153,7 +154,7 @@ const ACCIONES_DESTRUCTIVAS = new Set([
 @Component({
   selector: 'app-gestion-cmn',
   standalone: true,
-  imports: [CommonModule, FormsModule, BreadcrumbComponent, ModalRegistroComponent, ModalDetalleComponent],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective, BreadcrumbComponent, ModalRegistroComponent, ModalDetalleComponent],
   templateUrl: './gestion-cmn.component.html',
   styleUrl: './gestion-cmn.component.scss',
 })

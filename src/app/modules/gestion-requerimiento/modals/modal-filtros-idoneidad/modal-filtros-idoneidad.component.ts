@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../../../shared/directives/archivo-maximo.directive';
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -36,7 +37,7 @@ import {
 @Component({
   selector: 'app-modal-filtros-idoneidad',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective],
   templateUrl: './modal-filtros-idoneidad.component.html',
   styleUrl: './modal-filtros-idoneidad.component.scss'
 })
@@ -418,8 +419,12 @@ export class ModalFiltrosIdoneidadComponent {
   onDrop(filtro: FiltroIdoneidadVista | undefined, event: DragEvent): void {
     event.preventDefault();
     this.arrastreCodigo = null;
-    const archivo = event.dataTransfer?.files?.[0];
-    this.cargarPdf(filtro, archivo, this.admiteVarios(filtro));
+    const archivos = Array.from(event.dataTransfer?.files || []);
+    if (this.admiteVarios(filtro)) {
+      this.cargarPdfs(filtro, archivos);
+      return;
+    }
+    this.cargarPdf(filtro, archivos[0], false);
   }
 
   onDragOver(event: DragEvent, codigo: string): void {
@@ -606,7 +611,8 @@ export class ModalFiltrosIdoneidadComponent {
       return;
     }
     if (!archivo.name.toLowerCase().endsWith('.pdf')) {
-      this.funciones.mensaje('info', 'La evidencia debe ser un archivo PDF.');
+      this.funciones.mensaje('info', `«${archivo.name}» no es PDF; la evidencia debe ser un archivo PDF.`);
+      alTerminar?.();
       return;
     }
     this.subiendoCodigo = filtro.CodigoFiltro;

@@ -144,6 +144,23 @@ header {
 
         &--vencido { border-color: #dc2626; color: #b91c1c; }
         &--vence { border-color: #d97706; color: #b45309; }
+        &--nueva { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+    }
+
+    &__item--nueva a {
+        background: #eff6ff;
+
+        strong { font-weight: 700; }
+    }
+
+    &__punto {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 4px;
+        border-radius: 50%;
+        background: #2563eb;
+        vertical-align: middle;
     }
 
     &__tipo {

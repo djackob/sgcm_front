@@ -113,7 +113,7 @@ export function construirOrdenServicio(
     tituloSeccion('X. FORMA DE PAGO'),
     cuerpo(`${textoFormaPago(entregables)}\n\n${FORMA_PAGO_DOCUMENTOS}`),
     tituloSeccion('XI. PENALIDADES'),
-    cuerpo(PENALIDAD_MORA + (tdr.OtrasPenalidades ? `\n\n11.2. Otras penalidades\n${tdr.OtrasPenalidades}` : '')),
+    cuerpo(PENALIDAD_MORA + (tdr.OtrasPenalidades ? `\n\nOtras penalidades\n${tdr.OtrasPenalidades}` : '')),
     tituloSeccion('XII. OTRAS CONSIDERACIONES'),
     cuerpo(OTRAS_CONSIDERACIONES),
     tituloSeccion('XIII. RESOLUCIÓN DEL CONTRATO'),

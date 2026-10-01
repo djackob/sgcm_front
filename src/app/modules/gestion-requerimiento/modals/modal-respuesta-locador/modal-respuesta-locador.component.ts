@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../../../shared/directives/archivo-maximo.directive';
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -23,7 +24,7 @@ interface ArchivoCargado {
 @Component({
   selector: 'app-modal-respuesta-locador',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective],
   templateUrl: './modal-respuesta-locador.component.html',
   styleUrl: './modal-respuesta-locador.component.scss'
 })

@@ -21,8 +21,6 @@ import {
   MESA_PARTES,
   OBSERVACION_ENTREGABLES,
   PENALIDAD_INTRO,
-  PENALIDAD_MORA_CIERRE,
-  PENALIDAD_MORA_TEXTO,
   PLAZO_NOTA,
   PROPIEDAD_INTELECTUAL,
   RECURSOS_PROVEEDOR,
@@ -178,11 +176,6 @@ export function construirAnexo3Tdr(
       seccion('11.', 'PENALIDADES (Obligatorio)', [
         cuerpo(PENALIDAD_INTRO)
       ]),
-      subseccion('11.1.', 'Penalidad por mora (Obligatorio)', [
-        cuerpo(PENALIDAD_MORA_TEXTO),
-        formulaPenalidad(),
-        cuerpo(PENALIDAD_MORA_CIERRE)
-      ]),
 
       seccion('12.', 'Otras Penalidades (De corresponder)', [
         tablaOtrasPenalidades(tdr.OtrasPenalidadesFilas || []) || cuerpo(tdr.OtrasPenalidades || '')
@@ -215,7 +208,6 @@ export function construirAnexo3Tdr(
         margin: [0, 20, 0, 0]
       },
       espaciosFirmaAreaUsuaria(
-        detalle?.EspecialistaAreaUsuaria || '',
         detalle?.JefeAreaUsuaria || '',
         area
       )
@@ -561,35 +553,7 @@ function listaEntregables(tdr: TdrLocacion): any {
   };
 }
 
-function formulaPenalidad(): any {
-  return {
-    margin: [24, 8, 24, 10],
-    columns: [
-      {
-        width: '*',
-        text: 'Penalidad diaria =',
-        alignment: 'right',
-        style: 'cuerpo',
-        margin: [0, 10, 8, 0]
-      },
-      {
-        width: 150,
-        stack: [
-          { text: '0.10 × monto', alignment: 'center', style: 'cuerpo' },
-          {
-            canvas: [{ type: 'line', x1: 0, y1: 2, x2: 140, y2: 2, lineWidth: 0.8, lineColor: NEGRO }],
-            margin: [5, 2, 5, 2]
-          },
-          { text: '0.40 × plazo', alignment: 'center', style: 'cuerpo' }
-        ]
-      },
-      { width: '*', text: '' }
-    ]
-  };
-}
-
 function espaciosFirmaAreaUsuaria(
-  responsable: string,
   jefeArea: string,
   area: string
 ): any {
@@ -598,11 +562,7 @@ function espaciosFirmaAreaUsuaria(
     margin: [0, 16, 0, 0],
     columnGap: 28,
     columns: [
-      espacioFirmaColumna(
-        '1. Especialista del Área usuaria',
-        responsable || 'NOMBRES Y APELLIDOS',
-        area
-      ),
+      { width: '*', text: '' },
       espacioFirmaColumna(
         '2. Jefe del Área usuaria',
         jefeArea || 'NOMBRES Y APELLIDOS',

@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../shared/directives/archivo-maximo.directive';
 import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -177,6 +178,7 @@ const ACCIONES_DESTRUCTIVAS = new Set([
   imports: [
     CommonModule,
     FormsModule,
+    ArchivoMaximoDirective,
     BreadcrumbComponent,
     ModalRegistroRequerimientoComponent,
     ModalDetalleRequerimientoComponent,
@@ -311,18 +313,6 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
   /* Bandeja                                                                */
   /* ---------------------------------------------------------------------- */
 
-  /** Del más antiguo al más reciente, y por código si se registraron juntos. */
-  private ordenarCronologico(filas: RequerimientoBandeja[]): RequerimientoBandeja[] {
-    return [...(filas || [])].sort((a, b) => {
-      const fa = String(a.CreadoEn || '');
-      const fb = String(b.CreadoEn || '');
-      if (fa !== fb) {
-        return fa < fb ? -1 : 1;
-      }
-      return String(a.Codigo || '').localeCompare(String(b.Codigo || ''));
-    });
-  }
-
   cargarBandeja(): void {
     this.cargando = true;
 
@@ -344,7 +334,7 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
           return;
         }
 
-        this.requerimientos = this.ordenarCronologico(respuesta.Requerimientos || []);
+        this.requerimientos = respuesta.Requerimientos || [];
         this.total = respuesta.total || 0;
         this.acciones = {};
         for (const r of this.requerimientos) {
@@ -473,22 +463,9 @@ export class GestionRequerimientoComponent implements OnInit, OnDestroy {
     return ACCIONES_DESTRUCTIVAS.has(transicion.CodigoTransicion);
   }
 
-  /** Las dos salidas del especialista se rotulan: firmar o derivar sin firma. */
-  muestraRotuloAccion(transicion: TransicionRequerimiento): boolean {
-    return transicion.CodigoTransicion === 'REQ_DERIVAR_COORD'
-      || transicion.CodigoTransicion === 'REQ_DERIVAR_COORD_OBS'
-      || transicion.CodigoTransicion === 'REQ_DERIVAR_SIN_FIRMA'
-      || transicion.CodigoTransicion === 'REQ_DERIVAR_SIN_FIRMA_OBS';
-  }
-
   get esDerivacionSinFirmaEspecialista(): boolean {
     const codigo = this.accionEnCurso?.transicion.CodigoTransicion;
     return codigo === 'REQ_DERIVAR_SIN_FIRMA' || codigo === 'REQ_DERIVAR_SIN_FIRMA_OBS';
-  }
-
-  get esFirmaYDerivaEspecialista(): boolean {
-    const codigo = this.accionEnCurso?.transicion.CodigoTransicion;
-    return codigo === 'REQ_DERIVAR_COORD' || codigo === 'REQ_DERIVAR_COORD_OBS';
   }
 
   get esLocacionAccion(): boolean {

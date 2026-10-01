@@ -7,7 +7,7 @@ import { DocumentoService } from '../../../../core/services/documento.service';
 import { Funciones } from '../../../../shared/funciones/funciones';
 import { idDocumentoSistema } from '../../../../shared/funciones/archivo';
 import { PedidoRequerimiento, RequerimientoDetalle } from '../../models/requerimiento.model';
-import { PENALIDAD_INTRO, PENALIDAD_MORA_CIERRE, PENALIDAD_MORA_TEXTO } from '../../documentos/anexo3-tdr.plantilla';
+import { PENALIDAD_INTRO } from '../../documentos/anexo3-tdr.plantilla';
 import {
   CARPETA_DOCUMENTO_TECNICO,
   DocumentoTecnicoFormulario,
@@ -39,7 +39,7 @@ export class ModalDocumentoTecnicoComponent implements OnChanges {
   detalle: RequerimientoDetalle | null = null;
   pedidos: PedidoRequerimiento[] = [];
   formulario: DocumentoTecnicoFormulario = crearDocumentoTecnico();
-  readonly penalidadMora = `${PENALIDAD_INTRO}\n\n${PENALIDAD_MORA_TEXTO}\n\nPenalidad diaria = (0.10 × monto) / (0.40 × plazo)\n\n${PENALIDAD_MORA_CIERRE}`;
+  readonly penalidadMora = PENALIDAD_INTRO;
 
   constructor(
     private requerimientoService: RequerimientoService,

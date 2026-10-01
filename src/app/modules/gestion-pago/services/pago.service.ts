@@ -43,6 +43,25 @@ export class PagoService {
     });
   }
 
+  listarCandidatoVistoBueno(idExpediente: string): Observable<any> {
+    return this.api.GET('api/pago/listarCandidatoVistoBueno', { IdExpediente: idExpediente });
+  }
+
+  derivarVistoBuenoFirma(idExpediente: string, version: number,
+                         destinatarios: { Orden: number; IdUsuario: string }[],
+                         comentario: string | null): Observable<any> {
+    return this.api.POST('api/pago/derivarVistoBuenoFirma', {
+      IdExpediente: idExpediente, Version: version, Destinatarios: destinatarios, Comentario: comentario
+    });
+  }
+
+  responderVistoBuenoFirma(payload: {
+    IdExpediente: string; Version: number; Respuesta: 'OTORGAR' | 'OBSERVAR';
+    Comentario: string | null; GeneradoDocumento: string | null; NombreDocumento: string | null;
+  }): Observable<any> {
+    return this.api.POST('api/pago/responderVistoBuenoFirma', payload);
+  }
+
   aprobarConformidadTecnica(idExpediente: string, version: number, retrasoJustificado = false): Observable<any> {
     return this.api.POST('api/pago/aprobarConformidadTecnica', {
       IdExpediente: idExpediente, Version: version, RetrasoJustificado: retrasoJustificado

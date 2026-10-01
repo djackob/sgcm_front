@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../shared/directives/archivo-maximo.directive';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -27,7 +28,7 @@ type Pestana = 'solicitud' | 'trazabilidad';
 @Component({
   selector: 'app-gestion-modificacion',
   standalone: true,
-  imports: [CommonModule, FormsModule, BreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective, BreadcrumbComponent],
   templateUrl: './gestion-modificacion.component.html',
   styleUrl: './gestion-modificacion.component.scss'
 })

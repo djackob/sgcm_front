@@ -334,6 +334,95 @@
       </ol>
     </section>
 
+    <section class="seccion" *ngIf="verSeccionVbFirma">
+      <h3 class="contenido-titulo">Visto bueno previo a la firma del Acta (Anexo 11)</h3>
+      <p class="cell-muted" *ngIf="!vbRondaActual.length">
+        El Anexo 3 pide la conformidad de estas áreas antes de firmar el Acta y enviarla a Administración.
+        Responden una por una, en el orden del Anexo 3.
+      </p>
+      <ol class="pago-ruta" *ngIf="vbRondaActual.length">
+        <li *ngFor="let fila of vbRondaActual" class="pago-vb__paso" [class.pago-vb__paso--turno]="esPasoEnTurno(fila)">
+          <div>
+            <strong>{{ fila.NombreUnidad }}</strong>
+            <span *ngIf="fila.NombreRol"> — {{ fila.NombreRol }}</span>
+            · {{ fila.NombreUsuarioDestino }}
+            <span class="status-pill" [ngClass]="claseVb(fila.Estado)">{{ etiquetaVb(fila.Estado) }}</span>
+            <span class="cell-muted" *ngIf="esPasoEnTurno(fila)"> · en turno</span>
+            <span class="cell-muted" *ngIf="fila.RespondidoEn"> · {{ fecha(fila.RespondidoEn) }}</span>
+          </div>
+          <p class="pago-vb__comentario" *ngIf="fila.Comentario">{{ fila.Comentario }}</p>
+          <button type="button" class="pago-checklist__archivo" *ngIf="fila.GeneradoDocumento" (click)="verDocumentoVb(fila)">
+            <i class="mdi mdi-file-document-outline" aria-hidden="true"></i> {{ fila.NombreDocumento || 'Informe técnico / visto bueno' }}
+          </button>
+        </li>
+      </ol>
+      <p class="pago-alerta" *ngIf="vbRondaActual.length && !vbFirmaCompleta && seleccionado.CodigoEstado === 'PAG_CONFORMIDAD_PEND_FIRMA'">
+        Un área devolvió el expediente con observaciones. Revíselas y vuelva a derivar para continuar.
+      </p>
+      <p class="campo-ayuda" *ngIf="vbFirmaCompleta">
+        Todas las áreas otorgaron su conformidad. El Jefe del área usuaria ya puede firmar el Anexo 11 y enviarlo a Administración.
+      </p>
+      <details *ngIf="vbRondasAnteriores.length" class="pago-vb__historial">
+        <summary>Rondas anteriores ({{ vbRondasAnteriores.length }} respuestas)</summary>
+        <ul>
+          <li *ngFor="let fila of vbRondasAnteriores">
+            Ronda {{ fila.Ronda }} · {{ fila.NombreUnidad }} · {{ fila.NombreUsuarioDestino }}:
+            {{ etiquetaVb(fila.Estado) }}<span *ngIf="fila.Comentario"> — {{ fila.Comentario }}</span>
+          </li>
+        </ul>
+      </details>
+    </section>
+
+    <div class="pago-carga" *ngIf="puedeDerivarVb">
+      <h3>Derivar para visto bueno previo a la firma</h3>
+      <p class="cell-muted">
+        Elija a la persona de cada área. El expediente pasa por ellas en este orden y, cuando todas otorguen su
+        conformidad, vuelve a usted para firmar el Anexo 11 y enviarlo a Administración.
+      </p>
+      <p class="campo-ayuda" *ngIf="cargandoCandidatosVb">
+        <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Consultando personas de cada área…
+      </p>
+      <div class="tdr-fila pago-vb__destino" *ngFor="let paso of candidatosVb">
+        <span class="pago-vb__nro">{{ paso.Orden }}</span>
+        <label class="campo-etiqueta" [for]="'destinoVb' + paso.Orden">
+          {{ paso.NombreUnidad }}<span *ngIf="paso.NombreRol"> — {{ paso.NombreRol }}</span>
+          <span class="campo-req" aria-hidden="true">*</span>
+        </label>
+        <select class="campo-control" [id]="'destinoVb' + paso.Orden" [(ngModel)]="destinoVb[paso.Orden]">
+          <option value="">Seleccione…</option>
+          <option *ngFor="let persona of paso.Personas" [value]="persona.IdUsuario">
+            {{ persona.NombreCompleto }}<ng-container *ngIf="persona.Cargo"> · {{ persona.Cargo }}</ng-container>
+          </option>
+        </select>
+        <p class="campo-ayuda" *ngIf="!paso.Personas.length">No hay usuarios activos con este perfil en el área.</p>
+      </div>
+      <label class="campo-etiqueta">Indicaciones (opcional)</label>
+      <textarea class="campo-control" rows="2" [(ngModel)]="comentario"></textarea>
+    </div>
+
+    <div class="pago-carga" *ngIf="puedeResponderVb">
+      <h3>Su conformidad / visto bueno</h3>
+      <p class="cell-muted">
+        Revise el entregable y el Acta. Otorgue su conformidad o devuelva el expediente al Jefe del área usuaria con observaciones.
+      </p>
+      <div class="pago-slots">
+        <div class="pago-slots__fila">
+          <label class="btn btn-app-secundario btn-sm">
+            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+            {{ archivoVb.archivo ? 'Cambiar informe' : 'Adjuntar informe técnico (opcional)' }}
+            <input type="file" accept="application/pdf" hidden (change)="onArchivoVb($event)" />
+          </label>
+          <span *ngIf="archivoVb.archivo">{{ archivoVb.archivo.name }}</span>
+          <span class="pago-slots__estado" *ngIf="archivoVb.estado === 'subiendo'">Subiendo…</span>
+          <span class="pago-slots__estado pago-slots__estado--ok" *ngIf="archivoVb.estado === 'listo'">En el servidor de archivos</span>
+          <span class="pago-slots__estado pago-slots__estado--error" *ngIf="archivoVb.estado === 'error'">No se subió</span>
+          <button type="button" class="btn-icon-outline" title="Quitar" *ngIf="archivoVb.archivo" (click)="quitarArchivoVb()">✕</button>
+        </div>
+      </div>
+      <label class="campo-etiqueta">Comentario (obligatorio si devuelve con observaciones)</label>
+      <textarea class="campo-control" rows="3" [(ngModel)]="comentario"></textarea>
+    </div>
+
     <div class="pago-carga" *ngIf="puedeAsignar">
       <h3>Asignar a especialista</h3>
       <p class="cell-muted">
@@ -437,17 +526,84 @@
           </span>
         </div>
       </div>
-      <div class="req-filtros">
-        <div class="req-filtros__campo">
-          <label class="campo-etiqueta">Serie RHE</label>
-          <input class="campo-control" [(ngModel)]="rheSerie" />
+    </div>
+
+    <section class="seccion">
+      <h3 class="contenido-titulo">Otros documentos</h3>
+      <div class="table-responsive" *ngIf="seleccionado.DocumentosAdicionales?.length">
+        <table class="table scm-table">
+          <tbody>
+            <tr *ngFor="let doc of seleccionado.DocumentosAdicionales">
+              <td data-column-name="Documento">
+                <span class="cell-title">{{ doc.NombreDocumento }}</span>
+                <span class="cell-subtitle">
+                  {{ doc.Descripcion ? doc.Descripcion + ' · ' : '' }}{{ doc.NombreUsuario }} · {{ fecha(doc.SubidoEn) }}
+                </span>
+              </td>
+              <td data-column-name="Acción" class="td-acciones">
+                <div class="action-cell">
+                  <button type="button" class="btn-icon-outline btn-accion" title="Ver el documento"
+                          aria-label="Ver el documento" (click)="verAdicional(doc)">
+                    <i class="mdi mdi-file-document-outline" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="btn-icon-outline btn-accion" title="Retirar el documento"
+                          aria-label="Retirar el documento" *ngIf="doc.PuedeRetirar" (click)="retirarAdicional(doc)">
+                    <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="campo" *ngIf="seleccionado.CodigoEstado !== 'PAG_PAGO_EFECTUADO'">
+        <div class="pago-slots">
+          <div class="campo-archivo" *ngFor="let s of adicionalesSlots">
+            <label class="campo-archivo__boton" *ngIf="s.estado === 'vacio' || s.estado === 'error'">
+              <i class="mdi mdi-paperclip" aria-hidden="true"></i>
+              {{ s.estado === 'error' ? 'Elegir de nuevo' : 'Elegir archivo' }}
+              <input type="file" (change)="onAdicional($event, s)" />
+            </label>
+            <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!s.archivo">
+              {{ s.archivo ? s.archivo.name : 'Ningún archivo elegido' }}
+            </span>
+            <span class="pago-slots__estado" *ngIf="s.estado === 'subiendo'">
+              <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> Subiendo…
+            </span>
+            <span class="pago-slots__estado pago-slots__estado--ok" *ngIf="s.estado === 'listo'">
+              <i class="mdi mdi-check-circle" aria-hidden="true"></i> En el servidor de archivos
+            </span>
+            <span class="pago-slots__estado pago-slots__estado--error" *ngIf="s.estado === 'error'">
+              <i class="mdi mdi-alert-circle" aria-hidden="true"></i> No se subió
+            </span>
+            <button type="button" class="btn-link-app" title="Quitar" aria-label="Quitar"
+                    *ngIf="s.estado !== 'subiendo' && (s.archivo || adicionalesSlots.length > 1)"
+                    (click)="quitarAdicional(s)">
+              <i class="mdi mdi-close" aria-hidden="true"></i>
+            </button>
+            <input class="campo-control pago-slots__descripcion" *ngIf="s.archivo && s.estado !== 'error'"
+                   [(ngModel)]="s.descripcion" maxlength="500"
+                   [class.is-invalid]="s.estado === 'listo' && !s.descripcion.trim()"
+                   placeholder="Descripción del archivo (obligatoria)"
+                   [attr.aria-label]="'Descripción de ' + s.archivo.name" />
+          </div>
+          <button type="button" class="btn btn-app-secondary btn-sm pago-slots__agregar"
+                  [disabled]="hayAdicionalVacio" (click)="agregarAdicional()"
+                  title="Agregar otro archivo">
+            <i class="mdi mdi-plus" aria-hidden="true"></i> Agregar archivo
+          </button>
         </div>
-        <div class="req-filtros__campo">
-          <label class="campo-etiqueta">Número RHE</label>
-          <input class="campo-control" [(ngModel)]="rheNumero" />
+        <div class="req-filtros" *ngIf="adicionalesListos.length || adicionalesSubiendo">
+          <button type="button" class="btn btn-app-primary btn-sm"
+                  [disabled]="ejecutando || adicionalesSubiendo || !adicionalesListos.length || faltaDescripcion"
+                  [title]="adicionalesSubiendo ? 'Espere a que terminen de subir los archivos'
+                    : faltaDescripcion ? 'Escriba la descripción de cada archivo' : ''"
+                  (click)="subirAdicionales()">
+            <i class="mdi mdi-content-save" aria-hidden="true"></i> Registrar {{ adicionalesListos.length }} archivo(s)
+          </button>
         </div>
       </div>
-    </div>
+    </section>
 
     <div class="pago-carga" *ngIf="codigoRol === 'AREA_ESPECIALISTA' && seleccionado.CodigoEstado === 'PAG_ENTREGABLE_PRESENTADO'">
       <label class="req-check">
@@ -485,6 +641,20 @@
                 <tr *ngFor="let item of seleccionado.Checklist">
                   <td data-column-name="Verificación">
                     {{ item.Nombre }} <span class="cell-muted" *ngIf="item.Obligatorio">*</span>
+                    <div class="pago-checklist__archivos" *ngIf="item.Documentos?.length; else sinArchivo">
+                      <button type="button" class="pago-checklist__archivo"
+                              *ngFor="let doc of item.Documentos"
+                              [class.pago-checklist__archivo--activo]="visorLateralId === doc.GeneradoDocumento"
+                              [title]="'Ver ' + doc.NombreDocumento + ' al lado'"
+                              (click)="verDocumentoChecklist(doc)">
+                        <i class="mdi mdi-file-document-outline" aria-hidden="true"></i> {{ doc.NombreDocumento }}
+                      </button>
+                    </div>
+                    <ng-template #sinArchivo>
+                      <div class="pago-checklist__archivos">
+                        <span class="cell-muted">Sin archivo en el sistema</span>
+                      </div>
+                    </ng-template>
                     <div class="pago-cci" *ngIf="item.CodigoItem === 'CCI_SIAF'">
                       <span>CCI del Anexo 6: <b>{{ seleccionado.Cci || 'no consignado' }}</b></span>
                       <input class="campo-control campo-control--compacto" maxlength="20"
@@ -640,65 +810,6 @@
           </button>
         </div>
       </ng-template>
-    </section>
-
-    <section class="seccion">
-      <h3 class="contenido-titulo">Otros documentos</h3>
-      <div class="table-responsive" *ngIf="seleccionado.DocumentosAdicionales?.length">
-        <table class="table scm-table">
-          <tbody>
-            <tr *ngFor="let doc of seleccionado.DocumentosAdicionales">
-              <td data-column-name="Documento">
-                <span class="cell-title">{{ doc.NombreDocumento }}</span>
-                <span class="cell-subtitle">
-                  {{ doc.Descripcion ? doc.Descripcion + ' · ' : '' }}{{ doc.NombreUsuario }} · {{ fecha(doc.SubidoEn) }}
-                </span>
-              </td>
-              <td data-column-name="Acción" class="td-acciones">
-                <div class="action-cell">
-                  <button type="button" class="btn-icon-outline btn-accion" title="Ver el documento"
-                          aria-label="Ver el documento" (click)="verAdicional(doc)">
-                    <i class="mdi mdi-file-document-outline" aria-hidden="true"></i>
-                  </button>
-                  <button type="button" class="btn-icon-outline btn-accion" title="Retirar el documento"
-                          aria-label="Retirar el documento" *ngIf="doc.PuedeRetirar" (click)="retirarAdicional(doc)">
-                    <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="campo" *ngIf="seleccionado.CodigoEstado !== 'PAG_PAGO_EFECTUADO'">
-        <div class="campo-archivo">
-          <label class="campo-archivo__boton">
-            <i class="mdi mdi-paperclip" aria-hidden="true"></i>
-            Agregar archivos
-            <input type="file" multiple (change)="onAdicionales($event)" />
-          </label>
-          <span class="campo-archivo__nombre" [class.campo-archivo__nombre--vacio]="!adicionalesFiles.length">
-            {{ adicionalesFiles.length ? adicionalesFiles.length + ' archivo(s) por subir' : 'Sin archivos seleccionados' }}
-          </span>
-        </div>
-        <ul class="pago-adjuntos" *ngIf="adicionalesFiles.length">
-          <li *ngFor="let f of adicionalesFiles; let i = index">
-            {{ f.name }}
-            <button type="button" class="btn-link-app" title="Quitar" (click)="quitarAdicional(i)">
-              <i class="mdi mdi-close" aria-hidden="true"></i>
-            </button>
-          </li>
-        </ul>
-        <div class="req-filtros" *ngIf="adicionalesFiles.length">
-          <div class="req-filtros__campo">
-            <label class="campo-etiqueta">Descripción (opcional)</label>
-            <input class="campo-control" [(ngModel)]="adicionalDescripcion" maxlength="500" />
-          </div>
-          <button type="button" class="btn btn-app-primary btn-sm" [disabled]="ejecutando" (click)="subirAdicionales()">
-            <i class="mdi mdi-upload" aria-hidden="true"></i> Subir {{ adicionalesFiles.length }} archivo(s)
-          </button>
-        </div>
-      </div>
     </section>
 
     <section class="seccion" *ngIf="documentosExpediente.length">

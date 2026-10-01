@@ -1,3 +1,26 @@
+import { ConfigService } from '../../core/services/config.service';
+
+const MAXIMO_SUBIDA_POR_DEFECTO = 70 * 1024 * 1024;
+
+/** Tope de subida en bytes: MAX_SIZE_UPLOAD de config.json o 70 MB. */
+export function maximoSubidaBytes(): number {
+  const valor = Number(ConfigService.settings?.MAX_SIZE_UPLOAD);
+  return valor > 0 ? valor : MAXIMO_SUBIDA_POR_DEFECTO;
+}
+
+export function textoMaximoSubida(): string {
+  return `Peso máximo por archivo: ${Math.round(maximoSubidaBytes() / 1024 / 1024)} MB`;
+}
+
+export function excedeMaximoSubida(archivo: File | null | undefined): boolean {
+  return !!archivo && archivo.size > maximoSubidaBytes();
+}
+
+export function mensajeExcedeMaximo(archivo: File): string {
+  const mb = (archivo.size / 1024 / 1024).toFixed(1);
+  return `«${archivo.name}» pesa ${mb} MB. ${textoMaximoSubida()}.`;
+}
+
 /**
  * Identificador de archivo que devuelve SubirArchivo (documento_sistema).
  * Si llegó una URL antigua, se queda con el último segmento.

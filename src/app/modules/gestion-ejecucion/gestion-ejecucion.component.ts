@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../shared/directives/archivo-maximo.directive';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -38,7 +39,7 @@ type PanelEntrega = 'anunciar' | 'designar' | 'verificar' | 'pecosa' | null;
 @Component({
   selector: 'app-gestion-ejecucion',
   standalone: true,
-  imports: [CommonModule, FormsModule, BreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective, BreadcrumbComponent],
   templateUrl: './gestion-ejecucion.component.html',
   styleUrl: './gestion-ejecucion.component.scss'
 })

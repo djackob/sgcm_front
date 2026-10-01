@@ -10,6 +10,35 @@ export interface TransicionPago {
   GeneraObservacion: boolean;
 }
 
+export interface VistoBuenoFirma {
+  Ronda: number;
+  Orden: number;
+  NombreUnidad: string;
+  NombreRol: string | null;
+  IdUsuarioDestino: string;
+  NombreUsuarioDestino: string;
+  Estado: 'PENDIENTE' | 'OTORGADO' | 'OBSERVADO' | 'ANULADO';
+  Comentario: string | null;
+  GeneradoDocumento: string | null;
+  NombreDocumento: string | null;
+  DerivadoEn: string;
+  RespondidoEn: string | null;
+}
+
+export interface CandidatoVistoBueno {
+  Orden: number;
+  NombreUnidad: string;
+  NombreRol: string | null;
+  IdUsuarioSugerido: string | null;
+  Personas: { IdUsuario: string; NombreCompleto: string; Cargo: string | null }[];
+}
+
+export interface DocumentoChecklist {
+  NombreDocumento: string;
+  GeneradoDocumento: string;
+  Carpeta: string;
+}
+
 export interface ChecklistPago {
   CodigoItem: string;
   Nombre: string;
@@ -17,6 +46,7 @@ export interface ChecklistPago {
   Obligatorio: boolean;
   Valor: string;
   Observacion?: string;
+  Documentos?: DocumentoChecklist[];
 }
 
 /**
@@ -180,6 +210,7 @@ export interface ExpedientePagoDetalle extends ExpedientePagoBandeja {
     NombreRol: string | null;
     Otorgado: boolean;
   }[];
+  VistosBuenosFirma?: VistoBuenoFirma[];
   Checklist?: ChecklistPago[];
   Hitos?: HitoPago[];
 }

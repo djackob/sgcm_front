@@ -26,6 +26,7 @@ interface AlertaModulo {
   Pendientes: number;
   PorVencer: number;
   Vencidos: number;
+  Nuevas: number;
 }
 
 interface AlertaItem {
@@ -39,12 +40,14 @@ interface AlertaItem {
   FechaLimite: string | null;
   Tipo: TipoAlerta;
   DiasParaVencer: number | null;
+  Nueva: boolean;
 }
 
 interface ResumenAlertas {
   Pendientes: number;
   PorVencer: number;
   Vencidos: number;
+  Nuevas: number;
   Modulos: AlertaModulo[];
   Items: AlertaItem[];
 }
@@ -84,7 +87,11 @@ export class PlantillaComponent implements OnInit, OnDestroy {
   }
 
   get totalAlertas(): number {
-    return this.alertas ? (this.alertas.Pendientes || 0) + (this.alertas.PorVencer || 0) + (this.alertas.Vencidos || 0) : 0;
+    return this.alertas?.Nuevas || 0;
+  }
+
+  get hayVencidoNuevo(): boolean {
+    return !!this.alertas?.Items.some(i => i.Nueva && i.Tipo === 'VENCIDO');
   }
 
   private iniciarAlertas(): void {
@@ -112,15 +119,33 @@ export class PlantillaComponent implements OnInit, OnDestroy {
 
   private soloPermitidos(r: ResumenAlertas): ResumenAlertas {
     const modulos = (r.Modulos || []).filter(m => this.modulosPermitidos.has(m.CodigoModulo));
-    const suma = (campo: 'Pendientes' | 'PorVencer' | 'Vencidos') =>
+    const suma = (campo: 'Pendientes' | 'PorVencer' | 'Vencidos' | 'Nuevas') =>
       modulos.reduce((total, m) => total + (Number(m[campo]) || 0), 0);
     return {
       Pendientes: suma('Pendientes'),
       PorVencer: suma('PorVencer'),
       Vencidos: suma('Vencidos'),
+      Nuevas: suma('Nuevas'),
       Modulos: modulos,
-      Items: (r.Items || []).filter(i => this.modulosPermitidos.has(i.CodigoModulo))
+      Items: (r.Items || [])
+        .filter(i => this.modulosPermitidos.has(i.CodigoModulo))
+        .map(i => ({ ...i, Nueva: !!i.Nueva }))
     };
+  }
+
+  /** El descuento es inmediato; el servidor lo confirma en la siguiente carga. */
+  private marcarVista(item: AlertaItem): void {
+    if (!item.Nueva || !this.alertas) {
+      return;
+    }
+    item.Nueva = false;
+    this.alertas.Nuevas = Math.max(0, (this.alertas.Nuevas || 0) - 1);
+    const modulo = this.alertas.Modulos.find(m => m.CodigoModulo === item.CodigoModulo);
+    if (modulo) {
+      modulo.Nuevas = Math.max(0, (modulo.Nuevas || 0) - 1);
+    }
+    this.api.POST('api/sigcm/marcarAlertaVista', { IdExpediente: item.IdExpediente, Tipo: item.Tipo })
+      .subscribe({ error: () => { } });
   }
 
   ActivarCampana(): void {
@@ -133,6 +158,7 @@ export class PlantillaComponent implements OnInit, OnDestroy {
 
   AbrirAlerta(item: AlertaItem): void {
     this.campana_activa = false;
+    this.marcarVista(item);
     const ruta = RUTA_MODULO[item.CodigoModulo];
     if (!ruta) {
       return;

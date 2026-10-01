@@ -153,14 +153,12 @@
                   type="button"
                   class="btn-icon-outline btn-accion"
                   [class.btn-accion--peligro]="esAccionDestructiva(transicion)"
-                  [class.btn-accion--rotulo]="muestraRotuloAccion(transicion)"
                   *ngFor="let transicion of accionesDe(item)"
                   [title]="tituloAccion(item, transicion)"
                   [attr.aria-label]="transicion.NombreAccion"
                   (click)="pedirConfirmacion(item, transicion)"
                 >
                   <i class="mdi" [ngClass]="iconoAccion(transicion)" aria-hidden="true"></i>
-                  <span *ngIf="muestraRotuloAccion(transicion)">{{ transicion.NombreAccion }}</span>
                 </button>
 
                 <button
@@ -285,17 +283,13 @@
             <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
             Esta acción registra la firma sobre {{ etiquetaDocumentoFirma }}.
           </li>
-          <li *ngIf="esFirmaYDerivaEspecialista">
-            <i class="mdi mdi-draw-pen" aria-hidden="true"></i>
-            La firma del especialista es opcional. Si este trámite no la exige, cancele y use «Derivar sin firmar».
-          </li>
           <li *ngIf="esDerivacionSinFirmaEspecialista && esLocacionAccion">
             <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
-            El expediente pasa al Coordinador sin el sello del especialista. La firma del Jefe del Área usuaria sigue siendo obligatoria.
+            El expediente pasa al Coordinador con el Anexo 5 y el Anexo 3. Los firma el Jefe del Área usuaria.
           </li>
           <li *ngIf="esDerivacionSinFirmaEspecialista && !esLocacionAccion">
             <i class="mdi mdi-arrow-right-circle-outline" aria-hidden="true"></i>
-            El expediente pasa al Coordinador sin sello. El Jefe del Área usuaria lo remite a la Oficina de Administración.
+            El expediente pasa al Coordinador. El Jefe del Área usuaria lo remite a la Oficina de Administración.
           </li>
           <li *ngIf="debeInvocarFirmaDigital && secuenciaPendienteFirma.length > 1">
             <i class="mdi mdi-file-multiple-outline" aria-hidden="true"></i>

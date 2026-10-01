@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../shared/directives/archivo-maximo.directive';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -31,7 +32,7 @@ type TipoCarta = 'APERCIBIMIENTO' | 'RESOLUCION' | 'RESPUESTA';
 @Component({
   selector: 'app-gestion-resolucion',
   standalone: true,
-  imports: [CommonModule, FormsModule, BreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective, BreadcrumbComponent],
   templateUrl: './gestion-resolucion.component.html',
   styleUrl: './gestion-resolucion.component.scss'
 })

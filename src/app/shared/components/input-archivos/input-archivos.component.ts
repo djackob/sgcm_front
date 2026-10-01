@@ -11,7 +11,7 @@ import { Funciones } from '../../funciones/funciones';
 import { ConfigService } from '../../../core/services/config.service';
 import { CommonModule } from '@angular/common';
 import { MaestraService } from '../../services/maestra.service';
-import { idDocumentoSistema } from '../../funciones/archivo';
+import { idDocumentoSistema, textoMaximoSubida } from '../../funciones/archivo';
 
 @Component({
   selector: 'app-input-archivos',
@@ -45,10 +45,7 @@ export class InputArchivosComponent implements OnInit, OnChanges {
   ) {}
 
   ngOnInit(): void {
-    this.MensajeMaxSize =
-      'Máx. ' +
-      (ConfigService.settings.MAX_SIZE_UPLOAD / 1024 / 1024).toString() +
-      ' MB';
+    this.MensajeMaxSize = textoMaximoSubida();
     this.sePuedeDescargar =
       this.RutaDescarga == null ||
       this.RutaDescarga == '' ||

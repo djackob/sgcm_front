@@ -1,10 +1,16 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { MetodoService } from '../../core/services/metodo.service';
 import { ConfigService } from '../../core/services/config.service';
-import { esBlobJson, idDocumentoSistema } from '../funciones/archivo';
+import { Funciones } from '../funciones/funciones';
+import {
+  esBlobJson,
+  excedeMaximoSubida,
+  idDocumentoSistema,
+  mensajeExcedeMaximo
+} from '../funciones/archivo';
 
 @Injectable({
   providedIn: 'root'
@@ -13,10 +19,16 @@ export class MaestraService {
 
   constructor(
     private http: HttpClient,
-    private metodo: MetodoService
+    private metodo: MetodoService,
+    private funciones: Funciones
   ) { }
 
   subirArchivo(file: any, carpeta: string) {
+    if (excedeMaximoSubida(file)) {
+      const mensaje = mensajeExcedeMaximo(file);
+      this.funciones.mensaje('warning', mensaje);
+      return throwError(() => new Error(mensaje));
+    }
     const formData: FormData = new FormData();
     formData.append('uploadFile', file, file.name);
     formData.append('strcarpeta', carpeta);

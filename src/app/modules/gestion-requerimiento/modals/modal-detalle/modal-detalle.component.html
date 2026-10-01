@@ -319,6 +319,9 @@
                     </td>
                     <td>
                       <ng-container *ngIf="filtro.CodigoFiltro === 'DEBIDA_DILIGENCIA'; else evidenciaUnica">
+                        <span class="cell-muted" *ngIf="listaEvidenciasFiltro(filtro).length">
+                          {{ listaEvidenciasFiltro(filtro).length }} archivo(s)
+                        </span>
                         <a
                           *ngFor="let archivo of listaEvidenciasFiltro(filtro)"
                           [href]="archivo.url"
@@ -347,7 +350,9 @@
                           [disabled]="subiendoEvidencia === filtro.CodigoFiltro"
                         />
                         <span *ngIf="subiendoEvidencia === filtro.CodigoFiltro">Subiendo…</span>
-                        <span *ngIf="subiendoEvidencia !== filtro.CodigoFiltro && filtro.CodigoFiltro === 'DEBIDA_DILIGENCIA'">Agregar PDF</span>
+                        <span *ngIf="subiendoEvidencia !== filtro.CodigoFiltro && filtro.CodigoFiltro === 'DEBIDA_DILIGENCIA'">
+                          {{ listaEvidenciasFiltro(filtro).length ? 'Agregar más archivos' : 'Subir uno o varios PDF' }}
+                        </span>
                         <span *ngIf="subiendoEvidencia !== filtro.CodigoFiltro && filtro.CodigoFiltro !== 'DEBIDA_DILIGENCIA'">
                           {{ filtro.NombreDocumentoEvidencia || 'Adjuntar PDF' }}
                         </span>

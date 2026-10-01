@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../../../shared/directives/archivo-maximo.directive';
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -25,7 +26,7 @@ import {
 @Component({
   selector: 'app-modal-detalle',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective],
   templateUrl: './modal-detalle.component.html',
   styleUrl: './modal-detalle.component.scss'
 })

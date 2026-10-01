@@ -234,6 +234,7 @@
                   <td>
                     <div class="fid-evidencia">
                       <ul class="fid-archivos" *ngIf="admiteVarios(filtro) && listaEvidencias(filtro).length">
+                        <li class="fid-archivos__total">{{ listaEvidencias(filtro).length }} archivo(s) cargado(s)</li>
                         <li *ngFor="let archivo of listaEvidencias(filtro)">
                           <a [href]="archivo.url" target="_blank" rel="noopener">{{ archivo.nombre }}</a>
                           <button type="button" class="btn btn-link btn-sm" (click)="quitarEvidencia(filtro, archivo.id)">Quitar</button>
@@ -256,7 +257,10 @@
                           (change)="onFile(filtro, $event)"
                         />
                         <span *ngIf="subiendoCodigo === filtro.CodigoFiltro">Subiendo…</span>
-                        <span *ngIf="subiendoCodigo !== filtro.CodigoFiltro && admiteVarios(filtro)">Agregar PDF</span>
+                        <span *ngIf="subiendoCodigo !== filtro.CodigoFiltro && admiteVarios(filtro)">
+                          <i class="mdi mdi-plus-circle-outline" aria-hidden="true"></i>
+                          {{ listaEvidencias(filtro).length ? 'Agregar más archivos' : 'Subir uno o varios PDF' }}
+                        </span>
                         <span *ngIf="subiendoCodigo !== filtro.CodigoFiltro && !admiteVarios(filtro)">
                           {{ filtro.NombreDocumentoEvidencia ? 'Reemplazar PDF' : 'Arrastrar archivo PDF' }}
                         </span>

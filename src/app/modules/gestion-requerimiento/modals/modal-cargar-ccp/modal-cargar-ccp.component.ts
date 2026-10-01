@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../../../shared/directives/archivo-maximo.directive';
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -43,7 +44,7 @@ type ZonaCarga = 'ccp' | 'memoUp' | 'prevision';
 @Component({
   selector: 'app-modal-cargar-ccp',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective],
   templateUrl: './modal-cargar-ccp.component.html',
   styleUrl: './modal-cargar-ccp.component.scss'
 })

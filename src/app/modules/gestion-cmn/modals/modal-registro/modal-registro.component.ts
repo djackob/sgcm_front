@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../../../shared/directives/archivo-maximo.directive';
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { forkJoin } from 'rxjs';
@@ -45,7 +46,7 @@ import {
 @Component({
   selector: 'app-modal-registro',
   standalone: true,
-  imports: [CommonModule, FormsModule, BreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective, BreadcrumbComponent],
   templateUrl: './modal-registro.component.html',
   styleUrl: './modal-registro.component.scss',
 })
@@ -440,9 +441,14 @@ export class ModalRegistroComponent {
     item.ClaseBien = fila.ClaseBien;
     item.FamiliaBien = fila.FamiliaBien;
     item.ItemBien = fila.ItemBien;
+    item.clasificadoresPermitidos = Array.isArray(fila.Clasificadores)
+      ? fila.Clasificadores.map(c => c.Clasificador)
+      : null;
     // El precio de referencia es una sugerencia del catálogo; el área usuaria
-    // puede corregirlo, que es lo que sustenta.
-    item.PrecioUnitario = item.PrecioUnitario ?? fila.PrecioRef;
+    // puede corregirlo, que es lo que sustenta. En bienes SIGA lo trae en cero.
+    if (!item.PrecioUnitario && Number(fila.PrecioRef) > 0) {
+      item.PrecioUnitario = fila.PrecioRef;
+    }
     item.resultados = [];
     /* Al cambiar B↔S el clasificador anterior puede dejar de aplicar. */
     this.validarClasificador(item);
@@ -547,13 +553,18 @@ export class ModalRegistroComponent {
     this.validarClasificador(item);
   }
 
-  /** Clasificadores respaldados por el techo real del centro de costo. */
+  /**
+   * Clasificadores respaldados por el techo real del centro de costo y que SIGA
+   * admite para la familia del ítem elegido.
+   */
   clasificadoresDisponibles(item: ItemFormularioCmn): TechoSiga[] {
     const vistos = new Set<string>();
+    const permitidos = item.clasificadoresPermitidos;
     const lista = this.techos.filter(techo => {
       const coincide = Number(techo.SecFunc) === Number(item.SecFunc)
         && String(techo.Origen || '').trim() === String(item.Origen || '').trim()
-        && String(techo.FuenteFinanc || '').trim() === String(item.FuenteFinanc || '').trim();
+        && String(techo.FuenteFinanc || '').trim() === String(item.FuenteFinanc || '').trim()
+        && (!permitidos || permitidos.includes(techo.Clasificador));
       if (!coincide || !techo.Clasificador || vistos.has(techo.Clasificador)) {
         return false;
       }
@@ -641,8 +652,8 @@ export class ModalRegistroComponent {
 
   /**
    * La cantidad la pide el ítem del catálogo, no el clasificador.
-   * Código B… es un bien: se captura cantidad física. Código S… es un
-   * servicio: el gasto va en «Monto total S/» y la cantidad no se muestra.
+   * Código B… es un bien: se captura cantidad física y precio unitario. Código
+   * S… es un servicio: el gasto va en «Monto total S/» y la cantidad no se muestra.
    */
   pideCantidad(item: ItemFormularioCmn): boolean {
     const codigo = (item.CodigoItem || '').trim().toUpperCase();
@@ -681,12 +692,15 @@ export class ModalRegistroComponent {
    * Saldo del año base en SIGA para la combinación meta/fuente/clasificador
    * del ítem (misma cifra que valida cmn.paRegistrarSolicitud).
    */
+  /** El menor entre el saldo del PIM y lo que queda del techo del cuadro: la base exige los dos. */
   saldoDisponibleItem(item: ItemFormularioCmn): number {
     const filas = this.techosDelItem(item);
     if (filas.length === 0) {
       return 0;
     }
-    return filas.reduce((suma, t) => suma + (Number(t.MontoDisponible0) || 0), 0);
+    const saldoPim = filas.reduce((suma, t) => suma + (Number(t.MontoDisponible0) || 0), 0);
+    const cuadro = filas.find(t => t.DisponibleCuadro0 != null)?.DisponibleCuadro0;
+    return cuadro == null ? saldoPim : Math.min(saldoPim, Number(cuadro));
   }
 
   /** Suma de inclusiones de esta solicitud que compiten por el mismo techo. */
@@ -720,14 +734,11 @@ export class ModalRegistroComponent {
   }
 
   get totalSolicitud(): number {
-    return this.items
-      .filter(item => !this.pideCantidad(item))
-      .reduce((suma, item) => suma + this.totalItem(item), 0);
+    return this.items.reduce((suma, item) => suma + this.totalItem(item), 0);
   }
 
-  /** El pie en soles es de servicios. Una solicitud solo de bienes lleva cantidad. */
   get mostrarTotalSoles(): boolean {
-    return this.items.some(item => !!item.CodigoItem && !this.pideCantidad(item));
+    return this.items.some(item => !!item.CodigoItem);
   }
 
   /* ---------------------------------------------------------------------- */
@@ -765,8 +776,10 @@ export class ModalRegistroComponent {
       if (!item.ItemBien) {
         return `El ítem ${n} no tiene un bien o servicio seleccionado.`;
       }
-      if (!this.pideCantidad(item) && (!item.PrecioUnitario || item.PrecioUnitario <= 0)) {
-        return `El ítem ${n} necesita un monto total en soles mayor que cero.`;
+      if (!item.PrecioUnitario || item.PrecioUnitario <= 0) {
+        return this.pideCantidad(item)
+          ? `El ítem ${n} necesita un precio unitario en soles mayor que cero.`
+          : `El ítem ${n} necesita un monto total en soles mayor que cero.`;
       }
       if (item.TipoMovimiento !== 'INCLUSION' && (!item.RefSecCuadro || !item.RefSecItem)) {
         return `El ítem ${n} es una ${item.TipoMovimiento.toLowerCase()} y debe elegirse del cuadro vigente.`;

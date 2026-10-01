@@ -318,6 +318,8 @@ export interface CatalogoSiga {
   UnidadMedida: number;
   PrecioRef: number;
   Activo: boolean;
+  /** Clasificadores que SIGA admite para la familia del ítem. */
+  Clasificadores?: { Clasificador: string }[];
 }
 
 /** Ítem del cuadro vigente: lo que se puede excluir o modificar. */
@@ -395,6 +397,8 @@ export interface TechoSiga {
   MontoTecho0: number;
   MontoUsado0: number;
   MontoDisponible0: number;
+  /** Disponible en el techo del cuadro de SIGA para la combinación; se repite en cada fila. */
+  DisponibleCuadro0?: number | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -454,6 +458,8 @@ export interface ItemFormularioCmn {
   buscando: boolean;
   textoBusqueda: string;
   resultados: CatalogoSiga[];
+  /** null: no se conocen (ítem cargado para editar); la base valida igual. */
+  clasificadoresPermitidos?: string[] | null;
 }
 
 export function crearItemFormularioCmn(): ItemFormularioCmn {

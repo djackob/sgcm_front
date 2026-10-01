@@ -148,7 +148,7 @@
                 <option value="EXCLUSION">Exclusión</option>
               </select>
 
-              <span class="registro-item__total" *ngIf="!pideCantidad(item)">
+              <span class="registro-item__total">
                 Total S/ {{ totalItem(item) | number: '1.2-2' }}
               </span>
 
@@ -298,7 +298,13 @@
                 </ng-template>
                 <p
                   class="campo-ayuda"
-                  *ngIf="item.TipoMovimiento === 'INCLUSION' && item.Clasificador && !pideCantidad(item)"
+                  *ngIf="item.TipoMovimiento === 'INCLUSION' && item.ItemBien && item.SecFunc && item.FuenteFinanc && clasificadoresDisponibles(item).length === 0"
+                >
+                  Ningún clasificador con techo en esta meta y fuente admite este ítem en SIGA.
+                </p>
+                <p
+                  class="campo-ayuda"
+                  *ngIf="item.TipoMovimiento === 'INCLUSION' && item.Clasificador"
                 >
                   {{ etiquetaTipoClasificador(item.Clasificador) }}.
                   Saldo disponible en SIGA (año {{ anoEje }}):
@@ -328,6 +334,18 @@
                     class="campo-control"
                     [(ngModel)]="item.Cantidades[0]"
                     [name]="'cantidad' + i"
+                    [readonly]="item.TipoMovimiento === 'EXCLUSION'"
+                  />
+                </div>
+                <div class="campo">
+                  <label class="campo-etiqueta">Precio unitario S/</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="campo-control"
+                    [(ngModel)]="item.PrecioUnitario"
+                    [name]="'precioUnitario' + i"
                     [readonly]="item.TipoMovimiento === 'EXCLUSION'"
                   />
                 </div>

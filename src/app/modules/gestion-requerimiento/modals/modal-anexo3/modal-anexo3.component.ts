@@ -31,8 +31,6 @@ import {
   OBSERVACION_ENTREGABLES,
   OTRAS_CONSIDERACIONES,
   PENALIDAD_INTRO,
-  PENALIDAD_MORA_CIERRE,
-  PENALIDAD_MORA_TEXTO,
   PLAZO_NOTA,
   RECURSOS_PROVEEDOR,
   RESOLUCION_CONTRACTUAL,
@@ -123,7 +121,6 @@ export class ModalAnexo3RequerimientoComponent implements OnChanges {
   acordeonPenalidadMora = false;
   acordeonOtrasPenalidades = false;
   readonly penalidadIntro = PENALIDAD_INTRO;
-  readonly penalidadMora = `${PENALIDAD_MORA_TEXTO}\n\nPenalidad diaria = (0.10 × monto) / (0.40 × plazo)\n\n${PENALIDAD_MORA_CIERRE}`;
   acordeonOtras = false;
   acordeonResolucion = false;
   acordeonControversias = false;

@@ -1,3 +1,4 @@
+import { ArchivoMaximoDirective } from '../../shared/directives/archivo-maximo.directive';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -21,6 +22,8 @@ import {
   ConstanciaPrestacion,
   CorreoEnviado,
   DocumentoAdicionalPago,
+  CandidatoVistoBueno,
+  DocumentoChecklist,
   EstadoConstancia,
   TIPO_CONSTANCIA_PRESTACION,
   ExpedientePagoBandeja,
@@ -36,16 +39,29 @@ import {
   TIPO_PAPELETA,
   TIPO_RHE_PDF,
   TIPO_SUSP_4TA,
-  TransicionPago
+  TransicionPago,
+  VistoBuenoFirma
 } from './models/pago.model';
 import { construirAnexo11, nombreArchivoAnexo11 } from './documentos/anexo11.pdfmake';
 import { TIPO_ANEXO_9, construirAnexo9, nombreArchivoAnexo9 } from './documentos/anexo9.pdfmake';
 import { TIPO_ANEXO_10, construirAnexo10, nombreArchivoAnexo10 } from './documentos/anexo10.pdfmake';
 import { construirConstanciaPrestacion, nombreArchivoConstancia } from './documentos/constancia-prestacion.pdfmake';
+
+interface SlotAdicional {
+  archivo: File | null;
+  idArchivo: string;
+  descripcion: string;
+  estado: 'vacio' | 'subiendo' | 'listo' | 'error';
+}
+
+function slotVacio(): SlotAdicional {
+  return { archivo: null, idArchivo: '', descripcion: '', estado: 'vacio' };
+}
+
 @Component({
   selector: 'app-gestion-pago',
   standalone: true,
-  imports: [CommonModule, FormsModule, BreadcrumbComponent],
+  imports: [CommonModule, FormsModule, ArchivoMaximoDirective, BreadcrumbComponent],
   templateUrl: './gestion-pago.component.html',
   styleUrl: './gestion-pago.component.scss'
 })
@@ -71,9 +87,14 @@ export class GestionPagoComponent implements OnInit {
   responsableAsignar = '';
   cargandoAsignacion = false;
 
+  /* Visto bueno previo a la firma del Acta: una persona por fila del 8.1 del Anexo 3. */
+  candidatosVb: CandidatoVistoBueno[] = [];
+  destinoVb: Record<number, string> = {};
+  cargandoCandidatosVb = false;
+  archivoVb: SlotAdicional = slotVacio();
+
   numeroContrato = '';
-  adicionalesFiles: File[] = [];
-  adicionalDescripcion = '';
+  adicionalesSlots: SlotAdicional[] = [slotVacio()];
   correos: CorreoEnviado[] = [];
   /** Constancia de prestación de la orden (se emite tras el último giro). */
   estadoConstancia: EstadoConstancia | null = null;
@@ -83,6 +104,7 @@ export class GestionPagoComponent implements OnInit {
   visorLateralUrl: SafeResourceUrl | null = null;
   visorLateralObjectUrl = '';
   visorLateralTitulo = '';
+  visorLateralId = '';
   cargando = false;
   total = 0;
   expedientes: ExpedientePagoBandeja[] = [];
@@ -132,8 +154,6 @@ export class GestionPagoComponent implements OnInit {
   notaPagoFile: File | null = null;
   constanciaFile: File | null = null;
   papeletaFile: File | null = null;
-  rheSerie = '';
-  rheNumero = '';
 
   constructor(
     private pago: PagoService,
@@ -174,6 +194,59 @@ export class GestionPagoComponent implements OnInit {
     return !!this.seleccionado
       && this.seleccionado.CodigoEstado === 'PAG_RECIBIDO_AU'
       && (this.codigoRol === 'AREA_JEFE' || this.codigoRol === 'AREA_SECRETARIA');
+  }
+
+  private tieneTransicion(codigo: string): boolean {
+    return !!this.seleccionado?.Transiciones?.some(t => t.CodigoTransicion === codigo);
+  }
+
+  get puedeDerivarVb(): boolean {
+    return this.tieneTransicion('PAG_DERIVAR_VB_FIRMA');
+  }
+
+  get puedeResponderVb(): boolean {
+    return this.tieneTransicion('PAG_OTORGAR_VB_FIRMA');
+  }
+
+  /** Ronda vigente del visto bueno previo a la firma. */
+  get vbRondaActual(): VistoBuenoFirma[] {
+    const filas = this.seleccionado?.VistosBuenosFirma || [];
+    const ronda = Math.max(0, ...filas.map(f => f.Ronda));
+    return filas.filter(f => f.Ronda === ronda);
+  }
+
+  get vbRondasAnteriores(): VistoBuenoFirma[] {
+    const actual = this.vbRondaActual[0]?.Ronda;
+    return (this.seleccionado?.VistosBuenosFirma || []).filter(f => f.Ronda !== actual && f.Estado !== 'ANULADO');
+  }
+
+  get vbFirmaCompleta(): boolean {
+    const ronda = this.vbRondaActual;
+    return ronda.length > 0 && ronda.every(f => f.Estado === 'OTORGADO');
+  }
+
+  get verSeccionVbFirma(): boolean {
+    return !!this.seleccionado?.RutaInformePrevio?.length
+      && (!!this.seleccionado?.VistosBuenosFirma?.length
+          || this.seleccionado?.CodigoEstado === 'PAG_CONFORMIDAD_PEND_FIRMA');
+  }
+
+  etiquetaVb(estado: string): string {
+    return ({ PENDIENTE: 'Pendiente', OTORGADO: 'Conformidad otorgada', OBSERVADO: 'Observado', ANULADO: 'Sin respuesta' } as Record<string, string>)[estado] || estado;
+  }
+
+  claseVb(estado: string): string {
+    return ({ OTORGADO: 'status-pill--success', OBSERVADO: 'status-pill--danger', PENDIENTE: 'status-pill--warning' } as Record<string, string>)[estado] || 'status-pill--neutral';
+  }
+
+  /** El paso pendiente más bajo de la ronda: es el único que puede responder. */
+  esPasoEnTurno(fila: VistoBuenoFirma): boolean {
+    const pendientes = this.vbRondaActual.filter(f => f.Estado === 'PENDIENTE');
+    return pendientes.length > 0 && pendientes[0] === fila;
+  }
+
+  verDocumentoVb(fila: VistoBuenoFirma): void {
+    this.verDocumento({ GeneradoDocumento: fila.GeneradoDocumento, Nombre: fila.NombreDocumento || 'Informe técnico / visto bueno' });
   }
 
   get puedeEditarContrato(): boolean {
@@ -314,10 +387,12 @@ export class GestionPagoComponent implements OnInit {
         this.retrasoJustificado = !!this.seleccionado?.RetrasoJustificado;
         this.confirmarAlerta = false;
         this.numeroContrato = this.seleccionado?.NumeroContrato || '';
-        this.adicionalesFiles = [];
-        this.adicionalDescripcion = '';
+        this.adicionalesSlots = [slotVacio()];
         this.responsableAsignar = '';
         this.puestosAsignacion = [];
+        this.candidatosVb = [];
+        this.destinoVb = {};
+        this.archivoVb = slotVacio();
         this.cerrarVisorLateral();
         if (this.seleccionado?.CodigoEstado === 'PAG_OBSERVADO_AU' || this.seleccionado?.CodigoEstado === 'PAG_OBS_AU_ABAST') {
           this.comentario = '';
@@ -336,6 +411,12 @@ export class GestionPagoComponent implements OnInit {
         }
         if (this.puedeAsignar) {
           this.cargarAsignacion();
+        }
+        if (this.puedeDerivarVb) {
+          this.cargarCandidatosVb();
+        }
+        if (this.puedeResponderVb) {
+          this.comentario = '';
         }
       },
       error: () => this.funciones.mensaje('error', 'No se pudo obtener el expediente.')
@@ -456,10 +537,22 @@ export class GestionPagoComponent implements OnInit {
       doc.Estado === 'FIRMADO' ? 'Firmado digitalmente' : 'Sin firma');
   }
 
-  private abrirVisorLateral(documentoSistema: string, titulo: string): void {
-    this.maestra.descargarArchivo(documentoSistema, CARPETA_PAGO).subscribe({
+  /** Archivo que sustenta un item del checklist, abierto al lado de la marca. */
+  verDocumentoChecklist(doc: DocumentoChecklist): void {
+    const id = idDocumentoSistema(doc?.GeneradoDocumento);
+    if (!id) {
+      this.funciones.mensaje('info', 'Este documento no tiene archivo en el file server.');
+      return;
+    }
+    this.abrirVisorLateral(id, doc.NombreDocumento, doc.Carpeta || CARPETA_PAGO, doc.GeneradoDocumento);
+  }
+
+  private abrirVisorLateral(documentoSistema: string, titulo: string,
+                            carpeta: string = CARPETA_PAGO, idOrigen: string = documentoSistema): void {
+    this.maestra.descargarArchivoConFallback(documentoSistema, carpeta).subscribe({
       next: (blob: Blob) => {
         this.cerrarVisorLateral();
+        this.visorLateralId = idOrigen;
         const esPdf = blob.type === 'application/pdf' || /\.pdf$/i.test(documentoSistema) || /\.pdf$/i.test(titulo);
         this.visorLateralObjectUrl = URL.createObjectURL(
           esPdf && blob.type !== 'application/pdf' ? new Blob([blob], { type: 'application/pdf' }) : blob
@@ -478,6 +571,7 @@ export class GestionPagoComponent implements OnInit {
     this.visorLateralObjectUrl = '';
     this.visorLateralUrl = null;
     this.visorLateralTitulo = '';
+    this.visorLateralId = '';
   }
 
   cerrarDetalle(): void {
@@ -553,6 +647,14 @@ export class GestionPagoComponent implements OnInit {
       this.otorgarVistoBueno();
       return;
     }
+    if (codigo === 'PAG_DERIVAR_VB_FIRMA') {
+      this.derivarVb();
+      return;
+    }
+    if (codigo === 'PAG_OTORGAR_VB_FIRMA' || codigo === 'PAG_OBSERVAR_VB_FIRMA') {
+      this.responderVb(codigo === 'PAG_OTORGAR_VB_FIRMA' ? 'OTORGAR' : 'OBSERVAR');
+      return;
+    }
     if (codigo === 'PAG_APROBAR_TECNICO') {
       this.aprobarTecnico();
       return;
@@ -621,9 +723,7 @@ export class GestionPagoComponent implements OnInit {
           InformeDocumento: inf,
           RhePdfDocumento: pdf,
           RheXmlDocumento: null,
-          Suspension4taDocumento: sus,
-          RheSerie: this.rheSerie,
-          RheNumero: this.rheNumero
+          Suspension4taDocumento: sus
         })));
       })
     ).subscribe({
@@ -686,6 +786,101 @@ export class GestionPagoComponent implements OnInit {
     });
   }
 
+  private cargarCandidatosVb(): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    this.cargandoCandidatosVb = true;
+    this.pago.listarCandidatoVistoBueno(this.seleccionado.IdExpediente).subscribe({
+      next: (r: any) => {
+        this.cargandoCandidatosVb = false;
+        this.candidatosVb = r?.estado === 1 ? (r.Pasos || []) : [];
+        this.destinoVb = {};
+        for (const paso of this.candidatosVb) {
+          const personas = paso.Personas || [];
+          const sugerido = personas.find(p => p.IdUsuario === paso.IdUsuarioSugerido);
+          this.destinoVb[paso.Orden] = sugerido?.IdUsuario || (personas.length === 1 ? personas[0].IdUsuario : '');
+        }
+      },
+      error: () => { this.cargandoCandidatosVb = false; }
+    });
+  }
+
+  private derivarVb(): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    const falta = this.candidatosVb.find(p => !this.destinoVb[p.Orden]);
+    if (!this.candidatosVb.length || falta) {
+      this.funciones.mensaje('info', falta
+        ? `Seleccione la persona que otorga el visto bueno en ${falta.NombreUnidad}.`
+        : 'No hay áreas del Anexo 3 para derivar.');
+      return;
+    }
+    this.ejecutando = true;
+    this.pago.derivarVistoBuenoFirma(
+      this.seleccionado.IdExpediente,
+      this.seleccionado.Version,
+      this.candidatosVb.map(p => ({ Orden: p.Orden, IdUsuario: this.destinoVb[p.Orden] })),
+      this.comentario.trim() || null
+    ).subscribe({
+      next: (r: any) => this.terminar(r),
+      error: () => this.fallar()
+    });
+  }
+
+  onArchivoVb(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    input.value = '';
+    if (!archivo) {
+      return;
+    }
+    const slot: SlotAdicional = { archivo, idArchivo: '', descripcion: '', estado: 'subiendo' };
+    this.archivoVb = slot;
+    this.documentos.subirArchivo(archivo, CARPETA_PAGO).subscribe({
+      next: (r: any) => {
+        if (this.archivoVb !== slot) {
+          return;
+        }
+        slot.idArchivo = r?.documento_sistema || '';
+        slot.estado = slot.idArchivo ? 'listo' : 'error';
+      },
+      error: () => { slot.estado = 'error'; }
+    });
+  }
+
+  quitarArchivoVb(): void {
+    this.archivoVb = slotVacio();
+  }
+
+  private responderVb(respuesta: 'OTORGAR' | 'OBSERVAR'): void {
+    if (!this.seleccionado) {
+      return;
+    }
+    if (respuesta === 'OBSERVAR' && !this.comentario.trim()) {
+      this.funciones.mensaje('info', 'Registre las observaciones para el Jefe del área usuaria.');
+      return;
+    }
+    if (this.archivoVb.estado === 'subiendo') {
+      this.funciones.mensaje('info', 'Espere a que termine de subir el informe.');
+      return;
+    }
+    const listo = this.archivoVb.estado === 'listo';
+    this.ejecutando = true;
+    this.pago.responderVistoBuenoFirma({
+      IdExpediente: this.seleccionado.IdExpediente,
+      Version: this.seleccionado.Version,
+      Respuesta: respuesta,
+      Comentario: this.comentario.trim() || null,
+      GeneradoDocumento: listo ? this.archivoVb.idArchivo : null,
+      NombreDocumento: listo ? this.archivoVb.archivo?.name || null : null
+    }).subscribe({
+      next: (r: any) => this.terminar(r),
+      error: () => this.fallar()
+    });
+  }
+
   private notificarObservacion(): void {
     if (!this.seleccionado) {
       return;
@@ -701,33 +896,75 @@ export class GestionPagoComponent implements OnInit {
     });
   }
 
-  onAdicionales(event: Event): void {
+  get adicionalesListos(): SlotAdicional[] {
+    return this.adicionalesSlots.filter(s => s.estado === 'listo');
+  }
+
+  get faltaDescripcion(): boolean {
+    return this.adicionalesListos.some(s => !s.descripcion.trim());
+  }
+
+  get adicionalesSubiendo(): boolean {
+    return this.adicionalesSlots.some(s => s.estado === 'subiendo');
+  }
+
+  get hayAdicionalVacio(): boolean {
+    return this.adicionalesSlots.some(s => s.estado === 'vacio' || s.estado === 'subiendo');
+  }
+
+  agregarAdicional(): void {
+    if (!this.hayAdicionalVacio) {
+      this.adicionalesSlots = [...this.adicionalesSlots, slotVacio()];
+    }
+  }
+
+  /** El archivo va al file server apenas se elige; el registro en el pago es aparte. */
+  onAdicional(event: Event, slot: SlotAdicional): void {
     const input = event.target as HTMLInputElement;
-    this.adicionalesFiles = [...this.adicionalesFiles, ...Array.from(input.files || [])];
+    const archivo = input.files?.[0];
     input.value = '';
+    if (!archivo) {
+      return;
+    }
+    slot.archivo = archivo;
+    slot.estado = 'subiendo';
+    slot.idArchivo = '';
+    this.documentos.subirArchivo(archivo, CARPETA_PAGO).subscribe({
+      next: (r: any) => {
+        if (!this.adicionalesSlots.includes(slot)) {
+          return;
+        }
+        slot.idArchivo = r?.documento_sistema || '';
+        slot.estado = slot.idArchivo ? 'listo' : 'error';
+      },
+      error: () => {
+        slot.estado = 'error';
+      }
+    });
   }
 
-  quitarAdicional(indice: number): void {
-    this.adicionalesFiles = this.adicionalesFiles.filter((_, i) => i !== indice);
+  quitarAdicional(slot: SlotAdicional): void {
+    const restantes = this.adicionalesSlots.filter(s => s !== slot);
+    this.adicionalesSlots = restantes.length ? restantes : [slotVacio()];
   }
 
-  /** Sube N archivos y los registra como «otros documentos» del pago. */
+  /** Registra en el pago los archivos que ya están en el file server. */
   subirAdicionales(): void {
-    if (!this.seleccionado || !this.adicionalesFiles.length || this.ejecutando) {
+    const listos = this.adicionalesListos;
+    if (!this.seleccionado || !listos.length || this.adicionalesSubiendo || this.ejecutando) {
+      return;
+    }
+    if (this.faltaDescripcion) {
+      this.funciones.mensaje('warning', 'Escriba la descripción de cada archivo.');
       return;
     }
     const det = this.seleccionado;
-    const archivos = [...this.adicionalesFiles];
-    const descripcion = this.adicionalDescripcion.trim() || null;
     this.ejecutando = true;
-    forkJoin(archivos.map(f => this.documentos.subirArchivo(f, CARPETA_PAGO))).pipe(
-      switchMap((subidos: any[]) => this.pago.registrarDocumentoAdicional(det.IdExpediente,
-        subidos.map((s: any, i: number) => ({
-          GeneradoDocumento: s?.documento_sistema,
-          NombreDocumento: archivos[i].name,
-          Descripcion: descripcion
-        }))))
-    ).subscribe({
+    this.pago.registrarDocumentoAdicional(det.IdExpediente, listos.map(s => ({
+      GeneradoDocumento: s.idArchivo,
+      NombreDocumento: s.archivo!.name,
+      Descripcion: s.descripcion.trim() || null
+    }))).subscribe({
       next: (r: any) => {
         this.ejecutando = false;
         if (r?.estado !== 1) {
